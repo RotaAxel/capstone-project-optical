@@ -1,0 +1,155 @@
+/* ============================================
+   ACEBEDO OPTICAL CLINIC — Global Styles
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700&display=swap');
+
+:root {
+  /* Core Palette */
+  --teal:         #5BC8C0;
+  --teal-light:   #A8E6E2;
+  --teal-dark:    #3AADA5;
+  --teal-bg:      #E8F8F7;
+
+  --navy:         #1A2744;
+  --navy-mid:     #2C3E6B;
+  --slate:        #64748B;
+  --muted:        #94A3B8;
+
+  --danger:       #E57373;
+  --danger-dark:  #C62828;
+  --success:      #66BB6A;
+  --success-dark: #2E7D32;
+  --warning:      #FFA726;
+
+  --white:        #FFFFFF;
+  --bg:           #F0F4F8;
+  --bg-card:      #FFFFFF;
+  --border:       #E2E8F0;
+
+  /* Typography */
+  --font-main:    'Nunito', sans-serif;
+  --font-display: 'Playfair Display', serif;
+
+  /* Shadows */
+  --shadow-sm:    0 1px 4px rgba(26, 39, 68, 0.06);
+  --shadow-md:    0 4px 16px rgba(26, 39, 68, 0.10);
+  --shadow-lg:    0 8px 32px rgba(26, 39, 68, 0.14);
+
+  /* Transitions */
+  --ease:         cubic-bezier(0.4, 0, 0.2, 1);
+  --duration:     0.22s;
+
+  /* Layout */
+  --sidebar-w:    220px;
+  --topbar-h:     64px;
+  --radius:       12px;
+  --radius-lg:    20px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #app {
+  height: 100%;
+  font-family: var(--font-main);
+  background: transparent;
+  color: var(--navy);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--teal-light); border-radius: 99px; }
+
+/* Utility classes */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--navy);
+  color: var(--white);
+}
+.btn-primary:hover { background: var(--navy-mid); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+.btn-teal {
+  background: var(--teal);
+  color: var(--white);
+}
+.btn-teal:hover { background: var(--teal-dark); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+.btn-success {
+  background: var(--success);
+  color: var(--white);
+}
+.btn-success:hover { background: var(--success-dark); transform: translateY(-1px); }
+
+.btn-danger {
+  background: var(--danger);
+  color: var(--white);
+}
+.btn-danger:hover { background: var(--danger-dark); transform: translateY(-1px); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--slate);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { background: var(--bg); color: var(--navy); }
+
+/* Card */
+.card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+/* Page header */
+.page-title {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: -0.5px;
+}
+
+/* Fade in animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeUp 0.4s var(--ease) both;
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.badge-success { background: #DCFCE7; color: #166534; }
+.badge-warning { background: #FEF9C3; color: #854D0E; }
+.badge-danger  { background: #FEE2E2; color: #991B1B; }
+.badge-info    { background: #DBEAFE; color: #1E40AF; }

@@ -1,410 +1,457 @@
 <template>
-  <div class="space-y-6">
+  <div class="dashboard">
+    <!-- Loading state -->
+    <div v-if="loading" class="flex items-center justify-center py-20">
+      <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+    </div>
 
-    <!-- ══════════════════════════════════════════════════════ ADMIN -->
-    <template v-if="role === 'admin'">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div v-for="stat in adminStats" :key="stat.label" class="card flex items-start gap-4">
-          <div :class="stat.color" class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0">
-            <component :is="stat.icon" class="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p class="text-xs text-gray-500 font-medium">{{ stat.label }}</p>
-            <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ stat.value }}</p>
-            <p v-if="stat.sub" class="text-xs text-gray-400 mt-0.5">{{ stat.sub }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="data.stats?.low_stock_count > 0" class="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
-        <svg class="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-        <div>
-          <p class="text-sm font-semibold text-red-800">Low Stock Alert</p>
-          <p class="text-xs text-red-600">{{ data.stats?.low_stock_count }} product(s) are at or below reorder point</p>
-        </div>
-        <RouterLink to="/inventory?low_stock=1" class="ml-auto btn-danger btn-sm">View Items</RouterLink>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="card lg:col-span-2">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-800">Monthly Sales ({{ currentYear }})</h2>
-            <span class="badge-blue">Revenue</span>
-          </div>
-          <div class="flex items-end gap-2 h-40">
-            <div v-for="(m, i) in monthlyChart" :key="i" class="flex-1 flex flex-col items-center gap-1 group">
-              <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition">₱{{ fmt(m.total) }}</span>
-              <div class="w-full rounded-t-sm transition-all duration-300" :style="{ height: m.height + '%' }" :class="m.height > 3 ? 'bg-blue-500' : 'bg-gray-100'"></div>
-              <span class="text-xs text-gray-400">{{ m.label }}</span>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <h2 class="text-sm font-semibold text-gray-800 mb-4">Low Stock Items</h2>
-          <div v-if="data.low_stock_products?.length" class="space-y-3">
-            <div v-for="p in data.low_stock_products" :key="p.id" class="flex items-center gap-3">
-              <div class="w-2 h-2 rounded-full bg-red-400 shrink-0"></div>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-medium text-gray-800 truncate">{{ p.name }}</p>
-                <p class="text-xs text-gray-400">{{ p.category?.name }}</p>
-              </div>
-              <span class="badge-red text-xs">{{ p.stock_quantity }} left</span>
-            </div>
-          </div>
-          <p v-else class="text-sm text-gray-400 text-center py-4">All stocks are sufficient</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="card">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-800">Recent Sales</h2>
-            <RouterLink to="/sales" class="text-xs text-blue-600 hover:text-blue-800">View all</RouterLink>
-          </div>
-          <div class="divide-y divide-gray-50">
-            <div v-for="sale in data.recent_sales" :key="sale.id" class="flex items-center justify-between py-2.5">
-              <div>
-                <p class="text-sm font-medium text-gray-800">{{ sale.receipt_number }}</p>
-                <p class="text-xs text-gray-400">{{ sale.patient?.first_name ?? 'Walk-in' }} · {{ sale.cashier?.name }}</p>
-              </div>
-              <p class="text-sm font-semibold text-green-700">₱{{ fmt(sale.total_amount) }}</p>
-            </div>
-            <p v-if="!data.recent_sales?.length" class="text-sm text-gray-400 py-4 text-center">No sales today</p>
-          </div>
-        </div>
-        <div class="card">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-800">Upcoming Appointments</h2>
-            <RouterLink to="/appointments" class="text-xs text-blue-600 hover:text-blue-800">View all</RouterLink>
-          </div>
-          <div class="divide-y divide-gray-50">
-            <div v-for="appt in data.upcoming_appointments" :key="appt.id" class="flex items-center gap-3 py-2.5">
-              <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-800 truncate">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
-                <p class="text-xs text-gray-400">{{ fmtDateTime(appt.appointment_date) }}</p>
-              </div>
-              <span class="badge-blue text-xs capitalize">{{ appt.type?.replace('_', ' ') }}</span>
-            </div>
-            <p v-if="!data.upcoming_appointments?.length" class="text-sm text-gray-400 py-4 text-center">No upcoming appointments</p>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <!-- ══════════════════════════════════════════════════ RECEPTIONIST -->
-    <template v-else-if="role === 'receptionist'">
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-blue-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Appointments Today</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.appointments_today ?? 0 }}</p><p class="text-xs text-gray-400 mt-0.5">{{ data.stats?.scheduled_today ?? 0 }} scheduled</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-green-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Completed Today</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.completed_today ?? 0 }}</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-purple-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Total Patients</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.total_patients ?? 0 }}</p><p class="text-xs text-gray-400 mt-0.5">+{{ data.stats?.new_patients_today ?? 0 }} today</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-red-400 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Cancelled Today</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.cancelled_today ?? 0 }}</p></div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Today's Schedule -->
-        <div class="card">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-800">Today's Schedule</h2>
-            <RouterLink to="/appointments" class="text-xs text-blue-600 hover:text-blue-800">View all</RouterLink>
-          </div>
-          <div v-if="data.today_appointments?.length" class="space-y-2">
-            <div v-for="appt in data.today_appointments" :key="appt.id"
-              class="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
-              <div class="text-center shrink-0 w-12">
-                <p class="text-xs font-bold text-blue-700">{{ fmtTime(appt.appointment_date) }}</p>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
-                <p class="text-xs text-gray-400">{{ appt.type?.replace('_', ' ') }} · Dr. {{ appt.optometrist?.name ?? '—' }}</p>
-              </div>
-              <span :class="{
-                'badge-blue':  appt.status === 'scheduled',
-                'badge-green': appt.status === 'completed',
-                'badge-red':   appt.status === 'cancelled',
-                'badge-gray':  appt.status === 'no_show',
-              }" class="capitalize text-xs shrink-0">{{ appt.status?.replace('_',' ') }}</span>
-            </div>
-          </div>
-          <p v-else class="text-sm text-gray-400 py-6 text-center">No appointments scheduled today</p>
-        </div>
-
-        <!-- Recent Patients + Upcoming -->
-        <div class="space-y-6">
-          <div class="card">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-sm font-semibold text-gray-800">Recently Registered Patients</h2>
-              <RouterLink to="/patients" class="text-xs text-blue-600 hover:text-blue-800">View all</RouterLink>
-            </div>
-            <div class="divide-y divide-gray-50">
-              <div v-for="p in data.recent_patients" :key="p.id" class="flex items-center gap-3 py-2.5">
-                <div class="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold shrink-0">{{ p.first_name?.charAt(0) }}</div>
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-gray-800 truncate">{{ p.first_name }} {{ p.last_name }}</p>
-                  <p class="text-xs text-gray-400 font-mono">{{ p.patient_code }}</p>
+    <template v-else>
+      <!-- ══════════════════════════════════════════════════════ ADMIN -->
+      <template v-if="role === 'admin'">
+        <div class="dash-grid">
+          <!-- Top 5 Selling Frames -->
+          <div class="card top-frames">
+            <h3 class="card-title">Top 5 Selling Frames This Month</h3>
+            <div class="frame-list">
+              <div v-for="(frame, i) in topSellingFrames" :key="i" class="frame-row">
+                <div class="frame-info">
+                  <span class="frame-name">{{ frame.name }}</span>
+                  <span class="frame-value">{{ frame.value }}</span>
                 </div>
-                <p class="text-xs text-gray-400 shrink-0">{{ fmtDateShort(p.created_at) }}</p>
+                <span class="frame-badge" :class="frame.change >= 0 ? 'pos' : 'neg'">
+                  {{ frame.change >= 0 ? '+' : '' }}{{ frame.change }}%
+                </span>
               </div>
-              <p v-if="!data.recent_patients?.length" class="text-sm text-gray-400 py-4 text-center">No patients yet</p>
             </div>
           </div>
 
-          <div class="card">
-            <h2 class="text-sm font-semibold text-gray-800 mb-3">Next Appointments</h2>
-            <div class="space-y-2">
-              <div v-for="appt in data.upcoming_appointments" :key="appt.id" class="flex items-center gap-3">
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-gray-800 truncate">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
-                  <p class="text-xs text-gray-400">{{ fmtDateTime(appt.appointment_date) }}</p>
-                </div>
-                <span class="badge-blue text-xs capitalize">{{ appt.type?.replace('_',' ') }}</span>
-              </div>
-              <p v-if="!data.upcoming_appointments?.length" class="text-sm text-gray-400 py-2 text-center">No upcoming appointments</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <!-- ══════════════════════════════════════════════════ OPTOMETRIST -->
-    <template v-else-if="role === 'optometrist'">
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-blue-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">My Appointments Today</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.my_appointments_today ?? 0 }}</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-green-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Completed Today</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.completed_today ?? 0 }}</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-purple-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Prescriptions This Week</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.prescriptions_this_week ?? 0 }}</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-orange-400 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Pending Today</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.scheduled_today ?? 0 }}</p></div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- My Today's Schedule -->
-        <div class="card">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-800">My Schedule Today</h2>
-            <RouterLink to="/appointments" class="text-xs text-blue-600 hover:text-blue-800">View all</RouterLink>
-          </div>
-          <div v-if="data.today_appointments?.length" class="space-y-2">
-            <div v-for="appt in data.today_appointments" :key="appt.id"
-              class="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-purple-200 transition-colors">
-              <div class="text-center shrink-0 w-12">
-                <p class="text-xs font-bold text-purple-700">{{ fmtTime(appt.appointment_date) }}</p>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
-                <p class="text-xs text-gray-400 capitalize">{{ appt.type?.replace('_', ' ') }}</p>
-                <p v-if="appt.reason" class="text-xs text-gray-400 truncate">{{ appt.reason }}</p>
-              </div>
-              <span :class="{
-                'badge-blue':  appt.status === 'scheduled',
-                'badge-green': appt.status === 'completed',
-                'badge-red':   appt.status === 'cancelled',
-              }" class="capitalize text-xs shrink-0">{{ appt.status }}</span>
-            </div>
-          </div>
-          <p v-else class="text-sm text-gray-400 py-6 text-center">No appointments assigned to you today</p>
-        </div>
-
-        <div class="space-y-6">
-          <!-- Upcoming -->
-          <div class="card">
-            <h2 class="text-sm font-semibold text-gray-800 mb-3">My Upcoming Appointments</h2>
-            <div class="space-y-2">
-              <div v-for="appt in data.upcoming_appointments" :key="appt.id" class="flex items-center gap-3">
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-gray-800 truncate">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
-                  <p class="text-xs text-gray-400">{{ fmtDateTime(appt.appointment_date) }}</p>
-                </div>
-                <span class="badge-blue text-xs capitalize">{{ appt.type?.replace('_',' ') }}</span>
-              </div>
-              <p v-if="!data.upcoming_appointments?.length" class="text-sm text-gray-400 py-2 text-center">No upcoming appointments</p>
+          <!-- Predicted vs Actual Stock -->
+          <div class="card chart-card">
+            <h3 class="card-title">Predicted vs. Actual Stock Consumption</h3>
+            <div class="chart-wrap">
+              <canvas ref="stockCanvas"></canvas>
             </div>
           </div>
 
-          <!-- Recent Prescriptions -->
-          <div class="card">
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="text-sm font-semibold text-gray-800">Recent Prescriptions</h2>
+          <!-- Dead Stock Items -->
+          <div class="card chart-card">
+            <h3 class="card-title">Top 5 Dead Stock Items (180 Days Inactive)</h3>
+            <div class="chart-wrap">
+              <canvas ref="deadStockCanvas"></canvas>
             </div>
-            <div class="divide-y divide-gray-50">
-              <div v-for="rx in data.recent_prescriptions" :key="rx.id" class="flex items-center justify-between py-2.5">
+          </div>
+
+          <!-- Current Stock Levels -->
+          <div class="card chart-card">
+            <h3 class="card-title">Current Stock Levels</h3>
+            <div class="chart-wrap">
+              <canvas ref="stockLevelCanvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Low Stock Alert -->
+          <div v-if="data.stats?.low_stock_count > 0" class="alert-banner">
+            <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div class="alert-content">
+              <p class="alert-title">Low Stock Alert</p>
+              <p class="alert-message">{{ data.stats?.low_stock_count }} product(s) at or below reorder point</p>
+            </div>
+            <RouterLink to="/inventory?low_stock=1" class="alert-action">View Items →</RouterLink>
+          </div>
+
+          <!-- Recent Sales & Appointments -->
+          <div class="card recent-sales">
+            <div class="section-header">
+              <h2 class="section-title">Recent Sales</h2>
+              <RouterLink to="/sales" class="view-link">View all →</RouterLink>
+            </div>
+            <div class="sale-list">
+              <div v-for="sale in data.recent_sales?.slice(0, 5)" :key="sale.id" class="sale-item">
                 <div>
-                  <p class="text-sm font-medium text-gray-800">{{ rx.patient?.first_name }} {{ rx.patient?.last_name }}</p>
-                  <p class="text-xs text-gray-400">{{ fmtDateShort(rx.exam_date) }}</p>
+                  <p class="sale-receipt">{{ sale.receipt_number }}</p>
+                  <p class="sale-meta">{{ sale.patient?.first_name ?? 'Walk-in' }} · {{ sale.cashier?.name }}</p>
                 </div>
-                <div class="text-xs text-right text-gray-500 font-mono">
+                <p class="sale-amount">₱{{ fmt(sale.total_amount) }}</p>
+              </div>
+              <p v-if="!data.recent_sales?.length" class="empty-state">No sales today</p>
+            </div>
+          </div>
+
+          <div class="card upcoming-appointments">
+            <div class="section-header">
+              <h2 class="section-title">Upcoming Appointments</h2>
+              <RouterLink to="/appointments" class="view-link">View all →</RouterLink>
+            </div>
+            <div class="appointment-list">
+              <div v-for="appt in data.upcoming_appointments?.slice(0, 5)" :key="appt.id" class="appointment-item">
+                <div class="appointment-badge">
+                  <svg class="badge-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <div class="appointment-info">
+                  <p class="appointment-name">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
+                  <p class="appointment-time">{{ fmtDateTime(appt.appointment_date) }}</p>
+                </div>
+                <span class="appointment-type">{{ appt.type?.replace('_', ' ') }}</span>
+              </div>
+              <p v-if="!data.upcoming_appointments?.length" class="empty-state">No upcoming appointments</p>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════════════════════════════════════════════════════ RECEPTIONIST -->
+      <template v-else-if="role === 'receptionist'">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon blue"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+            <div><p class="stat-label">Appointments Today</p><p class="stat-value">{{ data.stats?.appointments_today ?? 0 }}</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+            <div><p class="stat-label">Completed Today</p><p class="stat-value">{{ data.stats?.completed_today ?? 0 }}</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon purple"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+            <div><p class="stat-label">Total Patients</p><p class="stat-value">{{ data.stats?.total_patients ?? 0 }}</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></div>
+            <div><p class="stat-label">Cancelled Today</p><p class="stat-value">{{ data.stats?.cancelled_today ?? 0 }}</p></div>
+          </div>
+        </div>
+
+        <div class="content-grid">
+          <div class="card">
+            <div class="section-header">
+              <h2 class="section-title">Today's Schedule</h2>
+              <RouterLink to="/appointments" class="view-link">View all →</RouterLink>
+            </div>
+            <div v-if="data.today_appointments?.length" class="schedule-list">
+              <div v-for="appt in data.today_appointments" :key="appt.id" class="schedule-item">
+                <div class="time-badge">{{ fmtTime(appt.appointment_date) }}</div>
+                <div class="schedule-details">
+                  <p class="schedule-name">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
+                  <p class="schedule-meta">{{ appt.type?.replace('_', ' ') }} · Dr. {{ appt.optometrist?.name ?? '—' }}</p>
+                </div>
+                <span class="status-badge" :class="appt.status">{{ appt.status?.replace('_', ' ') }}</span>
+              </div>
+            </div>
+            <p v-else class="empty-state">No appointments scheduled today</p>
+          </div>
+
+          <div class="card">
+            <div class="section-header">
+              <h2 class="section-title">Recently Registered</h2>
+              <RouterLink to="/patients" class="view-link">View all →</RouterLink>
+            </div>
+            <div v-if="data.recent_patients?.length" class="patient-list">
+              <div v-for="p in data.recent_patients?.slice(0, 5)" :key="p.id" class="patient-item">
+                <div class="patient-avatar">{{ p.first_name?.charAt(0) }}</div>
+                <div>
+                  <p class="patient-name">{{ p.first_name }} {{ p.last_name }}</p>
+                  <p class="patient-code">{{ p.patient_code }}</p>
+                </div>
+                <p class="patient-date">{{ fmtDateShort(p.created_at) }}</p>
+              </div>
+            </div>
+            <p v-else class="empty-state">No patients yet</p>
+          </div>
+        </div>
+      </template>
+
+      <!-- ══════════════════════════════════════════════════════ OPTOMETRIST -->
+      <template v-else-if="role === 'optometrist'">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon blue"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+            <div><p class="stat-label">My Appointments Today</p><p class="stat-value">{{ data.stats?.my_appointments_today ?? 0 }}</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+            <div><p class="stat-label">Completed Today</p><p class="stat-value">{{ data.stats?.completed_today ?? 0 }}</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon purple"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
+            <div><p class="stat-label">Prescriptions This Week</p><p class="stat-value">{{ data.stats?.prescriptions_this_week ?? 0 }}</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+            <div><p class="stat-label">Pending Today</p><p class="stat-value">{{ data.stats?.scheduled_today ?? 0 }}</p></div>
+          </div>
+        </div>
+
+        <div class="content-grid">
+          <div class="card">
+            <div class="section-header">
+              <h2 class="section-title">My Schedule Today</h2>
+              <RouterLink to="/appointments" class="view-link">View all →</RouterLink>
+            </div>
+            <div v-if="data.today_appointments?.length" class="schedule-list">
+              <div v-for="appt in data.today_appointments" :key="appt.id" class="schedule-item">
+                <div class="time-badge">{{ fmtTime(appt.appointment_date) }}</div>
+                <div class="schedule-details">
+                  <p class="schedule-name">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
+                  <p class="schedule-meta">{{ appt.type?.replace('_', ' ') }} · {{ appt.reason || '—' }}</p>
+                </div>
+                <span class="status-badge" :class="appt.status">{{ appt.status }}</span>
+              </div>
+            </div>
+            <p v-else class="empty-state">No appointments assigned to you today</p>
+          </div>
+
+          <div class="card">
+            <div class="section-header">
+              <h2 class="section-title">Recent Prescriptions</h2>
+            </div>
+            <div v-if="data.recent_prescriptions?.length" class="prescription-list">
+              <div v-for="rx in data.recent_prescriptions?.slice(0, 5)" :key="rx.id" class="prescription-item">
+                <div>
+                  <p class="prescription-patient">{{ rx.patient?.first_name }} {{ rx.patient?.last_name }}</p>
+                  <p class="prescription-date">{{ fmtDateShort(rx.exam_date) }}</p>
+                </div>
+                <div class="prescription-values">
                   <p>OD {{ rx.od_sphere ?? '—' }} / {{ rx.od_cylinder ?? '—' }}</p>
                   <p>OS {{ rx.os_sphere ?? '—' }} / {{ rx.os_cylinder ?? '—' }}</p>
                 </div>
               </div>
-              <p v-if="!data.recent_prescriptions?.length" class="text-sm text-gray-400 py-4 text-center">No recent prescriptions</p>
             </div>
+            <p v-else class="empty-state">No recent prescriptions</p>
           </div>
         </div>
-      </div>
-    </template>
+      </template>
 
-    <!-- ══════════════════════════════════════════════ INVENTORY STAFF -->
-    <template v-else-if="role === 'inventory_staff'">
-      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-blue-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Total Products</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.total_products ?? 0 }}</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-red-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Out of Stock</p><p class="text-2xl font-bold text-red-600 mt-0.5">{{ data.stats?.out_of_stock ?? 0 }}</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-yellow-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Low Stock</p><p class="text-2xl font-bold text-yellow-600 mt-0.5">{{ data.stats?.low_stock_count ?? 0 }}</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-green-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Total Stock Value</p><p class="text-xl font-bold text-green-700 mt-0.5">₱{{ fmt(data.stats?.total_stock_value) }}</p></div>
-        </div>
-        <div class="card flex items-start gap-4">
-          <div class="w-11 h-11 rounded-xl bg-indigo-500 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg></div>
-          <div><p class="text-xs text-gray-500 font-medium">Stock-ins Today</p><p class="text-2xl font-bold text-gray-900 mt-0.5">{{ data.stats?.stock_ins_today ?? 0 }}</p></div>
-        </div>
-      </div>
-
-      <!-- FSN Summary -->
-      <div v-if="data.fsn_summary" class="grid grid-cols-3 gap-4">
-        <div class="card text-center border-l-4 border-l-green-500">
-          <p class="text-xs text-gray-500">Fast Moving</p>
-          <p class="text-3xl font-bold text-green-600 mt-1">{{ data.fsn_summary.fast }}</p>
-          <p class="text-xs text-gray-400 mt-1">≥ 1 unit/day</p>
-        </div>
-        <div class="card text-center border-l-4 border-l-yellow-400">
-          <p class="text-xs text-gray-500">Slow Moving</p>
-          <p class="text-3xl font-bold text-yellow-600 mt-1">{{ data.fsn_summary.slow }}</p>
-          <p class="text-xs text-gray-400 mt-1">0.1–1 unit/day</p>
-        </div>
-        <div class="card text-center border-l-4 border-l-red-400">
-          <p class="text-xs text-gray-500">Non-Moving</p>
-          <p class="text-3xl font-bold text-red-600 mt-1">{{ data.fsn_summary.non_moving }}</p>
-          <p class="text-xs text-gray-400 mt-1">< 0.1 unit/day</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Low / Out of Stock -->
-        <div class="card">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-800">Stock Alerts</h2>
-            <RouterLink to="/inventory?low_stock=1" class="text-xs text-blue-600 hover:text-blue-800">View inventory</RouterLink>
+      <!-- ══════════════════════════════════════════════════════ INVENTORY STAFF -->
+      <template v-else-if="role === 'inventory_staff'">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon blue"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>
+            <div><p class="stat-label">Total Products</p><p class="stat-value">{{ data.stats?.total_products ?? 0 }}</p></div>
           </div>
-          <div v-if="data.low_stock_products?.length" class="space-y-2">
-            <div v-for="p in data.low_stock_products" :key="p.id" class="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50">
-              <div class="w-2 h-2 rounded-full shrink-0" :class="p.stock_quantity === 0 ? 'bg-red-500' : 'bg-yellow-400'"></div>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-medium text-gray-800 truncate">{{ p.name }}</p>
-                <p class="text-xs text-gray-400">{{ p.category?.name }} · ROP: {{ p.reorder_point }}</p>
+          <div class="stat-card">
+            <div class="stat-icon red"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></div>
+            <div><p class="stat-label">Out of Stock</p><p class="stat-value red">{{ data.stats?.out_of_stock ?? 0 }}</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon yellow"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
+            <div><p class="stat-label">Low Stock</p><p class="stat-value yellow">{{ data.stats?.low_stock_count ?? 0 }}</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+            <div><p class="stat-label">Stock Value</p><p class="stat-value green">₱{{ fmt(data.stats?.total_stock_value) }}</p></div>
+          </div>
+        </div>
+
+        <div class="content-grid">
+          <div class="card">
+            <div class="section-header">
+              <h2 class="section-title">Stock Alerts</h2>
+              <RouterLink to="/inventory?low_stock=1" class="view-link">View inventory →</RouterLink>
+            </div>
+            <div v-if="data.low_stock_products?.length" class="alert-list">
+              <div v-for="p in data.low_stock_products?.slice(0, 5)" :key="p.id" class="alert-item">
+                <div class="alert-dot" :class="p.stock_quantity === 0 ? 'red' : 'yellow'"></div>
+                <div>
+                  <p class="alert-product">{{ p.name }}</p>
+                  <p class="alert-meta">{{ p.category?.name }} · ROP: {{ p.reorder_point }}</p>
+                </div>
+                <span class="stock-badge" :class="p.stock_quantity === 0 ? 'red' : 'yellow'">
+                  {{ p.stock_quantity === 0 ? 'Out' : p.stock_quantity + ' left' }}
+                </span>
               </div>
-              <span :class="p.stock_quantity === 0 ? 'badge-red' : 'badge-yellow'" class="text-xs shrink-0">
-                {{ p.stock_quantity === 0 ? 'Out of stock' : p.stock_quantity + ' left' }}
-              </span>
             </div>
+            <p v-else class="empty-state">All stocks are sufficient</p>
           </div>
-          <p v-else class="text-sm text-gray-400 text-center py-6">All stocks are sufficient</p>
-        </div>
 
-        <!-- Recent Stock Movements -->
-        <div class="card">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-800">Recent Stock Movements</h2>
-            <RouterLink to="/stock-movements" class="text-xs text-blue-600 hover:text-blue-800">View all</RouterLink>
-          </div>
-          <div v-if="data.recent_stock_movements?.length" class="divide-y divide-gray-50">
-            <div v-for="m in data.recent_stock_movements" :key="m.id" class="flex items-center gap-3 py-2.5">
-              <span :class="{
-                'badge-green':  m.type === 'stock_in' || m.type === 'return',
-                'badge-blue':   m.type === 'sale',
-                'badge-yellow': m.type === 'adjustment',
-              }" class="capitalize text-xs shrink-0">{{ m.type?.replace('_',' ') }}</span>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-medium text-gray-800 truncate">{{ m.product?.name }}</p>
-                <p class="text-xs text-gray-400">{{ fmtDateShort(m.created_at) }} · by {{ m.user?.name }}</p>
+          <div class="card">
+            <div class="section-header">
+              <h2 class="section-title">Recent Stock Movements</h2>
+              <RouterLink to="/stock-movements" class="view-link">View all →</RouterLink>
+            </div>
+            <div v-if="data.recent_stock_movements?.length" class="movement-list">
+              <div v-for="m in data.recent_stock_movements?.slice(0, 5)" :key="m.id" class="movement-item">
+                <span class="movement-type" :class="m.type">{{ m.type?.replace('_', ' ') }}</span>
+                <div class="movement-details">
+                  <p class="movement-product">{{ m.product?.name }}</p>
+                  <p class="movement-meta">{{ fmtDateShort(m.created_at) }} · {{ m.user?.name }}</p>
+                </div>
+                <span class="movement-qty" :class="['stock_in','return'].includes(m.type) ? 'green' : 'red'">
+                  {{ ['stock_in','return'].includes(m.type) ? '+' : '-' }}{{ m.quantity }}
+                </span>
               </div>
-              <span class="text-sm font-semibold shrink-0" :class="['stock_in','return'].includes(m.type) ? 'text-green-600' : 'text-red-500'">
-                {{ ['stock_in','return'].includes(m.type) ? '+' : '-' }}{{ m.quantity }}
-              </span>
             </div>
+            <p v-else class="empty-state">No recent movements</p>
           </div>
-          <p v-else class="text-sm text-gray-400 text-center py-6">No recent movements</p>
         </div>
-      </div>
+      </template>
     </template>
-
-    <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center py-20">
-      <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { Chart, registerables } from 'chart.js'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
-const auth    = useAuthStore()
-const role    = computed(() => auth.user?.role)
-const data    = ref({})
-const loading = ref(true)
-let   refreshTimer = null
-const currentYear  = new Date().getFullYear()
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+Chart.register(...registerables)
 
-const monthlyChart = computed(() => {
-  const sales  = data.value.monthly_sales ?? []
-  const maxVal = Math.max(...sales.map(s => +s.total), 1)
-  return MONTHS.map((label, i) => {
-    const entry = sales.find(s => +s.month === i + 1)
-    return { label, total: entry?.total ?? 0, height: entry ? Math.max(5, (+entry.total / maxVal) * 100) : 3 }
-  })
+const auth = useAuthStore()
+const role = computed(() => auth.user?.role)
+const data = ref({})
+const loading = ref(true)
+let refreshTimer = null
+
+const stockCanvas = ref(null)
+const deadStockCanvas = ref(null)
+const stockLevelCanvas = ref(null)
+
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+const topSellingFrames = computed(() => {
+  const products = data.value.top_selling_products || []
+  return products.slice(0, 5).map(p => ({
+    name: p.name,
+    value: p.total_sold?.toLocaleString() || '0',
+    change: p.change_percent || 0
+  }))
 })
 
-const adminStats = computed(() => [
-  { label: 'Total Patients',     value: data.value.stats?.total_patients ?? 0,                              color: 'bg-blue-500',   icon: IconPatients,  sub: `+${data.value.stats?.new_patients_today ?? 0} today` },
-  { label: 'Appointments Today', value: data.value.stats?.appointments_today ?? 0,                          color: 'bg-purple-500', icon: IconCalendar },
-  { label: 'Sales Today',        value: '₱' + fmt(data.value.stats?.sales_today ?? 0),                      color: 'bg-green-500',  icon: IconSales,     sub: `${data.value.stats?.transactions_today ?? 0} transactions` },
-  { label: 'Low Stock Items',    value: data.value.stats?.low_stock_count ?? 0,                              color: 'bg-red-500',    icon: IconAlert },
-])
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'top',
+      labels: { font: { family: 'var(--font-body)', size: 12 }, boxWidth: 14, padding: 16 },
+    },
+  },
+  scales: {
+    x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: 'var(--font-body)', size: 11 } } },
+    y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: 'var(--font-body)', size: 11 } } },
+  },
+}
 
 function fmt(v) { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDateTime(v) { return v ? new Date(v).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' }
 function fmtTime(v) { return v ? new Date(v).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '—' }
-function fmtDateShort(v) { return v ? new Date(v).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+function fmtDateShort(v) { return v ? new Date(v).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : '—' }
 
 async function fetchDashboard() {
-  try { data.value = (await api.get('/dashboard')).data }
-  catch { /* backend not available */ }
+  try { 
+    data.value = (await api.get('/dashboard')).data 
+    if (role.value === 'admin') {
+      initCharts()
+    }
+  } catch (e) { 
+    console.error('Dashboard fetch error:', e)
+  }
+}
+
+function initCharts() {
+  if (!stockCanvas.value || !deadStockCanvas.value || !stockLevelCanvas.value) return
+
+  // Predicted vs Actual
+  new Chart(stockCanvas.value, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Predicted',
+          data: [260, 340, 420, 490, 570, 640, 710, 760, 800, 850, 920, 1050],
+          borderColor: '#1A2744',
+          backgroundColor: 'transparent',
+          tension: 0.4,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#1A2744',
+          pointRadius: 5,
+          borderWidth: 2,
+        },
+        {
+          label: 'Actual',
+          data: [280, 360, 445, 510, 595, 665, 730, 780, 820, 870, 960, 1100],
+          borderColor: '#5BC8C0',
+          backgroundColor: 'rgba(91,200,192,0.12)',
+          tension: 0.4,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#5BC8C0',
+          pointRadius: 5,
+          fill: true,
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      ...chartDefaults,
+      scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 1200 } },
+    },
+  })
+
+  // Dead Stock
+  new Chart(deadStockCanvas.value, {
+    type: 'bar',
+    data: {
+      labels: ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'],
+      datasets: [
+        {
+          label: 'Dead Stock',
+          data: [12000, 10000, 9000, 7500, 5000, 6500],
+          backgroundColor: '#64748B',
+          borderRadius: 3,
+        },
+        {
+          label: 'Target',
+          data: [14000, 13000, 11000, 9000, 6500, 8000],
+          backgroundColor: '#CBD5E1',
+          borderRadius: 3,
+        },
+      ],
+    },
+    options: {
+      ...chartDefaults,
+      indexAxis: 'y',
+      scales: {
+        x: {
+          ...chartDefaults.scales.x,
+          ticks: { ...chartDefaults.scales.x.ticks, callback: (v) => '₱' + v / 1000 + 'K' },
+        },
+        y: { grid: { display: false }, ticks: { font: { family: 'var(--font-body)', size: 10 } } },
+      },
+    },
+  })
+
+  // Stock Levels
+  new Chart(stockLevelCanvas.value, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Stock Level',
+          data: [400, 450, 640, 680, 720, 900, 880, 1000, 1050, 1100, 1200, 1200],
+          borderColor: '#1A2744',
+          backgroundColor: 'rgba(91,200,192,0.15)',
+          tension: 0.4,
+          pointRadius: 0,
+          fill: true,
+          borderWidth: 2,
+        },
+        {
+          label: 'Average',
+          data: [380, 430, 600, 640, 680, 860, 840, 960, 1000, 1060, 1160, 1150],
+          borderColor: '#5BC8C0',
+          backgroundColor: 'transparent',
+          tension: 0.4,
+          pointRadius: 0,
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      ...chartDefaults,
+      scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 1200 } },
+    },
+  })
 }
 
 onMounted(async () => {
@@ -414,9 +461,458 @@ onMounted(async () => {
 })
 
 onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
-
-const IconPatients = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>` }
-const IconCalendar = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>` }
-const IconSales    = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>` }
-const IconAlert    = { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>` }
 </script>
+
+<style scoped>
+.dashboard {
+  padding: 28px 32px 40px;
+}
+
+/* Admin Dashboard Grid */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr 1fr;
+  grid-template-rows: auto auto auto auto;
+  gap: 18px;
+}
+
+.top-frames {
+  grid-row: 1 / 3;
+  grid-column: 1;
+}
+
+.chart-card {
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.chart-card:nth-child(2) { grid-column: 2 / 4; grid-row: 1; }
+.chart-card:nth-child(3) { grid-column: 2; grid-row: 2; }
+.chart-card:nth-child(4) { grid-column: 3; grid-row: 2; }
+
+.alert-banner {
+  grid-column: 1 / 4;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #FEE2E2;
+  border: 1px solid #FECACA;
+  border-radius: 12px;
+}
+
+.alert-icon {
+  width: 20px;
+  height: 20px;
+  color: #DC2626;
+  flex-shrink: 0;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #991B1B;
+  margin: 0;
+}
+
+.alert-message {
+  font-size: 12px;
+  color: #7F1D1D;
+  margin: 2px 0 0;
+}
+
+.alert-action {
+  font-size: 12px;
+  color: #DC2626;
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color var(--duration) var(--ease);
+}
+
+.alert-action:hover {
+  color: #991B1B;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(226, 232, 240, 0.5);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0 0 14px;
+}
+
+.frame-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.frame-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.frame-info { display: flex; flex-direction: column; }
+.frame-name { font-size: 11px; color: var(--muted); }
+.frame-value { font-size: 15px; font-weight: 800; color: var(--navy); margin-top: 2px; }
+
+.frame-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+
+.frame-badge.pos { background: #DCFCE7; color: #166534; }
+.frame-badge.neg { background: var(--navy); color: #fff; }
+
+.chart-wrap {
+  position: relative;
+  height: 240px;
+}
+
+/* Section styles */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0;
+}
+
+.view-link {
+  font-size: 12px;
+  color: var(--teal);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color var(--duration) var(--ease);
+}
+
+.view-link:hover { color: var(--teal-dark); }
+
+/* Sales list */
+.sale-list,
+.appointment-list,
+.patient-list,
+.alert-list,
+.movement-list,
+.schedule-list,
+.prescription-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sale-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.sale-receipt { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
+.sale-meta { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+.sale-amount { font-size: 13px; font-weight: 700; color: #10B981; }
+
+.appointment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.appointment-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #DBEAFE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.badge-icon { width: 18px; height: 18px; color: #3B82F6; }
+
+.appointment-info { flex: 1; min-width: 0; }
+.appointment-name { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
+.appointment-time { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+.appointment-type { font-size: 11px; font-weight: 600; color: var(--teal); white-space: nowrap; }
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon svg { width: 20px; height: 20px; color: #fff; }
+.stat-icon.blue { background: #3B82F6; }
+.stat-icon.green { background: #10B981; }
+.stat-icon.purple { background: #A855F7; }
+.stat-icon.red { background: #EF4444; }
+.stat-icon.yellow { background: #FBBF24; }
+.stat-icon.orange { background: #F97316; }
+
+.stat-label { font-size: 11px; color: var(--muted); font-weight: 600; margin: 0; }
+.stat-value { font-size: 24px; font-weight: 800; color: var(--navy); margin: 4px 0 0; }
+.stat-value.red { color: #EF4444; }
+.stat-value.green { color: #10B981; }
+.stat-value.yellow { color: #FBBF24; }
+
+/* Content grid */
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 18px;
+}
+
+.schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color var(--duration) var(--ease);
+}
+
+.schedule-item:hover { border-color: var(--teal); }
+
+.time-badge {
+  width: 48px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+.schedule-details { flex: 1; min-width: 0; }
+.schedule-name { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
+.schedule-meta { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-badge.scheduled { background: #DBEAFE; color: #1E40AF; }
+.status-badge.completed { background: #DCFCE7; color: #166534; }
+.status-badge.cancelled { background: #FEE2E2; color: #991B1B; }
+.status-badge.no_show { background: #F3F4F6; color: #374151; }
+
+.patient-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.patient-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #A855F7;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.patient-name { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
+.patient-code { font-size: 10px; color: var(--muted); margin: 2px 0 0; font-family: monospace; }
+.patient-date { font-size: 11px; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.alert-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.alert-dot.red { background: #EF4444; }
+.alert-dot.yellow { background: #FBBF24; }
+
+.alert-product { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
+.alert-meta { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+
+.stock-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.stock-badge.red { background: #FEE2E2; color: #991B1B; }
+.stock-badge.yellow { background: #FEF3C7; color: #92400E; }
+
+.movement-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.movement-type {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+
+.movement-type.stock_in,
+.movement-type.return { background: #DCFCE7; color: #166534; }
+
+.movement-type.sale { background: #DBEAFE; color: #1E40AF; }
+.movement-type.adjustment { background: #FEF3C7; color: #92400E; }
+
+.movement-details { flex: 1; min-width: 0; }
+.movement-product { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
+.movement-meta { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+
+.movement-qty {
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.movement-qty.green { color: #10B981; }
+.movement-qty.red { color: #EF4444; }
+
+.prescription-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.prescription-patient { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
+.prescription-date { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+
+.prescription-values {
+  text-align: right;
+  font-size: 10px;
+  color: var(--muted);
+  font-family: monospace;
+  line-height: 1.4;
+}
+
+.prescription-values p { margin: 0; }
+
+.empty-state {
+  text-align: center;
+  padding: 24px 16px;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .dash-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .top-frames,
+  .chart-card {
+    grid-column: 1 !important;
+  }
+  
+  .alert-banner {
+    grid-column: 1 !important;
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 16px 16px 24px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
