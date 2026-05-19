@@ -1,19 +1,19 @@
 <template>
   <div class="patients fade-up">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6" >
       <div>
-        <h2 class="text-xl font-bold text-gray-900">Patient Records</h2>
-        <p class="text-sm text-gray-500 mt-1">{{ pagination.total ?? 0 }} total patients</p>
+        <h2 class="text-xl font-bold text-gray-900" style="margin:0.2rem;">Patient Records</h2>
+        <p class="text-sm text-gray-500 mt-1" style="margin: 0.2rem;">{{ pagination.total ?? 0 }} total patients</p>
       </div>
-      <button v-if="auth.can('admin','receptionist')" @click="openModal()" class="btn btn-success">
+      <button v-if="auth.can('admin','receptionist')" @click="openModal()" class="btn btn-success" style="margin: 0.2rem;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add Patient
       </button>
     </div>
 
     <!-- Search -->
-    <div class="card p-4 mb-6">
+    <div class="card p-4 " style="margin: 0.2rem;">
       <input v-model="search" @input="debouncedFetch" type="text" placeholder="🔍 Search by name, patient code, or phone..." class="fi max-w-md" />
     </div>
 
@@ -36,9 +36,9 @@
           <span class="meta-label">Registered</span>
           <span class="meta-date">{{ formatDate(p.created_at) }}</span>
         </div>
-        <div v-if="auth.can('admin','receptionist')" class="flex items-center gap-2 ml-4">
+        <div v-if="auth.can('admin','receptionist')" style="display: flex; flex-direction: column; gap: 8px; margin-left: 16px; width: 100px;">
           <button @click.stop="openModal(p)" class="btn btn-secondary btn-sm">Edit</button>
-          <button v-if="auth.can('admin')" @click.stop="deletePatient(p)" class="btn btn-danger btn-sm">Del</button>
+          <button v-if="auth.can('admin')" @click.stop="deletePatient(p)" class="btn btn-danger btn-sm">Delete</button>
         </div>
       </div>
       <div v-if="!loading && !patients.length" class="text-center py-12 text-gray-400 card">
@@ -231,7 +231,7 @@ onMounted(() => fetchPage())
 
 <style scoped>
 .patients { padding: 28px 32px 40px; }
-.patient-list { display: flex; flex-direction: column; gap: 18px; }
+.patient-list { display: flex; flex-direction: column; gap: 18px; margin: 10px}
 .patient-card {
   display: flex; align-items: center; justify-content: space-between;
   padding: 24px 28px; cursor: pointer;
