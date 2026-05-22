@@ -12,7 +12,7 @@
         </div>
         <div>
           <h2 class="page-title">Predictive Analytics</h2>
-          <p class="page-sub">ARIMA · EOQ · ROP · FSN — Acebedo Optical</p>
+          <p class="page-sub">Sales Forecasting · Order Planning · Reorder Alerts · Product Activity</p>
         </div>
       </div>
       <button @click="runAnalytics" class="btn-run" :disabled="running">
@@ -41,7 +41,7 @@
         <div>
           <p class="algo-label">ARIMA</p>
           <p class="algo-name">Demand Forecast</p>
-          <p class="algo-desc">ARIMA(1,1,1) · Yule-Walker AR · CSS MA · 95% CI</p>
+          <p class="algo-desc">Predicts future sales using past trends, with 95% confidence</p>
         </div>
       </div>
 
@@ -55,7 +55,7 @@
         <div>
           <p class="algo-label">EOQ</p>
           <p class="algo-name">Order Quantity</p>
-          <p class="algo-desc">√(2·D·S/H) · minimises ordering + holding cost</p>
+          <p class="algo-desc">Calculates the most cost-effective amount to order at once</p>
         </div>
       </div>
 
@@ -69,7 +69,7 @@
         <div>
           <p class="algo-label">ROP</p>
           <p class="algo-name">Reorder Point</p>
-          <p class="algo-desc">d̄·L + Z·σ·√L · 95% service level · 7-day LT</p>
+          <p class="algo-desc">Tells you when to place a new order before stock runs out</p>
         </div>
       </div>
 
@@ -82,8 +82,8 @@
         </div>
         <div>
           <p class="algo-label">FSN</p>
-          <p class="algo-name">Movement Class</p>
-          <p class="algo-desc">Activity-based · 24-week review window</p>
+          <p class="algo-name">Sales Speed</p>
+          <p class="algo-desc">Rates products by how fast they sell (last 24 weeks)</p>
         </div>
       </div>
 
@@ -154,8 +154,8 @@
           <div class="chart-header ch-emerald">
             <div class="ch-dot emerald"></div>
             <div>
-              <p class="ch-title">FSN Analysis</p>
-              <p class="ch-sub">Activity ratio · last 24 weeks</p>
+              <p class="ch-title">How Often Products Sell</p>
+              <p class="ch-sub">How frequently each product sold in the past 6 months</p>
             </div>
           </div>
           <div class="chart-body" style="min-height:240px">
@@ -168,8 +168,8 @@
           <div class="chart-header ch-blue">
             <div class="ch-dot blue"></div>
             <div>
-              <p class="ch-title">ARIMA(1,1,1) Forecast</p>
-              <p class="ch-sub">24-week history → 4-week forecast with 95% CI</p>
+              <p class="ch-title">Predicted Future Demand</p>
+              <p class="ch-sub">Past sales + 4-week demand estimate (95% confidence)</p>
             </div>
             <div class="ch-legend">
               <span class="leg-item"><span class="leg-line blue-line"></span>Actual</span>
@@ -192,8 +192,8 @@
           <div class="chart-header ch-purple">
             <div class="ch-dot purple"></div>
             <div>
-              <p class="ch-title">EOQ Cost Curve</p>
-              <p class="ch-sub">√(2·D·S/H) · optimal order quantity at minimum cost</p>
+              <p class="ch-title">Best Order Quantity</p>
+              <p class="ch-sub">Find the order size that minimizes total ordering and storage costs</p>
             </div>
           </div>
           <div class="chart-body" style="min-height:260px">
@@ -206,8 +206,8 @@
           <div class="chart-header ch-orange">
             <div class="ch-dot orange"></div>
             <div>
-              <p class="ch-title">ROP Simulation</p>
-              <p class="ch-sub">120-day inventory cycle · d̄·L + safety stock</p>
+              <p class="ch-title">When to Reorder Stock</p>
+              <p class="ch-sub">Stock simulation over 4 months — shows when to place an order</p>
             </div>
             <div class="ch-legend">
               <span class="leg-item"><span class="leg-bar blue-bar"></span>Stock</span>
@@ -227,8 +227,8 @@
         <div class="chart-header ch-gray">
           <div class="ch-dot gray"></div>
           <div>
-            <p class="ch-title">Stock Runway</p>
-            <p class="ch-sub">Days until stockout based on ARIMA demand forecast</p>
+            <p class="ch-title">Days Until Stock Runs Out</p>
+            <p class="ch-sub">Estimated days of stock remaining based on predicted daily demand</p>
           </div>
           <div class="ch-legend">
             <span class="leg-item"><span class="leg-dot red-dot"></span>&lt; 14 days</span>
@@ -261,10 +261,10 @@
             <tr>
               <th>Product</th>
               <th>Current Stock</th>
-              <th>Predicted Demand <span class="th-note">(30d)</span></th>
-              <th>EOQ</th>
-              <th>ROP</th>
-              <th>FSN Class</th>
+              <th>Expected Sales <span class="th-note">(30 days)</span></th>
+              <th>Best Order Qty</th>
+              <th>Reorder When</th>
+              <th>Sales Speed</th>
               <th>Alert</th>
             </tr>
           </thead>
@@ -437,7 +437,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
-                Stock vs Demand vs ROP
+                Stock, Expected Sales &amp; Reorder Point
               </div>
               <div style="height:170px; padding: 0 4px 4px;">
                 <Bar :data="detailChartData" :options="detailChartOptions" />
@@ -459,12 +459,12 @@
               </div>
               <div class="sop-sec-body">
                 <div class="sop-kv"><span class="sop-k">Sales last 90 days</span><span class="sop-v">{{ selected.analytics?.result_data?.sales_90d ?? '—' }} units</span></div>
-                <div class="sop-kv"><span class="sop-k">Avg daily demand (d̄)</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
+                <div class="sop-kv"><span class="sop-k">Average daily sales</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
                 <template v-if="!selected.analytics?.result_data?.used_fallback">
                   <div class="sop-kv"><span class="sop-k">AR parameter (φ₁)</span><span class="sop-v mono">{{ selected.analytics?.result_data?.ar_param ?? '—' }}</span></div>
                   <div class="sop-kv"><span class="sop-k">MA parameter (θ₁)</span><span class="sop-v mono">{{ selected.analytics?.result_data?.ma_param ?? '—' }}</span></div>
                 </template>
-                <div class="sop-kv"><span class="sop-k">95% Confidence Interval</span><span class="sop-v dim">{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span></div>
+                <div class="sop-kv"><span class="sop-k">Forecast range (95% accuracy)</span><span class="sop-v dim">{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span></div>
                 <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
                   <span class="sop-v" :class="daysRemaining(selected) < 14 ? 'danger-val' : 'ok-val'">{{ daysRemaining(selected) }} days</span>
                 </div>
@@ -488,11 +488,11 @@
                 <span class="sop-sec-formula">√(2 · D · S / H)</span>
               </div>
               <div class="sop-sec-body">
-                <div class="sop-kv"><span class="sop-k">Annual demand (D)</span><span class="sop-v">{{ Math.round(selected.analytics?.result_data?.annual_demand ?? (selected.analytics?.result_data?.avg_daily ?? 0) * 365) }} units/yr</span></div>
-                <div class="sop-kv"><span class="sop-k">Order cost (S)</span><span class="sop-v">₱{{ selected.analytics?.result_data?.order_cost ?? 500 }}.00 / order</span></div>
-                <div class="sop-kv"><span class="sop-k">Holding cost (H = 20% of cost)</span><span class="sop-v">₱{{ selected.analytics?.result_data?.holding_cost ?? holdingCost(selected) }} / unit / yr</span></div>
+                <div class="sop-kv"><span class="sop-k">Expected annual sales</span><span class="sop-v">{{ Math.round(selected.analytics?.result_data?.annual_demand ?? (selected.analytics?.result_data?.avg_daily ?? 0) * 365) }} units/yr</span></div>
+                <div class="sop-kv"><span class="sop-k">Cost per order</span><span class="sop-v">₱{{ selected.analytics?.result_data?.order_cost ?? 500 }}.00 / order</span></div>
+                <div class="sop-kv"><span class="sop-k">Storage cost per unit/year</span><span class="sop-v">₱{{ selected.analytics?.result_data?.holding_cost ?? holdingCost(selected) }} / unit / yr</span></div>
                 <div class="sop-result purple">
-                  <span>Optimal order quantity (EOQ)</span>
+                  <span>Best quantity to order at once</span>
                   <span class="sop-result-val">{{ selected.analytics?.eoq_value ?? '—' }} units</span>
                 </div>
               </div>
@@ -511,18 +511,18 @@
                 <span class="sop-sec-formula">d̄ · L + Z · σ · √L</span>
               </div>
               <div class="sop-sec-body">
-                <div class="sop-kv"><span class="sop-k">Avg daily demand (d̄)</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
-                <div class="sop-kv"><span class="sop-k">Demand std dev (σ)</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.std_daily ?? 0).toFixed(4) }} units/day</span></div>
-                <div class="sop-kv"><span class="sop-k">Lead time (L)</span><span class="sop-v">{{ selected.analytics?.result_data?.lead_time ?? 7 }} days</span></div>
-                <div class="sop-kv"><span class="sop-k">Service level (Z)</span><span class="sop-v">1.645 → {{ selected.analytics?.result_data?.service_level ?? '95%' }}</span></div>
-                <div class="sop-kv"><span class="sop-k">Safety stock (Z · σ · √L)</span><span class="sop-v orange-val">{{ selected.analytics?.result_data?.safety_stock ?? '—' }} units</span></div>
-                <div class="sop-kv"><span class="sop-k">Stock vs ROP status</span>
+                <div class="sop-kv"><span class="sop-k">Average daily sales</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
+                <div class="sop-kv"><span class="sop-k">Sales variability</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.std_daily ?? 0).toFixed(4) }} units/day</span></div>
+                <div class="sop-kv"><span class="sop-k">Delivery wait time</span><span class="sop-v">{{ selected.analytics?.result_data?.lead_time ?? 7 }} days</span></div>
+                <div class="sop-kv"><span class="sop-k">Stock reliability target</span><span class="sop-v">1.645 → {{ selected.analytics?.result_data?.service_level ?? '95%' }}</span></div>
+                <div class="sop-kv"><span class="sop-k">Extra buffer stock</span><span class="sop-v orange-val">{{ selected.analytics?.result_data?.safety_stock ?? '—' }} units</span></div>
+                <div class="sop-kv"><span class="sop-k">Current stock vs reorder point</span>
                   <span class="sop-v" :class="selected.product.stock_quantity <= (selected.analytics?.rop_value ?? 0) ? 'danger-val' : 'ok-val'">
                     {{ selected.product.stock_quantity <= (selected.analytics?.rop_value ?? 0) ? '⚠ Order now!' : '✓ Sufficient' }}
                   </span>
                 </div>
                 <div class="sop-result orange">
-                  <span>Reorder Point (ROP = d̄·L + SS)</span>
+                  <span>Reorder when stock drops to</span>
                   <span class="sop-result-val">{{ selected.analytics?.rop_value ?? '—' }} units</span>
                 </div>
               </div>
@@ -572,16 +572,16 @@
                     <span>Fast ≥50%</span>
                   </div>
                 </div>
-                <div class="sop-kv"><span class="sop-k">Active weeks (last 24)</span><span class="sop-v">{{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 24 }} weeks</span></div>
+                <div class="sop-kv"><span class="sop-k">Weeks with sales (last 24)</span><span class="sop-v">{{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 24 }} weeks</span></div>
                 <div class="sop-kv"><span class="sop-k">Last sale date</span><span class="sop-v">{{ selected.analytics?.result_data?.last_sale_date ?? 'No sales recorded' }}</span></div>
-                <div class="sop-kv"><span class="sop-k">Avg daily demand</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
+                <div class="sop-kv"><span class="sop-k">Average daily sales</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
                 <div class="sop-result" :class="{
                   'green':   selected.analytics?.fsn_classification === 'fast',
                   'yellow':  selected.analytics?.fsn_classification === 'slow',
                   'red':     selected.analytics?.fsn_classification === 'non_moving',
                   'neutral': !selected.analytics?.fsn_classification,
                 }">
-                  <span>FSN Classification</span>
+                  <span>How fast this product sells</span>
                   <span class="sop-result-val capitalize">{{ fsnLabel(selected.analytics?.fsn_classification) }}</span>
                 </div>
                 <p class="sop-fsn-note" :class="{
@@ -658,7 +658,7 @@ const detailChartData = computed(() => {
   if (!selected.value) return { labels: [], datasets: [] }
   const r = selected.value
   return {
-    labels: ['Current Stock', 'Predicted Demand (30d)', 'EOQ', 'ROP'],
+    labels: ['Current Stock', 'Expected Sales (30d)', 'Best Order Qty', 'Reorder Point'],
     datasets: [{
       label: r.product.name,
       data: [
@@ -848,9 +848,9 @@ const eoqCurveData = computed(() => {
   return {
     labels: qty.map(String),
     datasets: [
-      { label: 'Total Cost  TC = D·S/Q + H·Q/2', data: totalCosts, borderColor: '#3b82f6', borderWidth: 2.5, pointRadius: 0, tension: 0.3, fill: false, order: 3 },
-      { label: 'Ordering Cost  D·S/Q', data: orderCosts, borderColor: '#f97316', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0.15, fill: false, order: 2 },
-      { label: 'Holding Cost  H·Q/2', data: holdCosts, borderColor: '#22c55e', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0.15, fill: false, order: 1 },
+      { label: 'Total Cost', data: totalCosts, borderColor: '#3b82f6', borderWidth: 2.5, pointRadius: 0, tension: 0.3, fill: false, order: 3 },
+      { label: 'Ordering Cost', data: orderCosts, borderColor: '#f97316', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0.15, fill: false, order: 2 },
+      { label: 'Storage Cost', data: holdCosts, borderColor: '#22c55e', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0.15, fill: false, order: 1 },
       { label: `EOQ = ${Math.round(eoq)} units`, data: eoqMarker, borderColor: '#7c3aed', backgroundColor: '#7c3aed', borderWidth: 0, pointRadius: eoqMarker.map(v => v !== null ? 9 : 0), pointHoverRadius: 11, showLine: false, order: 4 },
     ],
   }
@@ -927,9 +927,9 @@ const fsnActivityData = computed(() => {
   return {
     labels,
     datasets: [
-      { type: 'bar', label: 'Activity Ratio (%)', data: actPct, backgroundColor: barColors, borderColor: borderColors, borderWidth: 1, borderRadius: 4, order: 2 },
-      { type: 'line', label: 'Fast threshold (50%)', data: Array(n).fill(50), borderColor: '#16a34a', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 1 },
-      { type: 'line', label: 'Non-moving threshold (10%)', data: Array(n).fill(10), borderColor: '#ef4444', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 0 },
+      { type: 'bar', label: 'Sales Activity (%)', data: actPct, backgroundColor: barColors, borderColor: borderColors, borderWidth: 1, borderRadius: 4, order: 2 },
+      { type: 'line', label: 'Fast-Moving Threshold (50%)', data: Array(n).fill(50), borderColor: '#16a34a', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 1 },
+      { type: 'line', label: 'Slow/Dead Stock Threshold (10%)', data: Array(n).fill(10), borderColor: '#ef4444', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 0 },
     ],
   }
 })

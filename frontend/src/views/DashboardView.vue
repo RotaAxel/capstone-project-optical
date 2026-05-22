@@ -11,7 +11,7 @@
         <div class="dash-grid">
           <!-- Top 5 Selling Frames -->
           <div class="card top-frames">
-            <h3 class="card-title">Top 5 Selling Frames This Month</h3>
+            <h3 class="card-title">Best-Selling Products This Month</h3>
             <div class="frame-list">
               <div v-for="(frame, i) in topSellingFrames" :key="i" class="frame-row">
                 <div class="frame-info">
@@ -27,7 +27,7 @@
 
           <!-- Monthly Revenue -->
           <div class="card chart-card">
-            <h3 class="card-title">Monthly Revenue (This Year)</h3>
+            <h3 class="card-title">Total Earnings Per Month</h3>
             <div class="chart-wrap">
               <canvas ref="stockCanvas"></canvas>
             </div>
@@ -35,7 +35,7 @@
 
           <!-- Low Stock Products -->
           <div class="card chart-card">
-            <h3 class="card-title">Low Stock vs. Reorder Point</h3>
+            <h3 class="card-title">Products Running Low on Stock</h3>
             <div class="chart-wrap">
               <canvas ref="deadStockCanvas"></canvas>
             </div>
@@ -43,7 +43,7 @@
 
           <!-- Monthly Sales Overview -->
           <div class="card chart-card">
-            <h3 class="card-title">Monthly Sales Overview</h3>
+            <h3 class="card-title">Monthly Sales Performance</h3>
             <div class="chart-wrap">
               <canvas ref="stockLevelCanvas"></canvas>
             </div>
