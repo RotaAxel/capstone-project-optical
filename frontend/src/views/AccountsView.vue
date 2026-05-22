@@ -65,19 +65,21 @@
       </div>
     </div>
 
-    <!-- Add/Edit User Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-screen overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 class="font-semibold text-gray-900">{{ editingId ? 'Edit User' : 'Add New User' }}</h3>
-          <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
+  </div>
+
+  <!-- Add/Edit User Modal — teleported to body to escape parent transform/animation -->
+  <Teleport to="body">
+    <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 class="modal-title">{{ editingId ? 'Edit User' : 'Add New User' }}</h3>
+          <button @click="closeModal" class="modal-close">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 
-        <form @submit.prevent="save" class="px-6 py-5">
+        <form @submit.prevent="save" class="modal-body">
           <div class="form-grid">
-            <!-- User Info -->
             <div class="fg">
               <label class="fl">Full Name *</label>
               <input v-model="form.name" class="fi" required />
@@ -100,7 +102,6 @@
               </select>
             </div>
 
-            <!-- Password Section -->
             <div class="fg fg--full section-divider"><span>Authentication</span></div>
             <div class="fg">
               <label class="fl">Password {{ editingId ? '(leave blank to keep)' : '*' }}</label>
@@ -116,14 +117,14 @@
             </div>
           </div>
 
-          <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+          <div class="modal-footer">
             <button type="button" @click="closeModal" class="btn btn-secondary">Cancel</button>
             <button type="submit" class="btn btn-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save User' }}</button>
           </div>
         </form>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -272,6 +273,37 @@ onMounted(fetchUsers)
   text-transform: uppercase; letter-spacing: 1px;
   border-bottom: 1.5px solid #a5f3fc; padding-bottom: 6px;
   margin-top: 8px;
+}
+
+/* Modal — rendered via Teleport so fixed works relative to viewport */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+.modal-box {
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+  width: 100%; max-width: 620px;
+  margin: auto;
+  display: flex; flex-direction: column;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1.5px solid #f3f4f6;
+}
+.modal-title { font-size: 16px; font-weight: 700; color: #111827; margin: 0; }
+.modal-close {
+  color: #9ca3af; background: none; border: none; cursor: pointer;
+  padding: 4px; border-radius: 6px; transition: color 0.2s;
+}
+.modal-close:hover { color: #374151; }
+.modal-body { padding: 24px; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 12px;
+  margin-top: 24px; padding-top: 16px; border-top: 1.5px solid #f3f4f6;
 }
 
 /* Animations */

@@ -21,18 +21,10 @@
 </template>
 
 <script setup>
-import { useRoute } from 'vue-router'
-
-const route = useRoute()
-const isActive = (path) => route.path.startsWith(path)
-
-const navItems = [
-  { to: '/dashboard',    label: 'Dashboard' },
-  { to: '/inventory',    label: 'Inventory' },
-  { to: '/patients',     label: 'Patients' },
-  { to: '/staff',        label: 'Staff' },
-  { to: '/transactions', label: 'Transactions' },
-]
+defineProps({
+  navItems: { type: Array, default: () => [] },
+  isActive: { type: Function, default: () => false },
+})
 </script>
 
 <style scoped>

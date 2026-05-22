@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\Appointment;
 use App\Models\Prescription;
 use App\Models\StockMovement;
@@ -42,9 +43,25 @@ class DashboardController extends Controller
             'transactions_today' => Sale::whereDate('created_at', $today)->where('status', 'completed')->count(),
         ];
 
+        $topSelling = SaleItem::selectRaw('product_id, SUM(quantity) as total_sold')
+            ->whereHas('sale', fn ($q) => $q->where('status', 'completed')
+                ->whereYear('created_at', now()->year)
+                ->whereMonth('created_at', now()->month))
+            ->groupBy('product_id')
+            ->orderByDesc('total_sold')
+            ->limit(5)
+            ->with('product:id,name')
+            ->get()
+            ->map(fn ($item) => [
+                'name'           => $item->product?->name ?? 'Unknown',
+                'total_sold'     => (int) $item->total_sold,
+                'change_percent' => 0,
+            ]);
+
         return [
             'role'                 => 'admin',
             'stats'                => $stats,
+            'top_selling_products' => $topSelling,
             'low_stock_products'   => Product::with('category')->whereColumn('stock_quantity', '<=', 'reorder_point')->orderBy('stock_quantity')->limit(5)->get(),
             'recent_sales'         => Sale::with(['patient', 'cashier', 'items'])->latest()->limit(5)->get(),
             'upcoming_appointments'=> Appointment::with(['patient', 'optometrist'])->where('appointment_date', '>=', now())->where('status', 'scheduled')->orderBy('appointment_date')->limit(5)->get(),
@@ -84,7 +101,7 @@ class DashboardController extends Controller
     }
 
     // ── Optometrist ───────────────────────────────────────────────────────────
-    private function optometristData($user, string $today): array
+    private function optometristData(\App\Models\User $user, string $today): array
     {
         $myTodayAppts = Appointment::with('patient')
             ->whereDate('appointment_date', $today)

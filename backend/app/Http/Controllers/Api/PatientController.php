@@ -52,6 +52,7 @@ class PatientController extends Controller
             'createdBy',
             'prescriptions.optometrist',
             'appointments.optometrist',
+            'sales.cashier',
             'sales.items.product',
         ]));
     }

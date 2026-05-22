@@ -1,236 +1,345 @@
 <template>
-  <div class="space-y-5">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h2 class="text-base font-semibold text-gray-800">Prescriptions</h2>
-        <p class="text-xs text-gray-500 mt-0.5">{{ pagination.total ?? 0 }} total records</p>
+  <div class="rx-page fade-up">
+
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <div class="page-header">
+      <div class="flex items-center gap-3">
+        <div class="header-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        </div>
+        <div>
+          <h2 class="page-title">Prescriptions</h2>
+          <p class="page-sub">{{ pagination.total ?? 0 }} total records</p>
+        </div>
       </div>
-      <button v-if="auth.can('admin','optometrist')" @click="openModal()" class="btn-primary">
-        + New Prescription
+      <button v-if="auth.can('admin','optometrist')" @click="openModal()" class="btn-new">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        New Prescription
       </button>
     </div>
 
-    <!-- Filters -->
-    <div class="card p-4 flex gap-3 flex-wrap items-center">
-      <input v-model="search" @input="debouncedFetch" placeholder="Search patient..." class="input max-w-xs" />
-      <input v-model="filterDate" type="date" @change="fetchPage(1)" class="input w-40" />
-      <button @click="search=''; filterDate=''; fetchPage(1)" class="btn-secondary btn-sm">Clear</button>
+    <!-- ── Stats ──────────────────────────────────────────────── -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon purple">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        </div>
+        <div>
+          <p class="stat-num">{{ pagination.total ?? prescriptions.length }}</p>
+          <p class="stat-lbl">Total Records</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+          <p class="stat-num">{{ activeCount }}</p>
+          <p class="stat-lbl">Active / Valid</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+          <p class="stat-num">{{ expiredCount }}</p>
+          <p class="stat-lbl">Expired</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </div>
+        <div>
+          <p class="stat-num">{{ thisMonthCount }}</p>
+          <p class="stat-lbl">This Month</p>
+        </div>
+      </div>
     </div>
 
-    <!-- Table -->
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div v-if="loading" class="flex items-center justify-center py-16">
-        <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+    <!-- ── Filters ────────────────────────────────────────────── -->
+    <div class="filter-bar">
+      <div class="filter-field flex-1" style="max-width: 320px;">
+        <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input v-model="search" @input="debouncedFetch" placeholder="Search by patient name…" class="filter-input" />
       </div>
-      <table v-else class="w-full">
-        <thead class="bg-gray-50 border-b border-gray-100">
-          <tr>
-            <th class="table-th">Patient</th>
-            <th class="table-th">Exam Date</th>
-            <th class="table-th">OD (Right Eye)</th>
-            <th class="table-th">OS (Left Eye)</th>
-            <th class="table-th">VA</th>
-            <th class="table-th">Optometrist</th>
-            <th class="table-th">Valid Until</th>
-            <th class="table-th">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-50">
-          <tr v-for="rx in prescriptions" :key="rx.id" class="hover:bg-gray-50 transition-colors">
-            <td class="table-td">
-              <RouterLink :to="`/patients/${rx.patient?.id}`" class="text-sm font-medium text-blue-700 hover:underline">
+      <div class="filter-field">
+        <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <input v-model="filterDate" type="date" class="filter-input" @change="fetchPage(1)" />
+      </div>
+      <button v-if="search || filterDate" @click="clearFilters" class="clear-btn">Clear filters</button>
+    </div>
+
+    <!-- ── Prescription Cards ─────────────────────────────────── -->
+    <div class="rx-list">
+      <div v-if="loading" class="flex items-center justify-center py-20">
+        <div class="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+      </div>
+
+      <template v-else-if="prescriptions.length">
+        <div v-for="rx in prescriptions" :key="rx.id" class="rx-card">
+
+          <!-- Patient -->
+          <div class="rx-patient">
+            <div class="patient-avatar">{{ rx.patient?.first_name?.charAt(0) }}{{ rx.patient?.last_name?.charAt(0) }}</div>
+            <div>
+              <RouterLink :to="`/patients/${rx.patient?.id}`" class="patient-name">
                 {{ rx.patient?.first_name }} {{ rx.patient?.last_name }}
               </RouterLink>
-              <p class="text-xs text-gray-400 font-mono">{{ rx.patient?.patient_code }}</p>
-            </td>
-            <td class="table-td text-sm">{{ fmtDate(rx.exam_date) }}</td>
-            <td class="table-td text-xs font-mono text-gray-700">
-              <span>{{ fmt(rx.od_sphere) }} / {{ fmt(rx.od_cylinder) }} × {{ fmt(rx.od_axis) }}</span>
-              <span v-if="rx.od_add" class="ml-1 text-gray-400">Add: {{ fmt(rx.od_add) }}</span>
-            </td>
-            <td class="table-td text-xs font-mono text-gray-700">
-              <span>{{ fmt(rx.os_sphere) }} / {{ fmt(rx.os_cylinder) }} × {{ fmt(rx.os_axis) }}</span>
-              <span v-if="rx.os_add" class="ml-1 text-gray-400">Add: {{ fmt(rx.os_add) }}</span>
-            </td>
-            <td class="table-td text-xs text-gray-500">
-              <div v-if="rx.visual_acuity_od || rx.visual_acuity_os">
-                <p>OD: {{ rx.visual_acuity_od ?? '—' }}</p>
-                <p>OS: {{ rx.visual_acuity_os ?? '—' }}</p>
-              </div>
-              <span v-else class="text-gray-300">—</span>
-            </td>
-            <td class="table-td text-sm text-gray-600">Dr. {{ rx.optometrist?.name }}</td>
-            <td class="table-td text-sm">
-              <span v-if="rx.valid_until" :class="isExpired(rx.valid_until) ? 'badge-red' : 'badge-green'" class="text-xs">
+              <p class="patient-code">{{ rx.patient?.patient_code }}</p>
+            </div>
+          </div>
+
+          <!-- Dates -->
+          <div class="rx-dates">
+            <div>
+              <p class="date-label">Exam Date</p>
+              <p class="date-val">{{ fmtDate(rx.exam_date) }}</p>
+            </div>
+            <div>
+              <p class="date-label">Valid Until</p>
+              <span v-if="rx.valid_until" class="validity-badge" :class="isExpired(rx.valid_until) ? 'expired' : 'valid'">
                 {{ fmtDate(rx.valid_until) }}
               </span>
-              <span v-else class="text-gray-300 text-xs">—</span>
-            </td>
-            <td class="table-td">
-              <div class="flex gap-1.5">
-                <button @click="openView(rx)" class="btn-secondary btn-sm">View</button>
-                <button v-if="auth.can('admin','optometrist')" @click="openModal(rx)" class="btn-secondary btn-sm">Edit</button>
-                <button v-if="auth.can('admin')" @click="deletePrescription(rx)" class="btn-danger btn-sm">Delete</button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!prescriptions.length">
-            <td colspan="8" class="text-center py-12 text-gray-400 text-sm">No prescriptions found.</td>
-          </tr>
-        </tbody>
-      </table>
+              <span v-else class="date-val text-gray-300">—</span>
+            </div>
+          </div>
 
-      <div v-if="pagination.last_page > 1" class="flex justify-between items-center px-4 py-3 border-t text-xs text-gray-500">
-        <span>Page {{ pagination.current_page }} of {{ pagination.last_page }}</span>
-        <div class="flex gap-2">
-          <button @click="fetchPage(pagination.current_page - 1)" :disabled="pagination.current_page === 1" class="btn-secondary btn-sm">Prev</button>
-          <button @click="fetchPage(pagination.current_page + 1)" :disabled="pagination.current_page === pagination.last_page" class="btn-secondary btn-sm">Next</button>
+          <!-- Optical Values -->
+          <div class="rx-values">
+            <div class="eye-row">
+              <span class="eye-label od">OD</span>
+              <span class="eye-data">{{ fmt(rx.od_sphere) }} / {{ fmt(rx.od_cylinder) }} × {{ fmt(rx.od_axis) }}</span>
+              <span v-if="rx.od_add" class="eye-add">Add {{ fmt(rx.od_add) }}</span>
+            </div>
+            <div class="eye-row">
+              <span class="eye-label os">OS</span>
+              <span class="eye-data">{{ fmt(rx.os_sphere) }} / {{ fmt(rx.os_cylinder) }} × {{ fmt(rx.os_axis) }}</span>
+              <span v-if="rx.os_add" class="eye-add">Add {{ fmt(rx.os_add) }}</span>
+            </div>
+          </div>
+
+          <!-- Doctor -->
+          <div class="rx-doctor">
+            <p class="date-label">Optometrist</p>
+            <p class="doctor-name">Dr. {{ rx.optometrist?.name ?? '—' }}</p>
+          </div>
+
+          <!-- Actions -->
+          <div class="rx-actions">
+            <button @click="openView(rx)" class="act-btn act-purple">
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              View
+            </button>
+            <button v-if="auth.can('admin','optometrist')" @click="openModal(rx)" class="act-btn act-gray">
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              Edit
+            </button>
+            <button v-if="auth.can('admin')" @click="deletePrescription(rx)" class="act-btn act-red">
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              Delete
+            </button>
+          </div>
         </div>
+      </template>
+
+      <div v-else class="empty-state">
+        <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="empty-icon"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        <p class="empty-text">No prescriptions found</p>
+        <p class="empty-sub">Try adjusting your filters or create a new prescription</p>
       </div>
     </div>
 
-    <!-- Add / Edit Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-screen overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b">
-          <h3 class="font-semibold text-gray-900">{{ editingId ? 'Edit Prescription' : 'New Prescription' }}</h3>
-          <button @click="closeModal" class="text-gray-400 hover:text-gray-600">✕</button>
-        </div>
-        <form @submit.prevent="save" class="px-6 py-5 space-y-5">
+    <!-- ── Pagination ─────────────────────────────────────────── -->
+    <div v-if="pagination.last_page > 1" class="pagination">
+      <button class="page-btn" :disabled="pagination.current_page === 1" @click="fetchPage(pagination.current_page - 1)">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Prev
+      </button>
+      <span class="page-info">Page {{ pagination.current_page }} of {{ pagination.last_page }}</span>
+      <button class="page-btn" :disabled="pagination.current_page === pagination.last_page" @click="fetchPage(pagination.current_page + 1)">
+        Next <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
 
+  </div>
+
+  <!-- ── Add / Edit Modal ────────────────────────────────────── -->
+  <Teleport to="body">
+    <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
+      <div class="modal-box modal-lg">
+        <div class="modal-header">
+          <div class="flex items-center gap-3">
+            <div class="modal-icon">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            </div>
+            <h3 class="modal-title">{{ editingId ? 'Edit Prescription' : 'New Prescription' }}</h3>
+          </div>
+          <button @click="closeModal" class="modal-close">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <form @submit.prevent="save" class="modal-body">
           <!-- Patient + Dates -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="sm:col-span-1">
-              <label class="label">Patient *</label>
-              <select v-model="form.patient_id" class="input" required :disabled="!!editingId">
+          <div class="form-row-3">
+            <div class="fg" style="grid-column: span 1;">
+              <label class="fl">Patient *</label>
+              <select v-model="form.patient_id" class="fi" required :disabled="!!editingId">
                 <option value="">Select patient</option>
                 <option v-for="p in patients" :key="p.id" :value="p.id">{{ p.first_name }} {{ p.last_name }}</option>
               </select>
             </div>
-            <div>
-              <label class="label">Exam Date *</label>
-              <input v-model="form.exam_date" type="date" class="input" required />
+            <div class="fg">
+              <label class="fl">Exam Date *</label>
+              <input v-model="form.exam_date" type="date" class="fi" required />
             </div>
-            <div>
-              <label class="label">Valid Until</label>
-              <input v-model="form.valid_until" type="date" class="input" />
+            <div class="fg">
+              <label class="fl">Valid Until</label>
+              <input v-model="form.valid_until" type="date" class="fi" />
             </div>
           </div>
 
           <!-- OD -->
-          <div>
-            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">OD — Right Eye</p>
-            <div class="grid grid-cols-5 gap-3">
-              <div><label class="label text-xs">Sphere</label><input v-model="form.od_sphere" type="number" step="0.25" class="input" placeholder="0.00" /></div>
-              <div><label class="label text-xs">Cylinder</label><input v-model="form.od_cylinder" type="number" step="0.25" class="input" placeholder="0.00" /></div>
-              <div><label class="label text-xs">Axis</label><input v-model="form.od_axis" type="number" step="1" min="0" max="180" class="input" placeholder="0" /></div>
-              <div><label class="label text-xs">Add</label><input v-model="form.od_add" type="number" step="0.25" class="input" placeholder="0.00" /></div>
-              <div><label class="label text-xs">PD</label><input v-model="form.od_pd" type="number" step="0.5" class="input" placeholder="0.0" /></div>
+          <div class="eye-section od-section">
+            <div class="eye-section-label">
+              <span class="eye-tag od-tag">OD</span>
+              <span class="eye-section-title">Right Eye</span>
+            </div>
+            <div class="form-row-5">
+              <div class="fg"><label class="fl">Sphere</label><input v-model="form.od_sphere" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">Cylinder</label><input v-model="form.od_cylinder" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">Axis</label><input v-model="form.od_axis" type="number" step="1" min="0" max="180" class="fi mono" placeholder="0" /></div>
+              <div class="fg"><label class="fl">Add</label><input v-model="form.od_add" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">PD</label><input v-model="form.od_pd" type="number" step="0.5" class="fi mono" placeholder="0.0" /></div>
             </div>
           </div>
 
           <!-- OS -->
-          <div>
-            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">OS — Left Eye</p>
-            <div class="grid grid-cols-5 gap-3">
-              <div><label class="label text-xs">Sphere</label><input v-model="form.os_sphere" type="number" step="0.25" class="input" placeholder="0.00" /></div>
-              <div><label class="label text-xs">Cylinder</label><input v-model="form.os_cylinder" type="number" step="0.25" class="input" placeholder="0.00" /></div>
-              <div><label class="label text-xs">Axis</label><input v-model="form.os_axis" type="number" step="1" min="0" max="180" class="input" placeholder="0" /></div>
-              <div><label class="label text-xs">Add</label><input v-model="form.os_add" type="number" step="0.25" class="input" placeholder="0.00" /></div>
-              <div><label class="label text-xs">PD</label><input v-model="form.os_pd" type="number" step="0.5" class="input" placeholder="0.0" /></div>
+          <div class="eye-section os-section">
+            <div class="eye-section-label">
+              <span class="eye-tag os-tag">OS</span>
+              <span class="eye-section-title">Left Eye</span>
+            </div>
+            <div class="form-row-5">
+              <div class="fg"><label class="fl">Sphere</label><input v-model="form.os_sphere" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">Cylinder</label><input v-model="form.os_cylinder" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">Axis</label><input v-model="form.os_axis" type="number" step="1" min="0" max="180" class="fi mono" placeholder="0" /></div>
+              <div class="fg"><label class="fl">Add</label><input v-model="form.os_add" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">PD</label><input v-model="form.os_pd" type="number" step="0.5" class="fi mono" placeholder="0.0" /></div>
             </div>
           </div>
 
           <!-- Visual Acuity -->
-          <div>
-            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Visual Acuity</p>
-            <div class="grid grid-cols-2 gap-4">
-              <div><label class="label text-xs">VA — OD (Right)</label><input v-model="form.visual_acuity_od" type="number" step="0.01" class="input" placeholder="e.g. 0.80" /></div>
-              <div><label class="label text-xs">VA — OS (Left)</label><input v-model="form.visual_acuity_os" type="number" step="0.01" class="input" placeholder="e.g. 0.80" /></div>
+          <div class="eye-section va-section">
+            <div class="eye-section-label">
+              <span class="eye-section-title">Visual Acuity</span>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label class="fl">VA — OD (Right)</label><input v-model="form.visual_acuity_od" type="number" step="0.01" class="fi mono" placeholder="e.g. 0.80" /></div>
+              <div class="fg"><label class="fl">VA — OS (Left)</label><input v-model="form.visual_acuity_os" type="number" step="0.01" class="fi mono" placeholder="e.g. 0.80" /></div>
             </div>
           </div>
 
           <!-- Notes -->
-          <div>
-            <label class="label">Notes / Remarks</label>
-            <textarea v-model="form.notes" class="input" rows="3" placeholder="Additional remarks, lens type, frame recommendation..."></textarea>
+          <div class="fg">
+            <label class="fl">Notes / Remarks</label>
+            <textarea v-model="form.notes" class="fi fi--ta" rows="3" placeholder="Lens type, frame recommendation, additional remarks…"></textarea>
           </div>
 
-          <div v-if="formError" class="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{{ formError }}</div>
-          <div class="flex justify-end gap-3">
-            <button type="button" @click="closeModal" class="btn-secondary">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save Prescription' }}</button>
+          <div v-if="formError" class="error-msg">{{ formError }}</div>
+
+          <div class="modal-footer">
+            <button type="button" @click="closeModal" class="btn-cancel">Cancel</button>
+            <button type="submit" class="btn-save" :disabled="saving">{{ saving ? 'Saving…' : (editingId ? 'Save Changes' : 'Save Prescription') }}</button>
           </div>
         </form>
       </div>
     </div>
+  </Teleport>
 
-    <!-- View Detail Modal -->
-    <div v-if="viewing" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-        <div class="flex items-center justify-between px-6 py-4 border-b">
+  <!-- ── View Detail Modal ───────────────────────────────────── -->
+  <Teleport to="body">
+    <div v-if="viewing" class="modal-backdrop" @click.self="viewing = null">
+      <div class="modal-box modal-md">
+        <div class="modal-header">
           <div>
-            <h3 class="font-semibold text-gray-900">Prescription Detail</h3>
-            <p class="text-xs text-gray-400 mt-0.5">Exam: {{ fmtDate(viewing.exam_date) }}</p>
+            <h3 class="modal-title">Prescription Detail</h3>
+            <p class="modal-sub">Exam: {{ fmtDate(viewing.exam_date) }}</p>
           </div>
-          <button @click="viewing = null" class="text-gray-400 hover:text-gray-600">✕</button>
+          <button @click="viewing = null" class="modal-close">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
         </div>
-        <div class="px-6 py-5 space-y-4">
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Patient</span><span class="font-semibold">{{ viewing.patient?.first_name }} {{ viewing.patient?.last_name }}</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Optometrist</span><span>Dr. {{ viewing.optometrist?.name }}</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Valid Until</span><span>{{ viewing.valid_until ? fmtDate(viewing.valid_until) : 'Not set' }}</span></div>
 
-          <div class="overflow-x-auto rounded-xl border border-gray-100">
-            <table class="w-full text-sm">
-              <thead class="bg-gray-50">
+        <div class="modal-body space-y-5">
+          <!-- Patient + Doctor info -->
+          <div class="view-meta">
+            <div class="view-meta-row">
+              <span class="view-key">Patient</span>
+              <span class="view-val font-semibold">{{ viewing.patient?.first_name }} {{ viewing.patient?.last_name }}</span>
+            </div>
+            <div class="view-meta-row">
+              <span class="view-key">Optometrist</span>
+              <span class="view-val">Dr. {{ viewing.optometrist?.name }}</span>
+            </div>
+            <div class="view-meta-row">
+              <span class="view-key">Valid Until</span>
+              <span v-if="viewing.valid_until" class="validity-badge" :class="isExpired(viewing.valid_until) ? 'expired' : 'valid'">
+                {{ fmtDate(viewing.valid_until) }}
+              </span>
+              <span v-else class="view-val text-gray-300">Not set</span>
+            </div>
+          </div>
+
+          <!-- Rx Table -->
+          <div class="rx-table-wrap">
+            <table class="rx-table">
+              <thead>
                 <tr>
-                  <th class="table-th">Eye</th>
-                  <th class="table-th">Sphere</th>
-                  <th class="table-th">Cylinder</th>
-                  <th class="table-th">Axis</th>
-                  <th class="table-th">Add</th>
-                  <th class="table-th">PD</th>
-                  <th class="table-th">VA</th>
+                  <th>Eye</th><th>Sphere</th><th>Cylinder</th><th>Axis</th><th>Add</th><th>PD</th><th>VA</th>
                 </tr>
               </thead>
-              <tbody class="font-mono divide-y divide-gray-50">
+              <tbody>
                 <tr>
-                  <td class="table-td font-sans font-semibold text-gray-700">OD (R)</td>
-                  <td class="table-td text-center">{{ viewing.od_sphere ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.od_cylinder ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.od_axis ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.od_add ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.od_pd ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.visual_acuity_od ?? '—' }}</td>
+                  <td class="eye-cell od-cell">OD (R)</td>
+                  <td>{{ viewing.od_sphere ?? '—' }}</td>
+                  <td>{{ viewing.od_cylinder ?? '—' }}</td>
+                  <td>{{ viewing.od_axis ?? '—' }}</td>
+                  <td>{{ viewing.od_add ?? '—' }}</td>
+                  <td>{{ viewing.od_pd ?? '—' }}</td>
+                  <td>{{ viewing.visual_acuity_od ?? '—' }}</td>
                 </tr>
                 <tr>
-                  <td class="table-td font-sans font-semibold text-gray-700">OS (L)</td>
-                  <td class="table-td text-center">{{ viewing.os_sphere ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.os_cylinder ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.os_axis ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.os_add ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.os_pd ?? '—' }}</td>
-                  <td class="table-td text-center">{{ viewing.visual_acuity_os ?? '—' }}</td>
+                  <td class="eye-cell os-cell">OS (L)</td>
+                  <td>{{ viewing.os_sphere ?? '—' }}</td>
+                  <td>{{ viewing.os_cylinder ?? '—' }}</td>
+                  <td>{{ viewing.os_axis ?? '—' }}</td>
+                  <td>{{ viewing.os_add ?? '—' }}</td>
+                  <td>{{ viewing.os_pd ?? '—' }}</td>
+                  <td>{{ viewing.visual_acuity_os ?? '—' }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <div v-if="viewing.notes" class="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap">{{ viewing.notes }}</div>
+          <div v-if="viewing.notes" class="notes-box">
+            <p class="notes-label">Notes / Remarks</p>
+            <p class="notes-text">{{ viewing.notes }}</p>
+          </div>
 
-          <div class="flex justify-end gap-3 pt-2">
-            <button @click="viewing = null" class="btn-secondary">Close</button>
-            <button v-if="auth.can('admin','optometrist')" @click="openModal(viewing); viewing = null" class="btn-primary">Edit</button>
+          <div class="modal-footer">
+            <button @click="viewing = null" class="btn-cancel">Close</button>
+            <button v-if="auth.can('admin','optometrist')" @click="openModal(viewing); viewing = null" class="btn-save">Edit Prescription</button>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -256,8 +365,17 @@ const emptyForm = () => ({
 })
 const form = ref(emptyForm())
 
+const now = new Date()
+const activeCount    = computed(() => prescriptions.value.filter(r => r.valid_until && !isExpired(r.valid_until)).length)
+const expiredCount   = computed(() => prescriptions.value.filter(r => r.valid_until && isExpired(r.valid_until)).length)
+const thisMonthCount = computed(() => prescriptions.value.filter(r => {
+  const d = new Date(r.exam_date)
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+}).length)
+
 let debounceTimer
 function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => fetchPage(1), 400) }
+function clearFilters() { search.value = ''; filterDate.value = ''; fetchPage(1) }
 
 async function fetchPage(page = 1) {
   loading.value = true
@@ -266,7 +384,7 @@ async function fetchPage(page = 1) {
       params: { page, search: search.value || undefined, date: filterDate.value || undefined }
     })
     prescriptions.value = data.data
-    pagination.value = { current_page: data.current_page, last_page: data.last_page, total: data.total }
+    pagination.value    = { current_page: data.current_page, last_page: data.last_page, total: data.total }
   } catch { /* backend unavailable */ }
   finally { loading.value = false }
 }
@@ -299,22 +417,18 @@ async function save() {
   try {
     if (editingId.value) await api.put(`/prescriptions/${editingId.value}`, form.value)
     else await api.post('/prescriptions', form.value)
-    closeModal()
-    fetchPage(pagination.value.current_page ?? 1)
+    closeModal(); fetchPage(pagination.value.current_page ?? 1)
   } catch (e) {
-    formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save.'
+    formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save prescription.'
   } finally { saving.value = false }
 }
 
 async function deletePrescription(rx) {
   if (!confirm(`Delete prescription for ${rx.patient?.first_name} on ${fmtDate(rx.exam_date)}?`)) return
-  try {
-    await api.delete(`/prescriptions/${rx.id}`)
-    fetchPage(pagination.value.current_page ?? 1)
-  } catch { /* error */ }
+  try { await api.delete(`/prescriptions/${rx.id}`); fetchPage(pagination.value.current_page ?? 1) } catch { /* */ }
 }
 
-function fmt(v) { return v != null ? Number(v).toFixed(2) : '—' }
+function fmt(v) { return v != null && v !== '' ? Number(v).toFixed(2) : '—' }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 function isExpired(d) { return d && new Date(d) < new Date() }
 
@@ -322,7 +436,313 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/patients', { params: { per_page: 500 } })
     patients.value = data.data
-  } catch { /* no patients */ }
+  } catch { /* */ }
   fetchPage()
 })
 </script>
+
+<style scoped>
+.rx-page { padding: 28px 32px 48px; }
+
+/* ── Header ─────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;
+}
+.header-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.header-icon svg { color: white; }
+.page-title { font-size: 20px; font-weight: 800; color: #111827; margin: 0; }
+.page-sub   { font-size: 13px; color: #9ca3af; margin: 2px 0 0; }
+
+.btn-new {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: white; font-size: 13px; font-weight: 700; border-radius: 10px;
+  border: none; cursor: pointer; transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(124,58,237,0.35);
+}
+.btn-new:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(124,58,237,0.45); }
+
+/* ── Stats ──────────────────────────────────────────── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+}
+.stat-card {
+  display: flex; align-items: center; gap: 14px; padding: 18px 20px;
+  background: white; border: 1.5px solid #f3f4f6; border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.stat-icon {
+  width: 42px; height: 42px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.stat-icon svg { color: white; }
+.stat-icon.purple { background: #7c3aed; }
+.stat-icon.green  { background: #10b981; }
+.stat-icon.red    { background: #ef4444; }
+.stat-icon.blue   { background: #3b82f6; }
+.stat-num { font-size: 22px; font-weight: 800; color: #111827; line-height: 1; }
+.stat-lbl { font-size: 11px; font-weight: 600; color: #9ca3af; margin-top: 3px; }
+
+/* ── Filters ────────────────────────────────────────── */
+.filter-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: white; border: 1.5px solid #f3f4f6; border-radius: 14px;
+  padding: 16px 20px; margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.filter-field {
+  display: flex; align-items: center; gap: 8px;
+  background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 0 12px;
+}
+.filter-icon  { color: #9ca3af; flex-shrink: 0; }
+.filter-input {
+  padding: 9px 4px; background: transparent; border: none; outline: none;
+  font-size: 13px; font-weight: 500; color: #374151; font-family: inherit; min-width: 130px;
+}
+.clear-btn {
+  padding: 9px 16px; background: #f3e8ff; color: #7c3aed;
+  font-size: 12px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s;
+}
+.clear-btn:hover { background: #ede9fe; }
+
+/* ── Rx Cards ───────────────────────────────────────── */
+.rx-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+
+.rx-card {
+  display: flex; align-items: center; gap: 0;
+  background: white; border-radius: 14px; border: 1.5px solid #f3f4f6;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  padding: 0; overflow: hidden; transition: box-shadow 0.2s, transform 0.2s;
+}
+.rx-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.09); transform: translateY(-1px); }
+
+/* Left purple stripe */
+.rx-card::before {
+  content: ''; width: 5px; min-height: 80px; align-self: stretch;
+  background: linear-gradient(180deg, #7c3aed, #a78bfa);
+  flex-shrink: 0;
+}
+
+.rx-patient {
+  display: flex; align-items: center; gap: 12px;
+  padding: 18px 20px; min-width: 210px; flex: 1.2;
+}
+.patient-avatar {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+  color: #6d28d9; font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.patient-name {
+  font-size: 14px; font-weight: 700; color: #111827; text-decoration: none;
+  transition: color 0.2s;
+}
+.patient-name:hover { color: #7c3aed; }
+.patient-code { font-size: 11px; color: #9ca3af; font-family: monospace; margin-top: 2px; }
+
+.rx-dates {
+  padding: 18px 16px; display: flex; flex-direction: column; gap: 8px;
+  min-width: 160px; flex-shrink: 0;
+}
+.date-label   { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+.date-val     { font-size: 13px; font-weight: 600; color: #374151; margin-top: 2px; }
+
+.validity-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 99px; margin-top: 2px;
+}
+.validity-badge.valid   { background: #dcfce7; color: #166534; }
+.validity-badge.expired { background: #fee2e2; color: #991b1b; }
+
+.rx-values {
+  padding: 18px 16px; flex: 2; min-width: 260px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.eye-row  { display: flex; align-items: center; gap: 8px; }
+.eye-label {
+  font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
+}
+.eye-label.od { background: #dbeafe; color: #1e40af; }
+.eye-label.os { background: #d1fae5; color: #065f46; }
+.eye-data { font-size: 12px; font-family: monospace; color: #374151; font-weight: 600; }
+.eye-add  { font-size: 11px; color: #9ca3af; }
+
+.rx-doctor {
+  padding: 18px 16px; min-width: 150px; flex-shrink: 0;
+}
+.doctor-name { font-size: 13px; font-weight: 600; color: #374151; margin-top: 3px; }
+
+.rx-actions {
+  display: flex; align-items: center; gap: 8px;
+  padding: 18px 20px; flex-shrink: 0; margin-left: auto;
+}
+.act-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 700; font-family: inherit; transition: all 0.15s;
+}
+.act-purple { background: #f3e8ff; color: #6d28d9; }
+.act-purple:hover { background: #ede9fe; }
+.act-gray   { background: #f3f4f6; color: #374151; }
+.act-gray:hover   { background: #e5e7eb; }
+.act-red    { background: #fee2e2; color: #991b1b; }
+.act-red:hover    { background: #fecaca; }
+
+/* ── Empty State ─────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 60px 20px;
+  background: white; border: 1.5px solid #f3f4f6; border-radius: 14px;
+}
+.empty-icon { color: #d1d5db; margin: 0 auto 12px; }
+.empty-text { font-size: 15px; font-weight: 700; color: #374151; margin: 0; }
+.empty-sub  { font-size: 13px; color: #9ca3af; margin-top: 6px; }
+
+/* ── Pagination ──────────────────────────────────────── */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.page-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 18px; background: white; border: 1.5px solid #e5e7eb;
+  border-radius: 10px; font-size: 13px; font-weight: 600; color: #374151;
+  cursor: pointer; transition: all 0.2s; font-family: inherit;
+}
+.page-btn:hover:not(:disabled) { border-color: #7c3aed; color: #6d28d9; background: #f5f3ff; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { font-size: 13px; color: #6b7280; font-weight: 500; }
+
+/* ── Modals ──────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; overflow-y: auto;
+}
+.modal-box {
+  background: white; border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+  width: 100%; margin: auto;
+}
+.modal-md { max-width: 540px; }
+.modal-lg { max-width: 680px; }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1.5px solid #f3f4f6;
+}
+.modal-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-icon svg { color: white; }
+.modal-title { font-size: 16px; font-weight: 700; color: #111827; margin: 0; }
+.modal-sub   { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.modal-close {
+  color: #9ca3af; background: none; border: none; cursor: pointer;
+  padding: 4px; border-radius: 6px; transition: color 0.2s;
+}
+.modal-close:hover { color: #374151; }
+.modal-body   { padding: 24px; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: 24px; padding-top: 16px; border-top: 1.5px solid #f3f4f6;
+}
+
+/* Form */
+.form-row-3 { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+.form-row-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.fg  { display: flex; flex-direction: column; gap: 6px; }
+.fl  { font-size: 12px; font-weight: 700; color: #374151; }
+.fi {
+  padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 10px;
+  font-family: inherit; font-size: 13px; color: #111827;
+  background: #fff; outline: none; width: 100%; transition: border-color 0.2s;
+}
+.fi:focus  { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+.fi--ta    { resize: vertical; min-height: 80px; }
+.fi.mono   { font-family: monospace; }
+.fi:disabled { background: #f9fafb; color: #9ca3af; cursor: not-allowed; }
+
+/* Eye sections */
+.eye-section {
+  border-radius: 12px; padding: 16px; margin-bottom: 14px;
+}
+.od-section { background: #eff6ff; border: 1.5px solid #dbeafe; }
+.os-section { background: #f0fdf4; border: 1.5px solid #d1fae5; }
+.va-section { background: #f9fafb; border: 1.5px solid #e5e7eb; }
+.eye-section-label {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.eye-tag {
+  font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 99px;
+}
+.od-tag { background: #dbeafe; color: #1e40af; }
+.os-tag { background: #d1fae5; color: #065f46; }
+.eye-section-title { font-size: 12px; font-weight: 700; color: #374151; }
+
+.error-msg {
+  margin-top: 12px; padding: 10px 14px;
+  background: #fef2f2; border: 1px solid #fecaca;
+  border-radius: 8px; font-size: 13px; color: #dc2626;
+}
+
+.btn-cancel {
+  padding: 10px 20px; background: #f9fafb; border: 1.5px solid #e5e7eb;
+  border-radius: 10px; font-size: 13px; font-weight: 600; color: #374151;
+  cursor: pointer; transition: all 0.2s; font-family: inherit;
+}
+.btn-cancel:hover { background: #f3f4f6; }
+.btn-save {
+  padding: 10px 24px; background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: white; border: none; border-radius: 10px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: all 0.2s; font-family: inherit;
+}
+.btn-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,58,237,0.4); }
+.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* View detail modal */
+.view-meta { display: flex; flex-direction: column; gap: 10px; }
+.view-meta-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px solid #f3f4f6;
+}
+.view-key { font-size: 13px; color: #9ca3af; font-weight: 500; }
+.view-val { font-size: 13px; color: #111827; }
+
+.rx-table-wrap { border: 1.5px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+.rx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rx-table th {
+  text-align: center; font-size: 11px; font-weight: 700; color: #6b7280;
+  padding: 10px 12px; background: #f9fafb; border-bottom: 1.5px solid #e5e7eb;
+}
+.rx-table td {
+  text-align: center; padding: 12px; font-family: monospace; font-weight: 600;
+  color: #374151; border-bottom: 1px solid #f3f4f6;
+}
+.rx-table tr:last-child td { border-bottom: none; }
+.eye-cell { font-family: inherit !important; font-weight: 800 !important; text-align: left !important; padding-left: 16px !important; }
+.od-cell  { color: #1e40af; }
+.os-cell  { color: #065f46; }
+
+.notes-box { background: #f5f3ff; border: 1.5px solid #ddd6fe; border-radius: 10px; padding: 14px; }
+.notes-label { font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.notes-text  { font-size: 13px; color: #374151; line-height: 1.6; white-space: pre-wrap; }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .rx-doctor { display: none; }
+}
+@media (max-width: 768px) {
+  .rx-page    { padding: 16px 16px 32px; }
+  .stats-row  { grid-template-columns: repeat(2, 1fr); }
+  .rx-values  { display: none; }
+  .form-row-3 { grid-template-columns: 1fr; }
+  .form-row-5 { grid-template-columns: repeat(3, 1fr); }
+}
+</style>

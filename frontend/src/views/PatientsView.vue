@@ -59,19 +59,21 @@
       </button>
     </div>
 
-    <!-- Add/Edit Patient Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-screen overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 class="font-semibold text-gray-900">{{ editingId ? 'Edit Patient' : 'Add New Patient' }}</h3>
-          <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
+  </div>
+
+  <!-- Add/Edit Patient Modal — teleported to body to escape parent transform/animation -->
+  <Teleport to="body">
+    <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 class="modal-title">{{ editingId ? 'Edit Patient' : 'Add New Patient' }}</h3>
+          <button @click="closeModal" class="modal-close">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 
-        <form @submit.prevent="savePatient" class="px-6 py-5">
+        <form @submit.prevent="savePatient" class="modal-body">
           <div class="form-grid">
-            <!-- Patient Info -->
             <div class="fg">
               <label class="fl">First Name *</label>
               <input v-model="form.first_name" class="fi" required />
@@ -81,8 +83,8 @@
               <input v-model="form.last_name" class="fi" required />
             </div>
             <div class="fg">
-              <label class="fl">Contact Number *</label>
-              <input v-model="form.phone" class="fi" placeholder="09XX XXX XXXX" required />
+              <label class="fl">Contact Number</label>
+              <input v-model="form.phone" class="fi" placeholder="09XX XXX XXXX" />
             </div>
             <div class="fg">
               <label class="fl">Email Address</label>
@@ -106,7 +108,6 @@
               <input v-model="form.address" class="fi" placeholder="Street, City, Province" />
             </div>
 
-            <!-- Emergency Contact -->
             <div class="fg fg--full section-divider"><span>Emergency Contact</span></div>
             <div class="fg">
               <label class="fl">Contact Name</label>
@@ -117,7 +118,6 @@
               <input v-model="form.emergency_contact_phone" class="fi" />
             </div>
 
-            <!-- Medical History -->
             <div class="fg fg--full section-divider"><span>Medical Information (Optional)</span></div>
             <div class="fg fg--full">
               <label class="fl">Medical History / Notes</label>
@@ -129,14 +129,14 @@
             </div>
           </div>
 
-          <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+          <div class="modal-footer">
             <button type="button" @click="closeModal" class="btn btn-secondary">Cancel</button>
             <button type="submit" class="btn btn-success" :disabled="saving">{{ saving ? 'Saving...' : 'Save Patient' }}</button>
           </div>
         </form>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -231,6 +231,37 @@ onMounted(() => fetchPage())
 
 <style scoped>
 .patients { padding: 28px 32px 40px; }
+
+/* Modal — rendered via Teleport so fixed works relative to viewport */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+.modal-box {
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+  width: 100%; max-width: 680px;
+  margin: auto;
+  display: flex; flex-direction: column;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1.5px solid #f3f4f6;
+}
+.modal-title { font-size: 16px; font-weight: 700; color: #111827; margin: 0; }
+.modal-close {
+  color: #9ca3af; background: none; border: none; cursor: pointer;
+  padding: 4px; border-radius: 6px; transition: color 0.2s;
+}
+.modal-close:hover { color: #374151; }
+.modal-body { padding: 24px; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 12px;
+  margin-top: 24px; padding-top: 16px; border-top: 1.5px solid #f3f4f6;
+}
 .patient-list { display: flex; flex-direction: column; gap: 18px; margin: 10px}
 .patient-card {
   display: flex; align-items: center; justify-content: space-between;

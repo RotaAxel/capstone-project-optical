@@ -25,25 +25,25 @@
             </div>
           </div>
 
-          <!-- Predicted vs Actual Stock -->
+          <!-- Monthly Revenue -->
           <div class="card chart-card">
-            <h3 class="card-title">Predicted vs. Actual Stock Consumption</h3>
+            <h3 class="card-title">Monthly Revenue (This Year)</h3>
             <div class="chart-wrap">
               <canvas ref="stockCanvas"></canvas>
             </div>
           </div>
 
-          <!-- Dead Stock Items -->
+          <!-- Low Stock Products -->
           <div class="card chart-card">
-            <h3 class="card-title">Top 5 Dead Stock Items (180 Days Inactive)</h3>
+            <h3 class="card-title">Low Stock vs. Reorder Point</h3>
             <div class="chart-wrap">
               <canvas ref="deadStockCanvas"></canvas>
             </div>
           </div>
 
-          <!-- Current Stock Levels -->
+          <!-- Monthly Sales Overview -->
           <div class="card chart-card">
-            <h3 class="card-title">Current Stock Levels</h3>
+            <h3 class="card-title">Monthly Sales Overview</h3>
             <div class="chart-wrap">
               <canvas ref="stockLevelCanvas"></canvas>
             </div>
@@ -63,7 +63,7 @@
           <div class="card recent-sales">
             <div class="section-header">
               <h2 class="section-title">Recent Sales</h2>
-              <RouterLink to="/sales" class="view-link">View all →</RouterLink>
+              <RouterLink to="/transactions" class="view-link">View all →</RouterLink>
             </div>
             <div class="sale-list">
               <div v-for="sale in data.recent_sales?.slice(0, 5)" :key="sale.id" class="sale-item">
@@ -288,7 +288,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
@@ -304,6 +304,10 @@ let refreshTimer = null
 const stockCanvas = ref(null)
 const deadStockCanvas = ref(null)
 const stockLevelCanvas = ref(null)
+
+let stockChart = null
+let deadStockChart = null
+let stockLevelChart = null
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -337,12 +341,13 @@ function fmtTime(v) { return v ? new Date(v).toLocaleTimeString('en-PH', { hour:
 function fmtDateShort(v) { return v ? new Date(v).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : '—' }
 
 async function fetchDashboard() {
-  try { 
-    data.value = (await api.get('/dashboard')).data 
-    if (role.value === 'admin') {
+  try {
+    data.value = (await api.get('/dashboard')).data
+    if (role.value === 'admin' && !loading.value) {
+      await nextTick()
       initCharts()
     }
-  } catch (e) { 
+  } catch (e) {
     console.error('Dashboard fetch error:', e)
   }
 }
@@ -350,59 +355,68 @@ async function fetchDashboard() {
 function initCharts() {
   if (!stockCanvas.value || !deadStockCanvas.value || !stockLevelCanvas.value) return
 
-  // Predicted vs Actual
-  new Chart(stockCanvas.value, {
+  stockChart?.destroy()
+  deadStockChart?.destroy()
+  stockLevelChart?.destroy()
+
+  // Build monthly sales arrays from API data (months 1–12)
+  const monthlySalesRaw = data.value.monthly_sales || []
+  const salesByMonth = Array(12).fill(0)
+  monthlySalesRaw.forEach(row => { salesByMonth[row.month - 1] = parseFloat(row.total) || 0 })
+  const currentMonth = new Date().getMonth() // 0-indexed, only show up to current month
+  const displayLabels = months.slice(0, currentMonth + 1)
+  const displaySales = salesByMonth.slice(0, currentMonth + 1)
+
+  const currencyTick = (v) => v >= 1000 ? '₱' + (v / 1000).toFixed(0) + 'K' : '₱' + v
+
+  // Chart 1 – Monthly Revenue line
+  stockChart = new Chart(stockCanvas.value, {
     type: 'line',
     data: {
-      labels: months,
-      datasets: [
-        {
-          label: 'Predicted',
-          data: [260, 340, 420, 490, 570, 640, 710, 760, 800, 850, 920, 1050],
-          borderColor: '#1A2744',
-          backgroundColor: 'transparent',
-          tension: 0.4,
-          pointBackgroundColor: '#fff',
-          pointBorderColor: '#1A2744',
-          pointRadius: 5,
-          borderWidth: 2,
-        },
-        {
-          label: 'Actual',
-          data: [280, 360, 445, 510, 595, 665, 730, 780, 820, 870, 960, 1100],
-          borderColor: '#5BC8C0',
-          backgroundColor: 'rgba(91,200,192,0.12)',
-          tension: 0.4,
-          pointBackgroundColor: '#fff',
-          pointBorderColor: '#5BC8C0',
-          pointRadius: 5,
-          fill: true,
-          borderWidth: 2,
-        },
-      ],
+      labels: displayLabels,
+      datasets: [{
+        label: 'Revenue (₱)',
+        data: displaySales,
+        borderColor: '#3B82F6',
+        backgroundColor: 'rgba(59,130,246,0.10)',
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: '#3B82F6',
+        pointRadius: 4,
+        borderWidth: 2,
+      }],
     },
     options: {
       ...chartDefaults,
-      scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 1200 } },
+      scales: {
+        ...chartDefaults.scales,
+        y: { ...chartDefaults.scales.y, min: 0, ticks: { ...chartDefaults.scales.y.ticks, callback: currencyTick } },
+      },
     },
   })
 
-  // Dead Stock
-  new Chart(deadStockCanvas.value, {
+  // Chart 2 – Low Stock vs Reorder Point horizontal bar
+  const lowProds = (data.value.low_stock_products || []).slice(0, 8)
+  const lowLabels = lowProds.map(p => p.name.length > 18 ? p.name.slice(0, 18) + '…' : p.name)
+  const stockQty = lowProds.map(p => p.stock_quantity)
+  const ropQty   = lowProds.map(p => p.reorder_point)
+
+  deadStockChart = new Chart(deadStockCanvas.value, {
     type: 'bar',
     data: {
-      labels: ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'],
+      labels: lowLabels.length ? lowLabels : ['(all stocks OK)'],
       datasets: [
         {
-          label: 'Dead Stock',
-          data: [12000, 10000, 9000, 7500, 5000, 6500],
-          backgroundColor: '#64748B',
+          label: 'Current Stock',
+          data: stockQty.length ? stockQty : [0],
+          backgroundColor: stockQty.map(q => q === 0 ? '#EF4444' : '#F59E0B'),
           borderRadius: 3,
         },
         {
-          label: 'Target',
-          data: [14000, 13000, 11000, 9000, 6500, 8000],
-          backgroundColor: '#CBD5E1',
+          label: 'Reorder Point',
+          data: ropQty.length ? ropQty : [0],
+          backgroundColor: 'rgba(203,213,225,0.7)',
           borderRadius: 3,
         },
       ],
@@ -411,45 +425,45 @@ function initCharts() {
       ...chartDefaults,
       indexAxis: 'y',
       scales: {
-        x: {
-          ...chartDefaults.scales.x,
-          ticks: { ...chartDefaults.scales.x.ticks, callback: (v) => '₱' + v / 1000 + 'K' },
-        },
+        x: { ...chartDefaults.scales.x },
         y: { grid: { display: false }, ticks: { font: { family: 'var(--font-body)', size: 10 } } },
       },
     },
   })
 
-  // Stock Levels
-  new Chart(stockLevelCanvas.value, {
-    type: 'line',
+  // Chart 3 – Monthly Sales bar + trend line
+  stockLevelChart = new Chart(stockLevelCanvas.value, {
+    type: 'bar',
     data: {
-      labels: months,
+      labels: displayLabels,
       datasets: [
         {
-          label: 'Stock Level',
-          data: [400, 450, 640, 680, 720, 900, 880, 1000, 1050, 1100, 1200, 1200],
-          borderColor: '#1A2744',
-          backgroundColor: 'rgba(91,200,192,0.15)',
-          tension: 0.4,
-          pointRadius: 0,
-          fill: true,
-          borderWidth: 2,
+          type: 'bar',
+          label: 'Monthly Sales',
+          data: displaySales,
+          backgroundColor: displaySales.map((_, i) => i === displaySales.length - 1 ? '#3B82F6' : 'rgba(59,130,246,0.45)'),
+          borderRadius: 4,
+          order: 1,
         },
         {
-          label: 'Average',
-          data: [380, 430, 600, 640, 680, 860, 840, 960, 1000, 1060, 1160, 1150],
-          borderColor: '#5BC8C0',
+          type: 'line',
+          label: 'Trend',
+          data: displaySales,
+          borderColor: '#1A2744',
           backgroundColor: 'transparent',
           tension: 0.4,
           pointRadius: 0,
           borderWidth: 2,
+          order: 0,
         },
       ],
     },
     options: {
       ...chartDefaults,
-      scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 1200 } },
+      scales: {
+        ...chartDefaults.scales,
+        y: { ...chartDefaults.scales.y, min: 0, ticks: { ...chartDefaults.scales.y.ticks, callback: currencyTick } },
+      },
     },
   })
 }
@@ -457,6 +471,10 @@ function initCharts() {
 onMounted(async () => {
   await fetchDashboard()
   loading.value = false
+  if (role.value === 'admin') {
+    await nextTick()
+    initCharts()
+  }
   refreshTimer = setInterval(fetchDashboard, 60000)
 })
 

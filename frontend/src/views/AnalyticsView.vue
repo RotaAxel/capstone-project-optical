@@ -1,209 +1,306 @@
 <template>
-  <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h2 class="text-base font-semibold text-gray-800">Predictive Analytics</h2>
-        <p class="text-xs text-gray-500">ARIMA · EOQ · ROP · FSN Analysis</p>
+  <div class="analytics-page fade-up">
+
+    <!-- ── Page Header ─────────────────────────────────────────── -->
+    <div class="page-header">
+      <div class="flex items-center gap-3">
+        <div class="header-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="page-title">Predictive Analytics</h2>
+          <p class="page-sub">ARIMA · EOQ · ROP · FSN — Acebedo Optical</p>
+        </div>
       </div>
-      <button @click="runAnalytics" class="btn-primary" :disabled="running">
-        <svg v-if="running" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-        {{ running ? 'Computing...' : 'Run Analytics' }}
+      <button @click="runAnalytics" class="btn-run" :disabled="running">
+        <svg v-if="running" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <svg v-else width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        {{ running ? 'Computing…' : 'Run Analytics' }}
       </button>
     </div>
 
-    <!-- Model Info Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="card">
-        <p class="text-xs font-semibold text-gray-500 uppercase">ARIMA</p>
-        <p class="text-sm text-gray-700 mt-1">Demand Forecasting</p>
-        <p class="text-xs text-gray-400 mt-1">ARIMA(1,1,1) on 24-week history — AR via Yule-Walker, MA via CSS, with 95% CI</p>
+    <!-- ── Algorithm Info Cards ────────────────────────────────── -->
+    <div class="algo-grid">
+
+      <div class="algo-card algo-blue">
+        <div class="algo-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4"/>
+          </svg>
+        </div>
+        <div>
+          <p class="algo-label">ARIMA</p>
+          <p class="algo-name">Demand Forecast</p>
+          <p class="algo-desc">ARIMA(1,1,1) · Yule-Walker AR · CSS MA · 95% CI</p>
+        </div>
       </div>
-      <div class="card">
-        <p class="text-xs font-semibold text-gray-500 uppercase">EOQ</p>
-        <p class="text-sm text-gray-700 mt-1">Economic Order Quantity</p>
-        <p class="text-xs text-gray-400 mt-1">√(2DS/H) — minimises total ordering + holding cost</p>
+
+      <div class="algo-card algo-purple">
+        <div class="algo-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="algo-label">EOQ</p>
+          <p class="algo-name">Order Quantity</p>
+          <p class="algo-desc">√(2·D·S/H) · minimises ordering + holding cost</p>
+        </div>
       </div>
-      <div class="card">
-        <p class="text-xs font-semibold text-gray-500 uppercase">ROP</p>
-        <p class="text-sm text-gray-700 mt-1">Reorder Point</p>
-        <p class="text-xs text-gray-400 mt-1">ROP = d̄·L + Z·σ·√L (95% service level, 7-day lead time)</p>
+
+      <div class="algo-card algo-orange">
+        <div class="algo-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="algo-label">ROP</p>
+          <p class="algo-name">Reorder Point</p>
+          <p class="algo-desc">d̄·L + Z·σ·√L · 95% service level · 7-day LT</p>
+        </div>
       </div>
-      <div class="card">
-        <p class="text-xs font-semibold text-gray-500 uppercase">FSN</p>
-        <p class="text-sm text-gray-700 mt-1">Fast-Slow-Non Moving</p>
-        <p class="text-xs text-gray-400 mt-1">Activity-based: active weeks ratio over 24-week review window</p>
+
+      <div class="algo-card algo-emerald">
+        <div class="algo-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 4a1 1 0 011-1h16a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h10a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h6a1 1 0 010 2H4a1 1 0 01-1-1z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="algo-label">FSN</p>
+          <p class="algo-name">Movement Class</p>
+          <p class="algo-desc">Activity-based · 24-week review window</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── FSN Summary ─────────────────────────────────────────── -->
+    <div v-if="summary" class="fsn-summary">
+      <div class="fsn-card">
+        <div class="fsn-icon fast">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="fsn-count fast">{{ summary.fsn_summary.fast }}</p>
+          <p class="fsn-lbl">Fast Moving</p>
+          <p class="fsn-sub">products</p>
+        </div>
+      </div>
+      <div class="fsn-card">
+        <div class="fsn-icon slow">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="fsn-count slow">{{ summary.fsn_summary.slow }}</p>
+          <p class="fsn-lbl">Slow Moving</p>
+          <p class="fsn-sub">products</p>
+        </div>
+      </div>
+      <div class="fsn-card">
+        <div class="fsn-icon non">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+          </svg>
+        </div>
+        <div>
+          <p class="fsn-count non">{{ summary.fsn_summary.nonMoving }}</p>
+          <p class="fsn-lbl">Non-Moving</p>
+          <p class="fsn-sub">products</p>
+        </div>
       </div>
     </div>
 
-    <!-- FSN Summary Counters -->
-    <div v-if="summary" class="grid grid-cols-3 gap-4">
-      <div class="card text-center border-l-4 border-l-green-500">
-        <p class="text-xs text-gray-500">Fast Moving</p>
-        <p class="text-3xl font-bold text-green-600 mt-1">{{ summary.fsn_summary.fast }}</p>
-      </div>
-      <div class="card text-center border-l-4 border-l-yellow-400">
-        <p class="text-xs text-gray-500">Slow Moving</p>
-        <p class="text-3xl font-bold text-yellow-600 mt-1">{{ summary.fsn_summary.slow }}</p>
-      </div>
-      <div class="card text-center border-l-4 border-l-red-400">
-        <p class="text-xs text-gray-500">Non-Moving</p>
-        <p class="text-3xl font-bold text-red-600 mt-1">{{ summary.fsn_summary.nonMoving }}</p>
-      </div>
-    </div>
+    <!-- ── Charts ──────────────────────────────────────────────── -->
+    <div v-if="results.length" class="charts-section">
 
-    <!-- ── Charts ──────────────────────────────────────────────────── -->
-    <div v-if="results.length" class="space-y-6">
-
-      <!-- Shared product selector for per-product charts -->
-      <div class="flex items-center gap-3 bg-blue-50 rounded-xl px-4 py-2.5">
-        <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-        </svg>
-        <span class="text-xs text-blue-600 font-medium">Product for ARIMA / EOQ / ROP charts:</span>
-        <select
-          v-model="selectedForecastProduct"
-          class="text-xs border border-blue-200 rounded-lg px-2 py-1 text-blue-700 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400 ml-auto">
+      <!-- Product selector -->
+      <div class="product-selector">
+        <div class="sel-icon">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <span class="sel-label">Viewing product:</span>
+        <select v-model="selectedForecastProduct" class="sel-select">
           <option v-for="r in results" :key="r.product.id" :value="r.product.id">{{ r.product.name }}</option>
         </select>
+        <span class="sel-hint">↑ controls ARIMA · EOQ · ROP charts</span>
       </div>
 
-      <!-- Row 1: ARIMA Forecast + FSN Activity -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Row 1: FSN Activity + ARIMA Forecast -->
+      <div class="chart-row chart-row-1">
 
-        <!-- FSN Activity Analysis -->
-        <div class="card flex flex-col">
-          <h3 class="text-sm font-semibold text-gray-800 mb-1">FSN Activity Analysis</h3>
-          <p class="text-xs text-gray-400 mb-3">% of the last 24 weeks with sales</p>
-          <div class="flex-1" style="min-height:220px">
+        <!-- FSN Activity -->
+        <div class="chart-card">
+          <div class="chart-header ch-emerald">
+            <div class="ch-dot emerald"></div>
+            <div>
+              <p class="ch-title">FSN Analysis</p>
+              <p class="ch-sub">Activity ratio · last 24 weeks</p>
+            </div>
+          </div>
+          <div class="chart-body" style="min-height:240px">
             <Bar :data="fsnActivityData" :options="fsnActivityOptions" />
           </div>
         </div>
 
-        <!-- ARIMA Forecasting Line Chart -->
-        <div class="card lg:col-span-2">
-          <div class="mb-3">
-            <h3 class="text-sm font-semibold text-gray-800">ARIMA(1,1,1) Demand Forecast</h3>
-            <p class="text-xs text-gray-400 mt-0.5">Historical weekly sales (solid) → 4-week forecast (dashed) with 95% CI band</p>
+        <!-- ARIMA Forecast -->
+        <div class="chart-card chart-card-wide">
+          <div class="chart-header ch-blue">
+            <div class="ch-dot blue"></div>
+            <div>
+              <p class="ch-title">ARIMA(1,1,1) Forecast</p>
+              <p class="ch-sub">24-week history → 4-week forecast with 95% CI</p>
+            </div>
+            <div class="ch-legend">
+              <span class="leg-item"><span class="leg-line blue-line"></span>Actual</span>
+              <span class="leg-item"><span class="leg-line orange-dash"></span>Forecast</span>
+              <span class="leg-item"><span class="leg-band"></span>95% CI</span>
+            </div>
           </div>
-          <div class="flex items-center gap-5 mb-3 text-xs text-gray-500">
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block w-6 h-0.5 bg-blue-500 rounded"></span>Actual
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block w-6 h-0 border-t-2 border-dashed border-orange-400"></span>Forecast
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block w-5 h-3 rounded" style="background:rgba(249,115,22,0.15);border:1px dashed rgba(249,115,22,0.4)"></span>95% CI
-            </span>
-          </div>
-          <div style="height:230px">
+          <div class="chart-body" style="min-height:240px">
             <Line :data="forecastLineData" :options="forecastLineOptions" />
           </div>
         </div>
+
       </div>
 
-      <!-- Row 2: EOQ Cost Curve + ROP Inventory Simulation -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Row 2: EOQ + ROP -->
+      <div class="chart-row chart-row-2">
 
         <!-- EOQ Cost Curve -->
-        <div class="card">
-          <div class="mb-3">
-            <h3 class="text-sm font-semibold text-gray-800">EOQ Cost Curve</h3>
-            <p class="text-xs text-gray-400 mt-0.5">EOQ = √(2·D·S/H) — minimises total annual cost</p>
+        <div class="chart-card">
+          <div class="chart-header ch-purple">
+            <div class="ch-dot purple"></div>
+            <div>
+              <p class="ch-title">EOQ Cost Curve</p>
+              <p class="ch-sub">√(2·D·S/H) · optimal order quantity at minimum cost</p>
+            </div>
           </div>
-          <div style="height:260px">
+          <div class="chart-body" style="min-height:260px">
             <Line :data="eoqCurveData" :options="eoqCurveOptions" />
           </div>
         </div>
 
-        <!-- ROP Inventory Simulation -->
-        <div class="card">
-          <div class="mb-3">
-            <h3 class="text-sm font-semibold text-gray-800">ROP Inventory Simulation</h3>
-            <p class="text-xs text-gray-400 mt-0.5">120-day stock-level forecast showing reorder cycles</p>
+        <!-- ROP Simulation -->
+        <div class="chart-card">
+          <div class="chart-header ch-orange">
+            <div class="ch-dot orange"></div>
+            <div>
+              <p class="ch-title">ROP Simulation</p>
+              <p class="ch-sub">120-day inventory cycle · d̄·L + safety stock</p>
+            </div>
+            <div class="ch-legend">
+              <span class="leg-item"><span class="leg-bar blue-bar"></span>Stock</span>
+              <span class="leg-item"><span class="leg-line orange-dash"></span>ROP</span>
+              <span class="leg-item"><span class="leg-line red-dash"></span>Safety Stock</span>
+            </div>
           </div>
-          <div class="flex items-center gap-5 mb-2 text-xs text-gray-500">
-            <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-2 rounded-sm bg-blue-200"></span>Stock</span>
-            <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0 border-t-2 border-dashed border-orange-400"></span>ROP</span>
-            <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0 border-t-2 border-dashed border-red-400"></span>Safety Stock</span>
-          </div>
-          <div style="height:240px">
+          <div class="chart-body" style="min-height:260px">
             <Line :data="ropSimData" :options="ropSimOptions" />
           </div>
         </div>
+
       </div>
 
-      <!-- Row 3: Stock Runway (days until stockout) -->
-      <div class="card">
-        <div class="flex items-center justify-between mb-4">
+      <!-- Row 3: Stock Runway -->
+      <div class="chart-card">
+        <div class="chart-header ch-gray">
+          <div class="ch-dot gray"></div>
           <div>
-            <h3 class="text-sm font-semibold text-gray-800">Stock Runway — Days Until Stockout</h3>
-            <p class="text-xs text-gray-400 mt-0.5">Based on ARIMA avg daily demand forecast</p>
+            <p class="ch-title">Stock Runway</p>
+            <p class="ch-sub">Days until stockout based on ARIMA demand forecast</p>
           </div>
-          <div class="flex items-center gap-4 text-xs text-gray-500">
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block"></span>&lt; 14 days</span>
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block"></span>14–30 days</span>
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block"></span>&gt; 30 days</span>
+          <div class="ch-legend">
+            <span class="leg-item"><span class="leg-dot red-dot"></span>&lt; 14 days</span>
+            <span class="leg-item"><span class="leg-dot yellow-dot"></span>14–30 days</span>
+            <span class="leg-item"><span class="leg-dot green-dot"></span>&gt; 30 days</span>
           </div>
         </div>
-        <div :style="{ height: eoqChartHeight }">
+        <div class="chart-body" :style="{ height: eoqChartHeight }">
           <Bar :data="stockRunwayData" :options="{ ...eoqRopOptions, plugins: { ...eoqRopOptions.plugins, legend: { display: false } } }" />
         </div>
       </div>
+
     </div>
 
-    <!-- Results Table -->
-    <div v-if="results.length" class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div class="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-800">Analytics Results</h3>
-        <p class="text-xs text-gray-400">Computed: {{ computedAt }}</p>
+    <!-- ── Results Table ───────────────────────────────────────── -->
+    <div v-if="results.length" class="results-card">
+      <div class="results-header">
+        <div class="flex items-center gap-2">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          <span class="results-title">Analytics Results</span>
+        </div>
+        <span class="results-computed">Computed: {{ computedAt }}</span>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-50 border-b border-gray-100">
+      <div class="table-wrap">
+        <table class="res-table">
+          <thead>
             <tr>
-              <th class="table-th">Product</th>
-              <th class="table-th">Current Stock</th>
-              <th class="table-th">Predicted Demand (30d)</th>
-              <th class="table-th">EOQ</th>
-              <th class="table-th">ROP</th>
-              <th class="table-th">FSN Class</th>
-              <th class="table-th">Alert</th>
+              <th>Product</th>
+              <th>Current Stock</th>
+              <th>Predicted Demand <span class="th-note">(30d)</span></th>
+              <th>EOQ</th>
+              <th>ROP</th>
+              <th>FSN Class</th>
+              <th>Alert</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-50">
-            <tr v-for="r in results" :key="r.product.id"
-              @click="openDetail(r)"
-              class="hover:bg-blue-50 transition-colors cursor-pointer group">
-              <td class="table-td">
-                <p class="text-sm font-medium text-gray-900 group-hover:text-blue-700">{{ r.product.name }}</p>
-                <p class="text-xs text-gray-400 font-mono">{{ r.product.sku }}</p>
+          <tbody>
+            <tr v-for="r in results" :key="r.product.id" @click="openDetail(r)" class="res-row">
+              <td>
+                <p class="res-product">{{ r.product.name }}</p>
+                <p class="res-sku">{{ r.product.sku }}</p>
               </td>
-              <td class="table-td text-sm" :class="r.product.stock_quantity <= r.product.reorder_point ? 'text-red-600 font-semibold' : 'text-gray-700'">
-                {{ r.product.stock_quantity }}
+              <td>
+                <span :class="r.product.stock_quantity <= r.product.reorder_point ? 'stock-low' : 'stock-ok'">
+                  {{ r.product.stock_quantity }}
+                </span>
               </td>
-              <td class="table-td text-sm text-blue-700 font-medium">{{ r.analytics?.predicted_demand ?? '—' }}</td>
-              <td class="table-td text-sm text-purple-700 font-medium">{{ r.analytics?.eoq_value ?? '—' }}</td>
-              <td class="table-td text-sm text-orange-600 font-medium">{{ r.analytics?.rop_value ?? '—' }}</td>
-              <td class="table-td">
+              <td><span class="val-blue">{{ r.analytics?.predicted_demand ?? '—' }}</span></td>
+              <td><span class="val-purple">{{ r.analytics?.eoq_value ?? '—' }}</span></td>
+              <td><span class="val-orange">{{ r.analytics?.rop_value ?? '—' }}</span></td>
+              <td>
                 <span :class="{
-                  'badge-green':  r.analytics?.fsn_classification === 'fast',
-                  'badge-yellow': r.analytics?.fsn_classification === 'slow',
-                  'badge-red':    r.analytics?.fsn_classification === 'non_moving',
-                  'badge-gray':   !r.analytics?.fsn_classification,
-                }" class="capitalize">
+                  'fsn-pill fast':       r.analytics?.fsn_classification === 'fast',
+                  'fsn-pill slow':       r.analytics?.fsn_classification === 'slow',
+                  'fsn-pill non-moving': r.analytics?.fsn_classification === 'non_moving',
+                  'fsn-pill unknown':    !r.analytics?.fsn_classification,
+                }">
                   {{ r.analytics?.fsn_classification?.replace('_', ' ') ?? '—' }}
                 </span>
               </td>
-              <td class="table-td">
-                <div class="flex items-center gap-2">
-                  <span v-if="r.product.stock_quantity <= r.product.reorder_point" class="badge-red text-xs">⚠ Reorder Now</span>
-                  <span v-else-if="r.analytics?.predicted_demand > r.product.stock_quantity" class="badge-yellow text-xs">⚠ Stock Forecast</span>
-                  <span v-else class="badge-green text-xs">OK</span>
-                  <svg class="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition-colors ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                  </svg>
+              <td>
+                <div class="alert-cell">
+                  <span v-if="r.product.stock_quantity <= r.product.reorder_point" class="alert-pill danger">⚠ Reorder Now</span>
+                  <span v-else-if="r.analytics?.predicted_demand > r.product.stock_quantity" class="alert-pill warn">⚠ Stock Forecast</span>
+                  <span v-else class="alert-pill ok">✓ OK</span>
+                  <span class="view-hint">
+                    View details
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                  </span>
                 </div>
               </td>
             </tr>
@@ -212,238 +309,286 @@
       </div>
     </div>
 
-    <!-- ── Product Detail Slide-over ──────────────────────────────────── -->
+    <!-- ── Empty State ─────────────────────────────────────────── -->
+    <div v-if="!results.length && !running" class="empty-state">
+      <div class="empty-icon">
+        <svg width="30" height="30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <p class="empty-title">No analytics computed yet</p>
+      <p class="empty-sub">Click <strong>Run Analytics</strong> to compute ARIMA, EOQ, ROP, and FSN for all products.</p>
+      <button @click="runAnalytics" class="btn-run mt-4">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Run Analytics
+      </button>
+    </div>
+
+    <!-- ── Product Detail Slide-over ──────────────────────────── -->
     <Teleport to="body">
-      <!-- Backdrop -->
-      <div v-if="selected" class="fixed inset-0 bg-black/40 z-40" @click="selected = null"></div>
+      <div v-if="selected" class="so-backdrop" @click="selected = null"></div>
 
-      <!-- Panel -->
-      <transition enter-active-class="transition-transform duration-300 ease-out"
-                  enter-from-class="translate-x-full"
-                  enter-to-class="translate-x-0"
-                  leave-active-class="transition-transform duration-200 ease-in"
-                  leave-from-class="translate-x-0"
-                  leave-to-class="translate-x-full">
-        <div v-if="selected"
-          class="fixed top-0 right-0 h-full w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
+      <transition
+        enter-active-class="so-enter-active"
+        enter-from-class="so-enter-from"
+        enter-to-class="so-enter-to"
+        leave-active-class="so-leave-active"
+        leave-from-class="so-leave-from"
+        leave-to-class="so-leave-to">
+        <div v-if="selected" class="so-panel">
 
-          <!-- Header -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50 shrink-0">
-            <div>
-              <p class="font-semibold text-gray-900">{{ selected.product.name }}</p>
-              <p class="text-xs text-gray-400 font-mono mt-0.5">{{ selected.product.sku }}</p>
+          <!-- ── Panel Header ───────────────────────────────────── -->
+          <div class="sop-header">
+            <div class="sop-avatar">{{ selected.product.name?.charAt(0)?.toUpperCase() }}</div>
+            <div class="sop-info">
+              <p class="sop-name">{{ selected.product.name }}</p>
+              <p class="sop-sku">{{ selected.product.sku }}</p>
+              <div class="sop-badges">
+                <span :class="{
+                  'sop-fsn-badge fast':       selected.analytics?.fsn_classification === 'fast',
+                  'sop-fsn-badge slow':       selected.analytics?.fsn_classification === 'slow',
+                  'sop-fsn-badge non-moving': selected.analytics?.fsn_classification === 'non_moving',
+                  'sop-fsn-badge unknown':    !selected.analytics?.fsn_classification,
+                }">{{ fsnLabel(selected.analytics?.fsn_classification) }}</span>
+                <span v-if="selected.product.stock_quantity <= selected.product.reorder_point"
+                  class="sop-stock-badge danger">⚠ Below Reorder Point</span>
+                <span v-else class="sop-stock-badge ok">✓ Stock OK</span>
+              </div>
             </div>
-            <button @click="selected = null" class="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-200 transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            <button @click="selected = null" class="sop-close">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
             </button>
           </div>
 
-          <!-- Scrollable body -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          <!-- ── Scrollable Body ────────────────────────────────── -->
+          <div class="sop-body">
 
-            <!-- FSN Badge + status -->
-            <div class="flex items-center gap-3">
-              <span :class="{
-                'bg-green-100 text-green-800':  selected.analytics?.fsn_classification === 'fast',
-                'bg-yellow-100 text-yellow-800':selected.analytics?.fsn_classification === 'slow',
-                'bg-red-100 text-red-800':      selected.analytics?.fsn_classification === 'non_moving',
-                'bg-gray-100 text-gray-600':    !selected.analytics?.fsn_classification,
-              }" class="px-3 py-1 rounded-full text-sm font-semibold capitalize">
-                {{ fsnLabel(selected.analytics?.fsn_classification) }}
-              </span>
-              <span v-if="selected.product.stock_quantity <= selected.product.reorder_point"
-                class="badge-red text-xs">⚠ Below Reorder Point</span>
-              <span v-else class="badge-green text-xs">Stock OK</span>
+            <!-- Stock warning banner -->
+            <div v-if="selected.product.stock_quantity <= selected.product.reorder_point" class="sop-alert-banner">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              </svg>
+              Stock is at or below the reorder point. Consider placing an order now.
             </div>
 
-            <!-- Key Metrics -->
-            <div class="grid grid-cols-2 gap-3">
-              <div class="bg-gray-50 rounded-xl p-4 text-center">
-                <p class="text-xs text-gray-500 mb-1">Current Stock</p>
-                <p class="text-2xl font-bold" :class="selected.product.stock_quantity <= selected.product.reorder_point ? 'text-red-600' : 'text-gray-900'">
+            <!-- ── Key Metrics ──────────────────────────────────── -->
+            <div class="sop-metrics">
+              <div class="sop-metric gray">
+                <div class="sop-metric-icon">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                  </svg>
+                </div>
+                <p class="sop-metric-val" :class="selected.product.stock_quantity <= selected.product.reorder_point ? 'red' : ''">
                   {{ selected.product.stock_quantity }}
                 </p>
-                <p class="text-xs text-gray-400 mt-0.5">units</p>
+                <p class="sop-metric-lbl">Current Stock</p>
+                <p class="sop-metric-unit">units</p>
               </div>
-              <div class="bg-blue-50 rounded-xl p-4 text-center">
-                <p class="text-xs text-blue-600 mb-1">Predicted Demand (30d)</p>
-                <p class="text-2xl font-bold text-blue-700">{{ selected.analytics?.predicted_demand ?? '—' }}</p>
-                <p class="text-xs text-blue-400 mt-0.5">units</p>
+
+              <div class="sop-metric blue">
+                <div class="sop-metric-icon">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4"/>
+                  </svg>
+                </div>
+                <p class="sop-metric-val">{{ selected.analytics?.predicted_demand ?? '—' }}</p>
+                <p class="sop-metric-lbl">Demand (30d)</p>
+                <p class="sop-metric-unit">ARIMA forecast</p>
               </div>
-              <div class="bg-purple-50 rounded-xl p-4 text-center">
-                <p class="text-xs text-purple-600 mb-1">EOQ</p>
-                <p class="text-2xl font-bold text-purple-700">{{ selected.analytics?.eoq_value ?? '—' }}</p>
-                <p class="text-xs text-purple-400 mt-0.5">units/order</p>
+
+              <div class="sop-metric purple">
+                <div class="sop-metric-icon">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                  </svg>
+                </div>
+                <p class="sop-metric-val">{{ selected.analytics?.eoq_value ?? '—' }}</p>
+                <p class="sop-metric-lbl">EOQ</p>
+                <p class="sop-metric-unit">units/order</p>
               </div>
-              <div class="bg-orange-50 rounded-xl p-4 text-center">
-                <p class="text-xs text-orange-600 mb-1">Reorder Point</p>
-                <p class="text-2xl font-bold text-orange-700">{{ selected.analytics?.rop_value ?? '—' }}</p>
-                <p class="text-xs text-orange-400 mt-0.5">units threshold</p>
+
+              <div class="sop-metric orange">
+                <div class="sop-metric-icon">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  </svg>
+                </div>
+                <p class="sop-metric-val">{{ selected.analytics?.rop_value ?? '—' }}</p>
+                <p class="sop-metric-lbl">Reorder Point</p>
+                <p class="sop-metric-unit">units threshold</p>
               </div>
             </div>
 
-            <!-- Stock vs Demand mini bar chart -->
-            <div class="bg-white border border-gray-100 rounded-xl p-4">
-              <p class="text-xs font-semibold text-gray-700 mb-3">Stock vs Demand vs ROP</p>
-              <div style="height:160px">
+            <!-- ── Mini Chart ───────────────────────────────────── -->
+            <div class="sop-chart-card">
+              <div class="sop-chart-header">
+                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Stock vs Demand vs ROP
+              </div>
+              <div style="height:170px; padding: 0 4px 4px;">
                 <Bar :data="detailChartData" :options="detailChartOptions" />
               </div>
             </div>
 
-            <!-- ARIMA Section -->
-            <div class="border border-gray-100 rounded-xl overflow-hidden">
-              <div class="bg-blue-50 px-4 py-2.5 flex items-center gap-2">
-                <span class="text-xs font-bold text-blue-700 uppercase tracking-wider">ARIMA</span>
-                <span class="text-xs text-blue-500">
-                  {{ selected.analytics?.result_data?.used_fallback ? 'Exponential Smoothing (fallback — insufficient history)' : 'ARIMA(1,1,1) Demand Forecast' }}
+            <!-- ── ARIMA Section ─────────────────────────────────── -->
+            <div class="sop-section">
+              <div class="sop-sec-header blue">
+                <div class="sop-sec-tag blue">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4"/>
+                  </svg>
+                  ARIMA
+                </div>
+                <span class="sop-sec-formula">
+                  {{ selected.analytics?.result_data?.used_fallback ? 'Exponential Smoothing (fallback)' : 'ARIMA(1,1,1)' }}
                 </span>
               </div>
-              <div class="p-4 space-y-2">
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Sales last 90 days</span>
-                  <span class="font-semibold">{{ selected.analytics?.result_data?.sales_90d ?? '—' }} units</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Avg daily demand (d̄)</span>
-                  <span class="font-semibold">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span>
-                </div>
+              <div class="sop-sec-body">
+                <div class="sop-kv"><span class="sop-k">Sales last 90 days</span><span class="sop-v">{{ selected.analytics?.result_data?.sales_90d ?? '—' }} units</span></div>
+                <div class="sop-kv"><span class="sop-k">Avg daily demand (d̄)</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
                 <template v-if="!selected.analytics?.result_data?.used_fallback">
-                  <div class="flex justify-between text-sm">
-                    <span class="text-gray-500">AR parameter (φ₁)</span>
-                    <span class="font-semibold font-mono text-blue-700">{{ selected.analytics?.result_data?.ar_param ?? '—' }}</span>
-                  </div>
-                  <div class="flex justify-between text-sm">
-                    <span class="text-gray-500">MA parameter (θ₁)</span>
-                    <span class="font-semibold font-mono text-blue-700">{{ selected.analytics?.result_data?.ma_param ?? '—' }}</span>
-                  </div>
+                  <div class="sop-kv"><span class="sop-k">AR parameter (φ₁)</span><span class="sop-v mono">{{ selected.analytics?.result_data?.ar_param ?? '—' }}</span></div>
+                  <div class="sop-kv"><span class="sop-k">MA parameter (θ₁)</span><span class="sop-v mono">{{ selected.analytics?.result_data?.ma_param ?? '—' }}</span></div>
                 </template>
-                <div class="flex justify-between text-sm border-t pt-2 mt-1">
-                  <span class="text-gray-700 font-medium">Predicted next 30 days</span>
-                  <span class="font-bold text-blue-700">{{ selected.analytics?.predicted_demand ?? '—' }} units</span>
+                <div class="sop-kv"><span class="sop-k">95% Confidence Interval</span><span class="sop-v dim">{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span></div>
+                <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
+                  <span class="sop-v" :class="daysRemaining(selected) < 14 ? 'danger-val' : 'ok-val'">{{ daysRemaining(selected) }} days</span>
                 </div>
-                <div class="flex justify-between text-xs text-gray-400">
-                  <span>95% Confidence Interval</span>
-                  <span>{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span>
+                <div class="sop-result blue">
+                  <span>Predicted demand — next 30 days</span>
+                  <span class="sop-result-val">{{ selected.analytics?.predicted_demand ?? '—' }} units</span>
                 </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Days of stock remaining</span>
-                  <span class="font-semibold" :class="daysRemaining(selected) < 14 ? 'text-red-600' : 'text-green-700'">
-                    {{ daysRemaining(selected) }} days
+              </div>
+            </div>
+
+            <!-- ── EOQ Section ───────────────────────────────────── -->
+            <div class="sop-section">
+              <div class="sop-sec-header purple">
+                <div class="sop-sec-tag purple">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                  </svg>
+                  EOQ
+                </div>
+                <span class="sop-sec-formula">√(2 · D · S / H)</span>
+              </div>
+              <div class="sop-sec-body">
+                <div class="sop-kv"><span class="sop-k">Annual demand (D)</span><span class="sop-v">{{ Math.round(selected.analytics?.result_data?.annual_demand ?? (selected.analytics?.result_data?.avg_daily ?? 0) * 365) }} units/yr</span></div>
+                <div class="sop-kv"><span class="sop-k">Order cost (S)</span><span class="sop-v">₱{{ selected.analytics?.result_data?.order_cost ?? 500 }}.00 / order</span></div>
+                <div class="sop-kv"><span class="sop-k">Holding cost (H = 20% of cost)</span><span class="sop-v">₱{{ selected.analytics?.result_data?.holding_cost ?? holdingCost(selected) }} / unit / yr</span></div>
+                <div class="sop-result purple">
+                  <span>Optimal order quantity (EOQ)</span>
+                  <span class="sop-result-val">{{ selected.analytics?.eoq_value ?? '—' }} units</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── ROP Section ───────────────────────────────────── -->
+            <div class="sop-section">
+              <div class="sop-sec-header orange">
+                <div class="sop-sec-tag orange">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  </svg>
+                  ROP
+                </div>
+                <span class="sop-sec-formula">d̄ · L + Z · σ · √L</span>
+              </div>
+              <div class="sop-sec-body">
+                <div class="sop-kv"><span class="sop-k">Avg daily demand (d̄)</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
+                <div class="sop-kv"><span class="sop-k">Demand std dev (σ)</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.std_daily ?? 0).toFixed(4) }} units/day</span></div>
+                <div class="sop-kv"><span class="sop-k">Lead time (L)</span><span class="sop-v">{{ selected.analytics?.result_data?.lead_time ?? 7 }} days</span></div>
+                <div class="sop-kv"><span class="sop-k">Service level (Z)</span><span class="sop-v">1.645 → {{ selected.analytics?.result_data?.service_level ?? '95%' }}</span></div>
+                <div class="sop-kv"><span class="sop-k">Safety stock (Z · σ · √L)</span><span class="sop-v orange-val">{{ selected.analytics?.result_data?.safety_stock ?? '—' }} units</span></div>
+                <div class="sop-kv"><span class="sop-k">Stock vs ROP status</span>
+                  <span class="sop-v" :class="selected.product.stock_quantity <= (selected.analytics?.rop_value ?? 0) ? 'danger-val' : 'ok-val'">
+                    {{ selected.product.stock_quantity <= (selected.analytics?.rop_value ?? 0) ? '⚠ Order now!' : '✓ Sufficient' }}
                   </span>
                 </div>
-              </div>
-            </div>
-
-            <!-- EOQ Section -->
-            <div class="border border-gray-100 rounded-xl overflow-hidden">
-              <div class="bg-purple-50 px-4 py-2.5 flex items-center gap-2">
-                <span class="text-xs font-bold text-purple-700 uppercase tracking-wider">EOQ</span>
-                <span class="text-xs text-purple-500">Economic Order Quantity — √(2·D·S / H)</span>
-              </div>
-              <div class="p-4 space-y-2">
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Annual demand (D)</span>
-                  <span class="font-semibold">{{ Math.round(selected.analytics?.result_data?.annual_demand ?? (selected.analytics?.result_data?.avg_daily ?? 0) * 365) }} units/yr</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Order cost (S)</span>
-                  <span class="font-semibold">₱{{ selected.analytics?.result_data?.order_cost ?? 500 }}.00 / order</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Holding cost (H = 20% of cost)</span>
-                  <span class="font-semibold">₱{{ selected.analytics?.result_data?.holding_cost ?? holdingCost(selected) }} / unit / yr</span>
-                </div>
-                <div class="flex justify-between text-sm border-t pt-2 mt-1">
-                  <span class="text-gray-700 font-medium">Optimal order qty (EOQ)</span>
-                  <span class="font-bold text-purple-700">{{ selected.analytics?.eoq_value ?? '—' }} units</span>
+                <div class="sop-result orange">
+                  <span>Reorder Point (ROP = d̄·L + SS)</span>
+                  <span class="sop-result-val">{{ selected.analytics?.rop_value ?? '—' }} units</span>
                 </div>
               </div>
             </div>
 
-            <!-- ROP Section -->
-            <div class="border border-gray-100 rounded-xl overflow-hidden">
-              <div class="bg-orange-50 px-4 py-2.5 flex items-center gap-2">
-                <span class="text-xs font-bold text-orange-700 uppercase tracking-wider">ROP</span>
-                <span class="text-xs text-orange-500">Reorder Point — d̄·L + Z·σ·√L</span>
-              </div>
-              <div class="p-4 space-y-2">
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Avg daily demand (d̄)</span>
-                  <span class="font-semibold">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Demand std dev (σ)</span>
-                  <span class="font-semibold">{{ Number(selected.analytics?.result_data?.std_daily ?? 0).toFixed(4) }} units/day</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Lead time (L)</span>
-                  <span class="font-semibold">{{ selected.analytics?.result_data?.lead_time ?? 7 }} days</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Service level (Z = 1.645)</span>
-                  <span class="font-semibold">{{ selected.analytics?.result_data?.service_level ?? '95%' }}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Safety stock (Z·σ·√L)</span>
-                  <span class="font-semibold text-orange-500">{{ selected.analytics?.result_data?.safety_stock ?? '—' }} units</span>
-                </div>
-                <div class="flex justify-between text-sm border-t pt-2 mt-1">
-                  <span class="text-gray-700 font-medium">ROP = d̄·L + SS</span>
-                  <span class="font-bold text-orange-700">{{ selected.analytics?.rop_value ?? '—' }} units</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Current stock vs ROP</span>
-                  <span class="font-semibold" :class="selected.product.stock_quantity <= (selected.analytics?.rop_value ?? 0) ? 'text-red-600' : 'text-green-700'">
-                    {{ selected.product.stock_quantity <= (selected.analytics?.rop_value ?? 0) ? 'Order now!' : 'Sufficient' }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- FSN Section -->
-            <div class="border border-gray-100 rounded-xl overflow-hidden">
-              <div class="px-4 py-2.5 flex items-center gap-2"
-                :class="{
-                  'bg-green-50':  selected.analytics?.fsn_classification === 'fast',
-                  'bg-yellow-50': selected.analytics?.fsn_classification === 'slow',
-                  'bg-red-50':    selected.analytics?.fsn_classification === 'non_moving',
-                  'bg-gray-50':   !selected.analytics?.fsn_classification,
+            <!-- ── FSN Section ───────────────────────────────────── -->
+            <div class="sop-section">
+              <div class="sop-sec-header" :class="{
+                'green':   selected.analytics?.fsn_classification === 'fast',
+                'yellow':  selected.analytics?.fsn_classification === 'slow',
+                'red':     selected.analytics?.fsn_classification === 'non_moving',
+                'neutral': !selected.analytics?.fsn_classification,
+              }">
+                <div class="sop-sec-tag" :class="{
+                  'green':   selected.analytics?.fsn_classification === 'fast',
+                  'yellow':  selected.analytics?.fsn_classification === 'slow',
+                  'red':     selected.analytics?.fsn_classification === 'non_moving',
+                  'neutral': !selected.analytics?.fsn_classification,
                 }">
-                <span class="text-xs font-bold uppercase tracking-wider"
-                  :class="{
-                    'text-green-700':  selected.analytics?.fsn_classification === 'fast',
-                    'text-yellow-700': selected.analytics?.fsn_classification === 'slow',
-                    'text-red-700':    selected.analytics?.fsn_classification === 'non_moving',
-                    'text-gray-600':   !selected.analytics?.fsn_classification,
-                  }">FSN</span>
-                <span class="text-xs text-gray-500">Classification</span>
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 4a1 1 0 011-1h16a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h10a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h6a1 1 0 010 2H4a1 1 0 01-1-1z"/>
+                  </svg>
+                  FSN
+                </div>
+                <span class="sop-sec-formula">Activity-based classification</span>
               </div>
-              <div class="p-4 space-y-2">
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Active weeks (last 24 weeks)</span>
-                  <span class="font-semibold">{{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 24 }}</span>
+              <div class="sop-sec-body">
+                <!-- Activity ratio progress bar -->
+                <div class="sop-activity-bar">
+                  <div class="sop-activity-labels">
+                    <span>Activity ratio</span>
+                    <span class="sop-activity-pct">{{ ((selected.analytics?.result_data?.activity_ratio ?? 0) * 100).toFixed(1) }}%</span>
+                  </div>
+                  <div class="sop-activity-track">
+                    <div class="sop-activity-fill" :class="{
+                      'fast':  selected.analytics?.fsn_classification === 'fast',
+                      'slow':  selected.analytics?.fsn_classification === 'slow',
+                      'non':   selected.analytics?.fsn_classification === 'non_moving',
+                    }" :style="{ width: ((selected.analytics?.result_data?.activity_ratio ?? 0) * 100).toFixed(1) + '%' }"></div>
+                    <div class="sop-activity-marker" style="left: 50%" title="Fast threshold (50%)"></div>
+                    <div class="sop-activity-marker" style="left: 10%" title="Non-moving threshold (10%)"></div>
+                  </div>
+                  <div class="sop-activity-legend">
+                    <span>Non-moving &lt;10%</span>
+                    <span>Slow 10–50%</span>
+                    <span>Fast ≥50%</span>
+                  </div>
                 </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Activity ratio</span>
-                  <span class="font-semibold">{{ ((selected.analytics?.result_data?.activity_ratio ?? 0) * 100).toFixed(1) }}%</span>
+                <div class="sop-kv"><span class="sop-k">Active weeks (last 24)</span><span class="sop-v">{{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 24 }} weeks</span></div>
+                <div class="sop-kv"><span class="sop-k">Last sale date</span><span class="sop-v">{{ selected.analytics?.result_data?.last_sale_date ?? 'No sales recorded' }}</span></div>
+                <div class="sop-kv"><span class="sop-k">Avg daily demand</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
+                <div class="sop-result" :class="{
+                  'green':   selected.analytics?.fsn_classification === 'fast',
+                  'yellow':  selected.analytics?.fsn_classification === 'slow',
+                  'red':     selected.analytics?.fsn_classification === 'non_moving',
+                  'neutral': !selected.analytics?.fsn_classification,
+                }">
+                  <span>FSN Classification</span>
+                  <span class="sop-result-val capitalize">{{ fsnLabel(selected.analytics?.fsn_classification) }}</span>
                 </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Last sale date</span>
-                  <span class="font-semibold">{{ selected.analytics?.result_data?.last_sale_date ?? 'No sales recorded' }}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-500">Avg daily demand</span>
-                  <span class="font-semibold">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span>
-                </div>
-                <div class="flex justify-between text-sm border-t pt-2 mt-1">
-                  <span class="text-gray-700 font-medium">Classification</span>
-                  <span class="font-bold capitalize" :class="{
-                    'text-green-700':  selected.analytics?.fsn_classification === 'fast',
-                    'text-yellow-700': selected.analytics?.fsn_classification === 'slow',
-                    'text-red-700':    selected.analytics?.fsn_classification === 'non_moving',
-                  }">{{ fsnLabel(selected.analytics?.fsn_classification) }}</span>
-                </div>
-                <p class="text-xs text-gray-400 mt-1 leading-relaxed">{{ fsnDescription(selected.analytics?.fsn_classification) }}</p>
+                <p class="sop-fsn-note" :class="{
+                  'fast':  selected.analytics?.fsn_classification === 'fast',
+                  'slow':  selected.analytics?.fsn_classification === 'slow',
+                  'non':   selected.analytics?.fsn_classification === 'non_moving',
+                }">{{ fsnDescription(selected.analytics?.fsn_classification) }}</p>
               </div>
             </div>
 
@@ -452,13 +597,6 @@
       </transition>
     </Teleport>
 
-    <!-- Empty state -->
-    <div v-if="!results.length && !running" class="card text-center py-12">
-      <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
-      </svg>
-      <p class="text-gray-500 text-sm">Click <strong>Run Analytics</strong> to compute ARIMA, EOQ, ROP, and FSN for all products.</p>
-    </div>
   </div>
 </template>
 
@@ -547,14 +685,9 @@ const detailChartOptions = {
   },
 }
 
-// ── Derived chart datasets ──────────────────────────────────────────
-
 const productLabels = computed(() => results.value.map(r => r.product.sku ?? r.product.name))
 
-
 const eoqChartHeight = computed(() => Math.max(260, results.value.length * 36) + 'px')
-
-// ── ARIMA Forecast Line Chart ───────────────────────────────────────
 
 const selectedForecastRow = computed(() =>
   results.value.find(r => r.product.id === selectedForecastProduct.value) ?? null
@@ -576,7 +709,6 @@ const forecastLineData = computed(() => {
   for (let i = histLen - 1; i >= 0; i--) labels.push(i === 0 ? 'Now' : `−${i}w`)
   for (let i = 1; i <= fLen; i++)        labels.push(`+${i}w`)
 
-  // CI margin grows with forecast horizon: base × √h
   const halfRange  = ((rd.conf_upper_30d ?? 0) - (rd.conf_lower_30d ?? 0)) / 2
   const weeklyBase = halfRange / Math.max(1, Math.sqrt(fLen))
   const upperCI    = forecastWeeks.map((v, i) => v + weeklyBase * Math.sqrt(i + 1))
@@ -649,39 +781,19 @@ const forecastLineOptions = {
   plugins: {
     legend: {
       position: 'top',
-      labels: {
-        font: { size: 11 },
-        boxWidth: 14,
-        padding: 12,
-        filter: item => !item.text.startsWith('95% CI'),
-      },
+      labels: { font: { size: 11 }, boxWidth: 14, padding: 12, filter: item => !item.text.startsWith('95% CI') },
     },
     tooltip: {
-      mode: 'index',
-      intersect: false,
-      callbacks: {
-        label: ctx => {
-          if (ctx.parsed.y === null) return null
-          return ` ${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(1)} units`
-        },
-      },
+      mode: 'index', intersect: false,
+      callbacks: { label: ctx => ctx.parsed.y === null ? null : ` ${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(1)} units` },
     },
   },
   scales: {
-    x: {
-      ticks: { font: { size: 10 } },
-      grid: { color: '#f3f4f6' },
-    },
-    y: {
-      beginAtZero: true,
-      ticks: { font: { size: 10 } },
-      grid: { color: '#f3f4f6' },
-      title: { display: true, text: 'Units / week', font: { size: 10 }, color: '#9ca3af' },
-    },
+    x: { ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' } },
+    y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' },
+         title: { display: true, text: 'Units / week', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
-
-// ── Stock Runway Chart ─────────────────────────────────────────────
 
 const stockRunwayData = computed(() => ({
   labels: productLabels.value,
@@ -705,12 +817,9 @@ const stockRunwayData = computed(() => ({
       if (days < 30) return '#ca8a04'
       return '#16a34a'
     }),
-    borderWidth: 1,
-    borderRadius: 4,
+    borderWidth: 1, borderRadius: 4,
   }],
 }))
-
-// ── EOQ Cost Curve ─────────────────────────────────────────────────
 
 const eoqCurveData = computed(() => {
   const r = selectedForecastRow.value
@@ -732,7 +841,6 @@ const eoqCurveData = computed(() => {
   const holdCosts  = qty.map(q => (H * q) / 2)
   const totalCosts = qty.map((_, i) => orderCosts[i] + holdCosts[i])
 
-  // Find the label index closest to EOQ to place the marker
   const eoqIdx   = qty.reduce((b, q, i) => Math.abs(q - eoq) < Math.abs(qty[b] - eoq) ? i : b, 0)
   const eoqMarker = Array(steps).fill(null)
   eoqMarker[eoqIdx] = totalCosts[eoqIdx]
@@ -740,88 +848,26 @@ const eoqCurveData = computed(() => {
   return {
     labels: qty.map(String),
     datasets: [
-      {
-        label: 'Total Cost  TC = D·S/Q + H·Q/2',
-        data: totalCosts,
-        borderColor: '#3b82f6',
-        borderWidth: 2.5,
-        pointRadius: 0,
-        tension: 0.3,
-        fill: false,
-        order: 3,
-      },
-      {
-        label: 'Ordering Cost  D·S/Q',
-        data: orderCosts,
-        borderColor: '#f97316',
-        borderWidth: 1.5,
-        borderDash: [6, 4],
-        pointRadius: 0,
-        tension: 0.15,
-        fill: false,
-        order: 2,
-      },
-      {
-        label: 'Holding Cost  H·Q/2',
-        data: holdCosts,
-        borderColor: '#22c55e',
-        borderWidth: 1.5,
-        borderDash: [6, 4],
-        pointRadius: 0,
-        tension: 0.15,
-        fill: false,
-        order: 1,
-      },
-      {
-        label: `EOQ = ${Math.round(eoq)} units`,
-        data: eoqMarker,
-        borderColor: '#7c3aed',
-        backgroundColor: '#7c3aed',
-        borderWidth: 0,
-        pointRadius: eoqMarker.map(v => v !== null ? 9 : 0),
-        pointHoverRadius: 11,
-        showLine: false,
-        order: 4,
-      },
+      { label: 'Total Cost  TC = D·S/Q + H·Q/2', data: totalCosts, borderColor: '#3b82f6', borderWidth: 2.5, pointRadius: 0, tension: 0.3, fill: false, order: 3 },
+      { label: 'Ordering Cost  D·S/Q', data: orderCosts, borderColor: '#f97316', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0.15, fill: false, order: 2 },
+      { label: 'Holding Cost  H·Q/2', data: holdCosts, borderColor: '#22c55e', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0.15, fill: false, order: 1 },
+      { label: `EOQ = ${Math.round(eoq)} units`, data: eoqMarker, borderColor: '#7c3aed', backgroundColor: '#7c3aed', borderWidth: 0, pointRadius: eoqMarker.map(v => v !== null ? 9 : 0), pointHoverRadius: 11, showLine: false, order: 4 },
     ],
   }
 })
 
 const eoqCurveOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
+  responsive: true, maintainAspectRatio: false,
   plugins: {
-    legend: {
-      position: 'top',
-      labels: { font: { size: 10 }, boxWidth: 14, padding: 10 },
-    },
-    tooltip: {
-      mode: 'index',
-      intersect: false,
-      callbacks: {
-        title: ctx => `Order Qty: ${ctx[0]?.label} units`,
-        label: ctx => ctx.parsed.y !== null
-          ? ` ${ctx.dataset.label}: ₱${Number(ctx.parsed.y).toFixed(2)}`
-          : null,
-      },
-    },
+    legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 14, padding: 10 } },
+    tooltip: { mode: 'index', intersect: false,
+      callbacks: { title: ctx => `Order Qty: ${ctx[0]?.label} units`, label: ctx => ctx.parsed.y !== null ? ` ${ctx.dataset.label}: ₱${Number(ctx.parsed.y).toFixed(2)}` : null } },
   },
   scales: {
-    x: {
-      ticks: { font: { size: 9 }, maxTicksLimit: 10 },
-      grid: { color: '#f3f4f6' },
-      title: { display: true, text: 'Order Quantity (units)', font: { size: 10 }, color: '#9ca3af' },
-    },
-    y: {
-      beginAtZero: true,
-      ticks: { font: { size: 9 }, callback: v => '₱' + Number(v).toLocaleString('en-PH') },
-      grid: { color: '#f3f4f6' },
-      title: { display: true, text: 'Annual Cost (₱)', font: { size: 10 }, color: '#9ca3af' },
-    },
+    x: { ticks: { font: { size: 9 }, maxTicksLimit: 10 }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'Order Quantity (units)', font: { size: 10 }, color: '#9ca3af' } },
+    y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => '₱' + Number(v).toLocaleString('en-PH') }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'Annual Cost (₱)', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
-
-// ── ROP Inventory Simulation ────────────────────────────────────────
 
 const ropSimData = computed(() => {
   const r = selectedForecastRow.value
@@ -837,16 +883,12 @@ const ropSimData = computed(() => {
 
   if (!avgDaily) return { labels: [], datasets: [] }
 
-  // Simulate 120 days (sawtooth inventory pattern)
   const simDays   = 120
   const stockData = []
-  let   pendingOrder = null   // day when restocking arrives
+  let   pendingOrder = null
 
   for (let d = 0; d <= simDays; d++) {
-    if (pendingOrder !== null && d === pendingOrder) {
-      stock += eoq
-      pendingOrder = null
-    }
+    if (pendingOrder !== null && d === pendingOrder) { stock += eoq; pendingOrder = null }
     stockData.push(Math.max(0, stock))
     if (stock <= rop && pendingOrder === null) pendingOrder = d + lt
     stock -= avgDaily
@@ -857,182 +899,57 @@ const ropSimData = computed(() => {
   return {
     labels,
     datasets: [
-      {
-        label: 'Stock Level',
-        data: stockData,
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59,130,246,0.08)',
-        borderWidth: 2,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        tension: 0,
-        fill: true,
-        order: 3,
-      },
-      {
-        label: `ROP (${Math.round(rop)} units)`,
-        data: Array(simDays + 1).fill(rop),
-        borderColor: '#f97316',
-        borderWidth: 2,
-        borderDash: [6, 4],
-        pointRadius: 0,
-        tension: 0,
-        fill: false,
-        order: 2,
-      },
-      {
-        label: `Safety Stock (${Math.round(ss)} units)`,
-        data: Array(simDays + 1).fill(ss),
-        borderColor: '#ef4444',
-        borderWidth: 1.5,
-        borderDash: [3, 3],
-        pointRadius: 0,
-        tension: 0,
-        fill: false,
-        order: 1,
-      },
+      { label: 'Stock Level', data: stockData, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0, fill: true, order: 3 },
+      { label: `ROP (${Math.round(rop)} units)`, data: Array(simDays + 1).fill(rop), borderColor: '#f97316', borderWidth: 2, borderDash: [6,4], pointRadius: 0, tension: 0, fill: false, order: 2 },
+      { label: `Safety Stock (${Math.round(ss)} units)`, data: Array(simDays + 1).fill(ss), borderColor: '#ef4444', borderWidth: 1.5, borderDash: [3,3], pointRadius: 0, tension: 0, fill: false, order: 1 },
     ],
   }
 })
 
 const ropSimOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
+  responsive: true, maintainAspectRatio: false,
   plugins: {
-    legend: {
-      position: 'top',
-      labels: { font: { size: 10 }, boxWidth: 14, padding: 10 },
-    },
-    tooltip: {
-      mode: 'index',
-      intersect: false,
-      callbacks: {
-        title: ctx => `Day ${ctx[0]?.dataIndex}`,
-        label: ctx => ctx.parsed.y !== null
-          ? ` ${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(1)} units`
-          : null,
-      },
-    },
+    legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 14, padding: 10 } },
+    tooltip: { mode: 'index', intersect: false, callbacks: { title: ctx => `Day ${ctx[0]?.dataIndex}`, label: ctx => ctx.parsed.y !== null ? ` ${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(1)} units` : null } },
   },
   scales: {
-    x: {
-      ticks: { font: { size: 9 }, maxTicksLimit: 13 },
-      grid: { color: '#f3f4f6' },
-      title: { display: true, text: 'Days', font: { size: 10 }, color: '#9ca3af' },
-    },
-    y: {
-      beginAtZero: true,
-      ticks: { font: { size: 9 } },
-      grid: { color: '#f3f4f6' },
-      title: { display: true, text: 'Stock Level (units)', font: { size: 10 }, color: '#9ca3af' },
-    },
+    x: { ticks: { font: { size: 9 }, maxTicksLimit: 13 }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'Days', font: { size: 10 }, color: '#9ca3af' } },
+    y: { beginAtZero: true, ticks: { font: { size: 9 } }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'Stock Level (units)', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
 
-// ── FSN Activity Analysis ───────────────────────────────────────────
-
 const fsnActivityData = computed(() => {
   const labels = productLabels.value
-  const actPct = results.value.map(r =>
-    Math.round((r.analytics?.result_data?.activity_ratio ?? 0) * 100)
-  )
-  const barColors = results.value.map(r => {
-    const cls = r.analytics?.fsn_classification
-    return cls === 'fast' ? 'rgba(34,197,94,0.75)'
-         : cls === 'slow' ? 'rgba(250,204,21,0.75)'
-         :                  'rgba(248,113,113,0.75)'
-  })
-  const borderColors = results.value.map(r => {
-    const cls = r.analytics?.fsn_classification
-    return cls === 'fast' ? '#16a34a' : cls === 'slow' ? '#ca8a04' : '#ef4444'
-  })
+  const actPct = results.value.map(r => Math.round((r.analytics?.result_data?.activity_ratio ?? 0) * 100))
+  const barColors   = results.value.map(r => ({ fast: 'rgba(34,197,94,0.75)', slow: 'rgba(250,204,21,0.75)' }[r.analytics?.fsn_classification] ?? 'rgba(248,113,113,0.75)'))
+  const borderColors = results.value.map(r => ({ fast: '#16a34a', slow: '#ca8a04' }[r.analytics?.fsn_classification] ?? '#ef4444'))
   const n = labels.length
   return {
     labels,
     datasets: [
-      {
-        type: 'bar',
-        label: 'Activity Ratio (%)',
-        data: actPct,
-        backgroundColor: barColors,
-        borderColor: borderColors,
-        borderWidth: 1,
-        borderRadius: 4,
-        order: 2,
-      },
-      {
-        type: 'line',
-        label: 'Fast threshold (50%)',
-        data: Array(n).fill(50),
-        borderColor: '#16a34a',
-        borderWidth: 1.5,
-        borderDash: [5, 4],
-        pointRadius: 0,
-        fill: false,
-        order: 1,
-      },
-      {
-        type: 'line',
-        label: 'Non-moving threshold (10%)',
-        data: Array(n).fill(10),
-        borderColor: '#ef4444',
-        borderWidth: 1.5,
-        borderDash: [5, 4],
-        pointRadius: 0,
-        fill: false,
-        order: 0,
-      },
+      { type: 'bar', label: 'Activity Ratio (%)', data: actPct, backgroundColor: barColors, borderColor: borderColors, borderWidth: 1, borderRadius: 4, order: 2 },
+      { type: 'line', label: 'Fast threshold (50%)', data: Array(n).fill(50), borderColor: '#16a34a', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 1 },
+      { type: 'line', label: 'Non-moving threshold (10%)', data: Array(n).fill(10), borderColor: '#ef4444', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 0 },
     ],
   }
 })
 
 const fsnActivityOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
+  responsive: true, maintainAspectRatio: false,
   plugins: {
-    legend: {
-      position: 'top',
-      labels: { font: { size: 10 }, boxWidth: 14, padding: 10 },
-    },
-    tooltip: {
-      mode: 'index',
-      intersect: false,
-      callbacks: {
-        label: ctx => ctx.parsed.y !== null
-          ? ` ${ctx.dataset.label}: ${ctx.parsed.y}%`
-          : null,
-      },
-    },
+    legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 14, padding: 10 } },
+    tooltip: { mode: 'index', intersect: false, callbacks: { label: ctx => ctx.parsed.y !== null ? ` ${ctx.dataset.label}: ${ctx.parsed.y}%` : null } },
   },
   scales: {
-    x: {
-      ticks: { font: { size: 10 }, maxRotation: 40, minRotation: 0 },
-      grid: { display: false },
-    },
-    y: {
-      beginAtZero: true,
-      max: 105,
-      ticks: { font: { size: 10 }, callback: v => v + '%' },
-      grid: { color: '#f3f4f6' },
-      title: {
-        display: true,
-        text: '% of weeks with sales activity (last 24 weeks)',
-        font: { size: 10 },
-        color: '#9ca3af',
-      },
-    },
+    x: { ticks: { font: { size: 10 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
+    y: { beginAtZero: true, max: 105, ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#f3f4f6' },
+         title: { display: true, text: '% of weeks with sales activity (last 24 weeks)', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
 
-// ── Chart options ───────────────────────────────────────────────────
-
 const barOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12, padding: 16 } },
-    tooltip: { mode: 'index', intersect: false },
-  },
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12, padding: 16 } }, tooltip: { mode: 'index', intersect: false } },
   scales: {
     x: { ticks: { font: { size: 10 }, maxRotation: 35, minRotation: 0 }, grid: { display: false } },
     y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' } },
@@ -1047,8 +964,6 @@ const eoqRopOptions = {
     x: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' } },
   },
 }
-
-// ── Data fetching ───────────────────────────────────────────────────
 
 async function runAnalytics() {
   running.value = true
@@ -1073,3 +988,406 @@ async function loadSummary() {
 
 onMounted(loadSummary)
 </script>
+
+<style scoped>
+.analytics-page { padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 24px; }
+
+/* Header */
+.page-header { display: flex; align-items: center; justify-content: space-between; }
+.header-icon { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #3b82f6, #2563eb); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 4px 12px rgba(59,130,246,.35); flex-shrink: 0; }
+.page-title  { font-size: 1.25rem; font-weight: 800; color: #111827; margin: 0; }
+.page-sub    { font-size: 12px; color: #6b7280; margin: 2px 0 0; }
+.btn-run     { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: none; border-radius: 11px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: 0 4px 12px rgba(59,130,246,.35); transition: all .2s; }
+.btn-run:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(59,130,246,.45); }
+.btn-run:disabled { opacity: .65; cursor: not-allowed; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Algorithm cards */
+.algo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.algo-card { background: #fff; border-radius: 14px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 8px rgba(0,0,0,.04); padding: 16px 18px; display: flex; align-items: flex-start; gap: 12px; border-top-width: 4px; }
+.algo-card.algo-blue   { border-top-color: #3b82f6; }
+.algo-card.algo-purple { border-top-color: #a855f7; }
+.algo-card.algo-orange { border-top-color: #f97316; }
+.algo-card.algo-emerald { border-top-color: #10b981; }
+.algo-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.algo-blue   .algo-icon { background: #eff6ff; color: #2563eb; }
+.algo-purple .algo-icon { background: #f5f3ff; color: #9333ea; }
+.algo-orange .algo-icon { background: #fff7ed; color: #ea580c; }
+.algo-emerald .algo-icon { background: #ecfdf5; color: #059669; }
+.algo-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+.algo-blue   .algo-label { color: #2563eb; }
+.algo-purple .algo-label { color: #9333ea; }
+.algo-orange .algo-label { color: #ea580c; }
+.algo-emerald .algo-label { color: #059669; }
+.algo-name  { font-size: 13px; font-weight: 700; color: #111827; margin: 3px 0; }
+.algo-desc  { font-size: 11px; color: #9ca3af; line-height: 1.5; }
+
+/* FSN Summary */
+.fsn-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.fsn-card    { background: #fff; border-radius: 14px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 8px rgba(0,0,0,.04); padding: 18px 20px; display: flex; align-items: center; gap: 16px; }
+.fsn-icon    { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.fsn-icon.fast { background: #ecfdf5; color: #059669; }
+.fsn-icon.slow { background: #fefce8; color: #ca8a04; }
+.fsn-icon.non  { background: #fef2f2; color: #dc2626; }
+.fsn-count   { font-size: 2rem; font-weight: 800; line-height: 1; }
+.fsn-count.fast { color: #059669; }
+.fsn-count.slow { color: #ca8a04; }
+.fsn-count.non  { color: #dc2626; }
+.fsn-lbl     { font-size: 12px; font-weight: 700; color: #374151; margin-top: 2px; }
+.fsn-sub     { font-size: 11px; color: #9ca3af; }
+
+/* Charts */
+.charts-section { display: flex; flex-direction: column; gap: 20px; }
+
+.product-selector { display: flex; align-items: center; gap: 12px; background: #fff; border: 1.5px solid #dbeafe; border-radius: 12px; padding: 12px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.04); flex-wrap: wrap; }
+.sel-icon  { width: 28px; height: 28px; border-radius: 7px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sel-label { font-size: 12px; font-weight: 700; color: #374151; }
+.sel-select { border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-family: inherit; color: #374151; background: #f9fafb; outline: none; cursor: pointer; min-width: 180px; transition: border-color .2s; }
+.sel-select:focus { border-color: #3b82f6; }
+.sel-hint  { font-size: 11px; color: #9ca3af; margin-left: auto; }
+
+.chart-row   { display: grid; gap: 20px; }
+.chart-row-1 { grid-template-columns: 1fr 2fr; }
+.chart-row-2 { grid-template-columns: 1fr 1fr; }
+
+.chart-card  { background: #fff; border-radius: 14px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 8px rgba(0,0,0,.04); overflow: hidden; display: flex; flex-direction: column; }
+.chart-card-wide { }
+
+.chart-header { display: flex; align-items: flex-start; gap: 10px; padding: 14px 18px; border-bottom: 1.5px solid transparent; flex-wrap: wrap; }
+.ch-blue   { background: #eff6ff; border-bottom-color: #dbeafe; }
+.ch-purple { background: #f5f3ff; border-bottom-color: #ede9fe; }
+.ch-orange { background: #fff7ed; border-bottom-color: #fed7aa; }
+.ch-emerald { background: #ecfdf5; border-bottom-color: #d1fae5; }
+.ch-gray   { background: #f9fafb; border-bottom-color: #f3f4f6; }
+
+.ch-dot    { width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0; margin-top: 1px; }
+.ch-dot.blue    { background: #3b82f6; }
+.ch-dot.purple  { background: #a855f7; }
+.ch-dot.orange  { background: #f97316; }
+.ch-dot.emerald { background: #10b981; }
+.ch-dot.gray    { background: #6b7280; }
+
+.ch-title  { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #374151; }
+.ch-sub    { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.ch-legend { display: flex; align-items: center; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+.leg-item  { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #6b7280; }
+.leg-line  { display: inline-block; width: 20px; height: 2px; border-radius: 1px; }
+.blue-line   { background: #3b82f6; }
+.orange-dash { background: none; border-top: 2px dashed #f97316; }
+.red-dash    { background: none; border-top: 2px dashed #ef4444; }
+.leg-band    { display: inline-block; width: 16px; height: 10px; border-radius: 2px; background: rgba(249,115,22,0.2); border: 1px dashed rgba(249,115,22,.5); }
+.leg-bar     { display: inline-block; width: 14px; height: 8px; border-radius: 2px; }
+.blue-bar    { background: rgba(59,130,246,0.4); }
+.leg-dot     { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.red-dot     { background: rgba(239,68,68,0.75); }
+.yellow-dot  { background: rgba(234,179,8,0.75); }
+.green-dot   { background: rgba(34,197,94,0.75); }
+
+.chart-body { padding: 16px; flex: 1; }
+
+/* Results table */
+.results-card   { background: #fff; border-radius: 16px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 12px rgba(0,0,0,.05); overflow: hidden; }
+.results-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #f9fafb; border-bottom: 1.5px solid #f3f4f6; font-size: 13px; color: #4b5563; }
+.results-title  { font-weight: 700; color: #111827; }
+.results-computed { font-size: 11px; color: #9ca3af; }
+.table-wrap     { overflow-x: auto; }
+
+.res-table { width: 100%; border-collapse: collapse; }
+.res-table thead tr { background: #f9fafb; border-bottom: 2px solid #f3f4f6; }
+.res-table thead th { padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+.th-note { font-size: 10px; font-weight: 500; color: #9ca3af; }
+.res-table tbody tr { border-bottom: 1px solid #f9fafb; transition: background .15s; cursor: pointer; }
+.res-table tbody tr:hover { background: #eff6ff; }
+.res-table td { padding: 13px 16px; font-size: 13px; color: #374151; vertical-align: middle; }
+.res-product { font-weight: 700; color: #111827; }
+.res-sku     { font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace; margin-top: 2px; }
+.stock-ok    { font-weight: 700; color: #059669; }
+.stock-low   { font-weight: 700; color: #dc2626; }
+.val-blue    { font-weight: 700; color: #2563eb; }
+.val-purple  { font-weight: 700; color: #9333ea; }
+.val-orange  { font-weight: 700; color: #ea580c; }
+
+.fsn-pill    { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: capitalize; }
+.fsn-pill.fast        { background: #dcfce7; color: #15803d; }
+.fsn-pill.slow        { background: #fef9c3; color: #92400e; }
+.fsn-pill.non-moving  { background: #fee2e2; color: #b91c1c; }
+.fsn-pill.unknown     { background: #f3f4f6; color: #6b7280; }
+
+.alert-pill  { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.alert-pill.danger { background: #fee2e2; color: #b91c1c; }
+.alert-pill.warn   { background: #fef9c3; color: #92400e; }
+.alert-pill.ok     { background: #dcfce7; color: #15803d; }
+
+/* Empty state */
+.empty-state { padding: 64px 20px; text-align: center; background: #fff; border-radius: 16px; border: 2px dashed #e5e7eb; display: flex; flex-direction: column; align-items: center; }
+.empty-icon  { width: 64px; height: 64px; border-radius: 16px; background: #eff6ff; color: #93c5fd; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.empty-title { font-size: 15px; font-weight: 700; color: #374151; margin-bottom: 6px; }
+.empty-sub   { font-size: 13px; color: #9ca3af; margin-bottom: 4px; }
+
+/* Slide-over backdrop + panel */
+.so-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 9998;
+}
+.so-panel {
+  position: fixed; top: 0; right: 0;
+  height: 100%; width: 100%; max-width: 480px;
+  background: #fff;
+  box-shadow: -8px 0 40px rgba(0,0,0,.18);
+  z-index: 9999;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* Slide transition */
+.so-enter-active { transition: transform 0.3s cubic-bezier(.22,.68,0,1.2); }
+.so-leave-active { transition: transform 0.2s ease-in; }
+.so-enter-from, .so-leave-to { transform: translateX(100%); }
+.so-enter-to, .so-leave-from { transform: translateX(0); }
+
+/* Alert cell with view hint */
+.alert-cell { display: flex; align-items: center; gap: 8px; }
+.view-hint  { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: #6366f1; font-weight: 600; opacity: 0; transition: opacity .2s; white-space: nowrap; }
+.res-table tbody tr:hover .view-hint { opacity: 1; }
+
+/* Slide-over sections */
+.so-section  { border: 1.5px solid #f3f4f6; border-radius: 12px; overflow: hidden; }
+.so-header   { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
+.so-header.blue    { background: #eff6ff; }
+.so-header.purple  { background: #f5f3ff; }
+.so-header.orange  { background: #fff7ed; }
+.so-header.green   { background: #ecfdf5; }
+.so-header.yellow  { background: #fefce8; }
+.so-header.red     { background: #fef2f2; }
+.so-header.neutral { background: #f9fafb; }
+.so-tag  { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; }
+.so-header.blue .so-tag    { color: #2563eb; }
+.so-header.purple .so-tag  { color: #9333ea; }
+.so-header.orange .so-tag  { color: #ea580c; }
+.so-header.green .so-tag   { color: #059669; }
+.so-header.yellow .so-tag  { color: #92400e; }
+.so-header.red .so-tag     { color: #b91c1c; }
+.so-header.neutral .so-tag { color: #6b7280; }
+.so-desc { font-size: 11px; color: #9ca3af; }
+.so-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.so-row  { display: flex; justify-content: space-between; font-size: 13px; color: #374151; }
+.so-row span:first-child { color: #6b7280; }
+.so-total { border-top: 1.5px solid #f3f4f6; padding-top: 8px; margin-top: 2px; font-weight: 700; color: #111827; }
+.so-total span:first-child { color: #374151; }
+.so-dim  { font-size: 11px; color: #9ca3af; }
+.so-note { font-size: 11px; color: #9ca3af; line-height: 1.6; padding-top: 4px; border-top: 1.5px solid #f3f4f6; margin-top: 4px; }
+.so-mono { font-family: 'Courier New', monospace; font-size: 12px; }
+.so-mono.blue   { color: #2563eb; }
+span.blue   { color: #2563eb; }
+span.purple { color: #9333ea; }
+span.orange { color: #ea580c; }
+
+@media (max-width: 1024px) { .algo-grid { grid-template-columns: repeat(2, 1fr); } .chart-row-1 { grid-template-columns: 1fr; } .chart-row-2 { grid-template-columns: 1fr; } .fsn-summary { grid-template-columns: 1fr; } }
+@media (max-width: 640px)  { .algo-grid { grid-template-columns: 1fr; } .analytics-page { padding: 16px; } }
+
+/* ── Slide-over Panel Content (.sop-*) ─────────────────── */
+
+/* Header */
+.sop-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1.5px solid #f3f4f6;
+  background: #fff;
+  flex-shrink: 0;
+}
+.sop-avatar {
+  width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff; font-size: 22px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(59,130,246,.3);
+}
+.sop-info { flex: 1; min-width: 0; }
+.sop-name { font-size: 15px; font-weight: 800; color: #111827; margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sop-sku  { font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace; margin: 0 0 6px; }
+.sop-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.sop-fsn-badge {
+  display: inline-block; padding: 3px 9px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+}
+.sop-fsn-badge.fast        { background: #dcfce7; color: #15803d; }
+.sop-fsn-badge.slow        { background: #fef9c3; color: #92400e; }
+.sop-fsn-badge.non-moving  { background: #fee2e2; color: #b91c1c; }
+.sop-fsn-badge.unknown     { background: #f3f4f6; color: #6b7280; }
+.sop-stock-badge {
+  display: inline-block; padding: 3px 9px; border-radius: 20px;
+  font-size: 10px; font-weight: 700;
+}
+.sop-stock-badge.danger { background: #fee2e2; color: #b91c1c; }
+.sop-stock-badge.ok     { background: #dcfce7; color: #15803d; }
+.sop-close {
+  width: 32px; height: 32px; border: none; background: #f3f4f6;
+  border-radius: 8px; cursor: pointer; color: #6b7280;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background .2s, color .2s;
+}
+.sop-close:hover { background: #e5e7eb; color: #374151; }
+
+/* Body */
+.sop-body {
+  flex: 1; overflow-y: auto; padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+/* Alert banner */
+.sop-alert-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff7ed; border: 1.5px solid #fed7aa;
+  border-radius: 10px; padding: 10px 14px;
+  font-size: 12px; font-weight: 600; color: #92400e;
+  line-height: 1.5;
+}
+
+/* Metric cards */
+.sop-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sop-metric {
+  border-radius: 12px; padding: 14px 14px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  border: 1.5px solid transparent;
+}
+.sop-metric.gray   { background: #f9fafb; border-color: #f3f4f6; }
+.sop-metric.blue   { background: #eff6ff; border-color: #dbeafe; }
+.sop-metric.purple { background: #f5f3ff; border-color: #ede9fe; }
+.sop-metric.orange { background: #fff7ed; border-color: #fed7aa; }
+.sop-metric-icon {
+  width: 26px; height: 26px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px; flex-shrink: 0;
+}
+.sop-metric.gray   .sop-metric-icon { background: #e5e7eb; color: #6b7280; }
+.sop-metric.blue   .sop-metric-icon { background: #dbeafe; color: #2563eb; }
+.sop-metric.purple .sop-metric-icon { background: #ede9fe; color: #9333ea; }
+.sop-metric.orange .sop-metric-icon { background: #fed7aa; color: #ea580c; }
+.sop-metric-val {
+  font-size: 1.6rem; font-weight: 800; line-height: 1; color: #111827;
+}
+.sop-metric-val.red { color: #dc2626; }
+.sop-metric.blue   .sop-metric-val { color: #2563eb; }
+.sop-metric.purple .sop-metric-val { color: #9333ea; }
+.sop-metric.orange .sop-metric-val { color: #ea580c; }
+.sop-metric-lbl  { font-size: 11px; font-weight: 700; color: #374151; }
+.sop-metric-unit { font-size: 10px; color: #9ca3af; }
+
+/* Mini chart card */
+.sop-chart-card {
+  background: #fff; border: 1.5px solid #f3f4f6;
+  border-radius: 12px; overflow: hidden;
+}
+.sop-chart-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; background: #f9fafb;
+  border-bottom: 1.5px solid #f3f4f6;
+  font-size: 11px; font-weight: 700; color: #374151;
+}
+
+/* Algorithm sections */
+.sop-section {
+  border: 1.5px solid #f3f4f6;
+  border-radius: 12px; overflow: hidden;
+}
+.sop-sec-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 10px 14px; flex-wrap: wrap;
+}
+.sop-sec-header.blue   { background: #eff6ff; border-bottom: 1.5px solid #dbeafe; }
+.sop-sec-header.purple { background: #f5f3ff; border-bottom: 1.5px solid #ede9fe; }
+.sop-sec-header.orange { background: #fff7ed; border-bottom: 1.5px solid #fed7aa; }
+.sop-sec-header.green  { background: #ecfdf5; border-bottom: 1.5px solid #d1fae5; }
+.sop-sec-header.yellow { background: #fefce8; border-bottom: 1.5px solid #fef08a; }
+.sop-sec-header.red    { background: #fef2f2; border-bottom: 1.5px solid #fecaca; }
+.sop-sec-header.neutral { background: #f9fafb; border-bottom: 1.5px solid #f3f4f6; }
+.sop-sec-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px;
+}
+.sop-sec-tag.blue   { color: #2563eb; }
+.sop-sec-tag.purple { color: #9333ea; }
+.sop-sec-tag.orange { color: #ea580c; }
+.sop-sec-tag.green  { color: #059669; }
+.sop-sec-tag.yellow { color: #92400e; }
+.sop-sec-tag.red    { color: #b91c1c; }
+.sop-sec-tag.neutral { color: #6b7280; }
+.sop-sec-formula {
+  font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace;
+  margin-left: auto;
+}
+.sop-sec-body {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+/* Key-value rows */
+.sop-kv {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 8px; padding: 5px 0; border-bottom: 1px solid #f9fafb;
+  font-size: 12px;
+}
+.sop-kv:last-of-type { border-bottom: none; }
+.sop-k { color: #6b7280; font-weight: 500; flex-shrink: 0; }
+.sop-v { font-weight: 700; color: #111827; text-align: right; }
+.sop-v.mono { font-family: 'Courier New', monospace; font-size: 11px; color: #374151; font-weight: 400; }
+.sop-v.dim  { color: #9ca3af; font-weight: 500; }
+.sop-v.danger-val { color: #dc2626; }
+.sop-v.ok-val     { color: #059669; }
+.sop-v.orange-val { color: #ea580c; }
+
+/* Highlighted result row */
+.sop-result {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 9px;
+  font-size: 12px; font-weight: 700;
+}
+.sop-result.blue   { background: #eff6ff; color: #1d4ed8; }
+.sop-result.purple { background: #f5f3ff; color: #7c3aed; }
+.sop-result.orange { background: #fff7ed; color: #c2410c; }
+.sop-result.green  { background: #ecfdf5; color: #15803d; }
+.sop-result.yellow { background: #fefce8; color: #92400e; }
+.sop-result.red    { background: #fef2f2; color: #b91c1c; }
+.sop-result.neutral { background: #f9fafb; color: #374151; }
+.sop-result-val { font-size: 14px; font-weight: 800; white-space: nowrap; }
+.capitalize { text-transform: capitalize; }
+
+/* FSN Activity progress bar */
+.sop-activity-bar { margin: 6px 0 8px; }
+.sop-activity-labels {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: #6b7280; margin-bottom: 5px;
+}
+.sop-activity-pct { font-weight: 700; color: #374151; }
+.sop-activity-track {
+  position: relative; height: 10px;
+  background: #f3f4f6; border-radius: 100px; overflow: visible;
+}
+.sop-activity-fill {
+  height: 100%; border-radius: 100px;
+  transition: width .5s ease;
+  max-width: 100%;
+}
+.sop-activity-fill.fast { background: linear-gradient(90deg, #4ade80, #16a34a); }
+.sop-activity-fill.slow { background: linear-gradient(90deg, #facc15, #ca8a04); }
+.sop-activity-fill.non  { background: linear-gradient(90deg, #f87171, #dc2626); }
+.sop-activity-marker {
+  position: absolute; top: -3px;
+  width: 2px; height: 16px; background: #9ca3af; border-radius: 1px;
+}
+.sop-activity-legend {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: #9ca3af; margin-top: 5px;
+}
+
+/* FSN description note */
+.sop-fsn-note {
+  font-size: 12px; line-height: 1.65;
+  border-radius: 9px; padding: 10px 12px; margin-top: 4px;
+}
+.sop-fsn-note.fast { background: #f0fdf4; color: #15803d; }
+.sop-fsn-note.slow { background: #fefce8; color: #92400e; }
+.sop-fsn-note.non  { background: #fef2f2; color: #b91c1c; }
+</style>

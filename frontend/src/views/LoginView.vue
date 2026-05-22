@@ -1,123 +1,139 @@
 <template>
-  <div class="login-container">
-    <!-- Background -->
-    <div class="login-bg"/>
+  <div class="login-page">
 
-    <!-- Content -->
-    <div class="login-content">
-      <!-- Logo & Branding -->
-      <div class="logo-section">
-        <img src="/Logo.png" alt="Acebedo Optical Clinic" class="logo-image" />
-        <h1 class="logo-title">ACEBEDO</h1>
-        <p class="logo-subtitle">Optical Clinic</p>
+    <!-- ── Left Brand Panel ───────────────────────────────── -->
+    <div class="brand-panel">
+      <div class="brand-inner">
+        <!-- Logo -->
+        <div class="brand-logo-wrap">
+          <img src="/Logo.png" alt="Acebedo Optical" class="brand-logo" />
+        </div>
+        <h1 class="brand-name">ACEBEDO</h1>
+        <p class="brand-tagline">Optical Clinic</p>
+
+        <div class="brand-divider"></div>
+
+        <p class="brand-desc">
+          Integrated clinic management for patient records, inventory, prescriptions, and predictive analytics.
+        </p>
+
+        <!-- Feature pills -->
+        <div class="brand-features">
+          <span class="feat-pill">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            Patient Records
+          </span>
+          <span class="feat-pill">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
+            Prescriptions
+          </span>
+          <span class="feat-pill">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Inventory
+          </span>
+          <span class="feat-pill">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4"/></svg>
+            Analytics
+          </span>
+        </div>
       </div>
 
-      <!-- Login Card -->
-      <div class="login-card">
-        <div class="card-header">
-          <h2 class="card-title">Sign In</h2>
-          <p class="card-subtitle">Access your clinic management system</p>
+      <!-- Decorative circles -->
+      <div class="deco deco-1"></div>
+      <div class="deco deco-2"></div>
+      <div class="deco deco-3"></div>
+    </div>
+
+    <!-- ── Right Form Panel ───────────────────────────────── -->
+    <div class="form-panel">
+      <div class="form-inner">
+
+        <!-- Header -->
+        <div class="form-head">
+          <h2 class="form-title">Welcome back</h2>
+          <p class="form-sub">Sign in to your account to continue</p>
         </div>
 
         <form @submit.prevent="handleLogin" class="login-form">
-          <!-- Email Field -->
-          <div class="form-group">
-            <label class="form-label">Email Address *</label>
-            <div class="input-wrapper">
-              <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+          <!-- Email -->
+          <div class="fg">
+            <label class="fl">Email Address</label>
+            <div class="input-wrap">
+              <svg class="fi-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
               </svg>
-              <input 
-                v-model="form.email" 
-                type="email" 
-                placeholder="admin@acebedo.com" 
-                class="form-input"
-                required 
-                autocomplete="email"
-                @blur="validateEmail"
-              />
+              <input v-model="form.email" type="email" placeholder="you@acebedo.com"
+                class="fi" :class="{ 'fi-error': errors.email }"
+                required autocomplete="email" @blur="validateEmail" />
             </div>
-            <span v-if="errors.email" class="error-message">{{ errors.email }}</span>
+            <span v-if="errors.email" class="err">{{ errors.email }}</span>
           </div>
 
-          <!-- Password Field -->
-          <div class="form-group">
-            <label class="form-label">Password *</label>
-            <div class="input-wrapper">
-              <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <!-- Password -->
+          <div class="fg">
+            <label class="fl">Password</label>
+            <div class="input-wrap">
+              <svg class="fi-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
-              <input 
-                v-model="form.password" 
-                :type="showPassword ? 'text' : 'password'" 
-                placeholder="••••••••" 
-                class="form-input"
-                required 
-                autocomplete="current-password"
-                @blur="validatePassword"
-              />
-              <button 
-                type="button" 
-                @click="showPassword = !showPassword" 
-                class="password-toggle"
-                :title="showPassword ? 'Hide password' : 'Show password'"
-              >
+              <input v-model="form.password" :type="showPassword ? 'text' : 'password'"
+                placeholder="••••••••" class="fi" :class="{ 'fi-error': errors.password }"
+                required autocomplete="current-password" @blur="validatePassword" />
+              <button type="button" @click="showPassword = !showPassword" class="eye-btn"
+                :title="showPassword ? 'Hide' : 'Show'">
                 <svg v-if="!showPassword" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
                 <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
                 </svg>
               </button>
             </div>
-            <span v-if="errors.password" class="error-message">{{ errors.password }}</span>
+            <span v-if="errors.password" class="err">{{ errors.password }}</span>
           </div>
 
-          <!-- Error Alert -->
-          <div v-if="error" class="alert alert-error">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <!-- Login error -->
+          <div v-if="error" class="login-error">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            <span>{{ error }}</span>
+            {{ error }}
           </div>
 
-          <!-- Login Button -->
           <button type="submit" class="btn-login" :disabled="loading">
-            <svg v-if="loading" class="btn-spinner" fill="none" viewBox="0 0 24 24">
+            <svg v-if="loading" class="spin" width="16" height="16" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
             </svg>
-            <span>{{ loading ? 'Signing In...' : 'Sign In' }}</span>
+            {{ loading ? 'Signing in…' : 'Sign In' }}
           </button>
         </form>
 
-        <!-- Demo Credentials -->
-        <div class="demo-section">
-          <p class="demo-title">Demo Accounts</p>
-          <div class="demo-list">
-            <div class="demo-item">
-              <span class="demo-label">Admin:</span>
-              <span class="demo-value">admin@acebedo.com</span>
-            </div>
-            <div class="demo-item">
-              <span class="demo-label">Receptionist:</span>
-              <span class="demo-value">reception@acebedo.com</span>
-            </div>
-            <div class="demo-item">
-              <span class="demo-label">Optometrist:</span>
-              <span class="demo-value">optometrist@acebedo.com</span>
-            </div>
-            <div class="demo-item">
-              <span class="demo-label">Password:</span>
-              <span class="demo-value">password</span>
-            </div>
+        <!-- Demo credentials -->
+        <div class="demo-box">
+          <p class="demo-heading">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            Demo Accounts — click to fill
+          </p>
+          <div class="demo-grid">
+            <button v-for="d in demoAccounts" :key="d.email" type="button"
+              @click="fillDemo(d)" class="demo-btn"
+              :class="{ active: form.email === d.email }">
+              <span class="demo-role">{{ d.role }}</span>
+              <span class="demo-email">{{ d.email }}</span>
+            </button>
           </div>
+          <p class="demo-pw">Password for all: <code>password</code></p>
         </div>
-      </div>
 
-      <!-- Footer -->
-      <p class="login-footer">&copy; 2026 Acebedo Optical Clinic. All rights reserved.</p>
+        <p class="form-footer">&copy; 2026 Acebedo Optical Clinic</p>
+      </div>
     </div>
+
   </div>
 </template>
 
@@ -126,19 +142,32 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ValidationRules } from '@/utils/validation'
-import { handleError } from '@/utils/errorHandler'
 
 const router = useRouter()
-const auth = useAuthStore()
+const auth   = useAuthStore()
 
-const form = reactive({ email: '', password: '' })
-const errors = reactive({ email: '', password: '' })
-const loading = ref(false)
-const error = ref('')
+const form         = reactive({ email: '', password: '' })
+const errors       = reactive({ email: '', password: '' })
+const loading      = ref(false)
+const error        = ref('')
 const showPassword = ref(false)
 
-// Validation functions
-const validateEmail = () => {
+const demoAccounts = [
+  { role: 'Admin',           email: 'admin@acebedo.com' },
+  { role: 'Receptionist',    email: 'reception@acebedo.com' },
+  { role: 'Optometrist',     email: 'optometrist@acebedo.com' },
+  { role: 'Inventory Staff', email: 'inventory@acebedo.com' },
+]
+
+function fillDemo(d) {
+  form.email    = d.email
+  form.password = 'password'
+  errors.email    = ''
+  errors.password = ''
+  error.value   = ''
+}
+
+function validateEmail() {
   if (!form.email) {
     errors.email = 'Email is required'
   } else if (!ValidationRules.isValidEmail(form.email)) {
@@ -148,7 +177,7 @@ const validateEmail = () => {
   }
 }
 
-const validatePassword = () => {
+function validatePassword() {
   if (!form.password) {
     errors.password = 'Password is required'
   } else if (form.password.length < 6) {
@@ -158,32 +187,17 @@ const validatePassword = () => {
   }
 }
 
-// Form submission
 async function handleLogin() {
-  // Validate
   validateEmail()
   validatePassword()
+  if (errors.email || errors.password) return
 
-  if (errors.email || errors.password) {
-    return
-  }
-
-  error.value = ''
+  error.value   = ''
   loading.value = true
-
   try {
-    console.log('Attempting login with:', form.email)
-    
-    // Use auth store's login method
     await auth.login(form.email, form.password)
-    
-    console.log('Login successful, redirecting to dashboard')
-    
-    // Redirect to dashboard
     await router.push('/dashboard')
-    
   } catch (e) {
-    console.error('Login error:', e)
     error.value = e.response?.data?.message || e.message || 'Login failed. Please try again.'
   } finally {
     loading.value = false
@@ -192,356 +206,334 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-.login-container {
-  position: fixed;
-  inset: 0;
+/* ── Layout ──────────────────────────────────────────────── */
+.login-page {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-/* Background */
-.login-bg {
-  position: absolute;
-  inset: 0;
-  background-image: url('/bg.jpg');
-  background-size: 100% 100%;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  z-index: 0;
-}
-
-/* Content wrapper */
-.login-content {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 420px;
-  padding: 20px;
   min-height: 100vh;
-  backdrop-filter: blur(2px);
+  font-family: var(--font-main);
 }
 
-/* Logo Section */
-.logo-section {
+/* ── Brand Panel ─────────────────────────────────────────── */
+.brand-panel {
+  width: 42%;
+  min-height: 100vh;
+  background: linear-gradient(150deg, #0f2044 0%, #1a3a6e 40%, #0e7490 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.brand-inner {
+  position: relative;
+  z-index: 2;
+  padding: 48px 40px;
   text-align: center;
-  margin-bottom: 36px;
-  animation: slideDown 0.6s ease-out;
+  max-width: 320px;
 }
 
-.logo-image {
-  width: 64px;
-  height: 64px;
+.brand-logo-wrap {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.12);
+  border: 2px solid rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  backdrop-filter: blur(8px);
+}
+
+.brand-logo {
+  width: 56px;
+  height: 56px;
   object-fit: contain;
-  margin-bottom: 14px;
-  animation: zoomIn 0.5s ease-out;
+  border-radius: 8px;
 }
 
-.logo-title {
-  font-family: var(--font-display);
-  font-size: 28px;
+.brand-name {
+  font-size: 32px;
   font-weight: 900;
-  color: var(--navy);
-  letter-spacing: 2px;
-  margin-bottom: 4px;
+  color: #fff;
+  letter-spacing: 4px;
+  margin: 0 0 4px;
 }
 
-.logo-subtitle {
-  font-size: 13px;
-  color: var(--slate);
+.brand-tagline {
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 1px;
+  margin: 0;
 }
 
-/* Login Card */
-.login-card {
+.brand-divider {
+  width: 48px;
+  height: 3px;
+  background: linear-gradient(90deg, #5bc8c0, #38bdf8);
+  border-radius: 2px;
+  margin: 24px auto;
+}
+
+.brand-desc {
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+  line-height: 1.7;
+  margin: 0 0 28px;
+}
+
+.brand-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.feat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.85);
+  font-size: 11px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+/* Decorative circles */
+.deco {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  pointer-events: none;
+}
+.deco-1 { width: 320px; height: 320px; top: -80px;  right: -80px; }
+.deco-2 { width: 220px; height: 220px; bottom: -50px; left: -60px; }
+.deco-3 { width: 140px; height: 140px; bottom: 120px; right: 30px; background: rgba(91,200,192,0.06); }
+
+/* ── Form Panel ──────────────────────────────────────────── */
+.form-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  padding: 40px 24px;
+  overflow-y: auto;
+}
+
+.form-inner {
   width: 100%;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  box-shadow: 0 20px 60px rgba(26, 39, 68, 0.18);
-  padding: 32px;
-  animation: slideUp 0.6s ease-out;
+  max-width: 400px;
 }
 
-.card-header {
-  margin-bottom: 28px;
-  text-align: center;
+.form-head {
+  margin-bottom: 32px;
 }
 
-.card-title {
-  font-family: var(--font-display);
-  font-size: 24px;
+.form-title {
+  font-size: 26px;
   font-weight: 800;
   color: var(--navy);
-  margin-bottom: 4px;
+  margin: 0 0 6px;
 }
 
-.card-subtitle {
+.form-sub {
   font-size: 13px;
   color: var(--muted);
+  margin: 0;
 }
 
-/* Form */
+/* ── Form Controls ───────────────────────────────────────── */
 .login-form {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  margin-bottom: 24px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.fg { display: flex; flex-direction: column; gap: 6px; }
+.fl { font-size: 12px; font-weight: 700; color: #374151; }
 
-.form-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--navy);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.input-wrapper {
+.input-wrap {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.input-icon {
+.fi-icon {
   position: absolute;
-  left: 12px;
-  color: var(--muted);
+  left: 13px;
+  color: #9ca3af;
   pointer-events: none;
-  flex-shrink: 0;
 }
 
-.form-input {
+.fi {
   width: 100%;
-  padding: 10px 12px 10px 40px;
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
+  padding: 11px 42px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 11px;
   font-family: var(--font-main);
   font-size: 13px;
   color: var(--navy);
   background: #fff;
   outline: none;
-  transition: all var(--duration) var(--ease);
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  transition: border-color .2s, box-shadow .2s;
   box-sizing: border-box;
 }
 
-.form-input:focus {
+.fi:focus {
   border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(91, 200, 192, 0.12);
+  box-shadow: 0 0 0 3px rgba(91,200,192,.15);
 }
 
-.form-input::placeholder {
-  color: var(--muted);
-}
+.fi::placeholder { color: #c4c9d4; }
+.fi-error { border-color: #f87171 !important; }
 
-.password-toggle {
+.eye-btn {
   position: absolute;
-  right: 12px;
+  right: 13px;
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--muted);
+  color: #9ca3af;
   padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--duration) var(--ease);
+  transition: color .2s;
 }
+.eye-btn:hover { color: var(--navy); }
 
-.password-toggle:hover {
-  color: var(--slate);
-}
+.err { font-size: 11px; color: #ef4444; font-weight: 600; }
 
-.error-message {
-  font-size: 11px;
-  color: var(--danger);
-  font-weight: 600;
-}
-
-/* Alert */
-.alert {
+.login-error {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 11px 14px;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
   border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
+  color: #b91c1c;
 }
 
-.alert-error {
-  background: #FEE2E2;
-  border: 1px solid #FECACA;
-  color: var(--danger);
-}
-
-/* Button */
 .btn-login {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 11px 20px;
-  background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+  width: 100%;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, var(--teal) 0%, #0891b2 100%);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 11px;
   font-family: var(--font-main);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: all var(--duration) var(--ease);
-  margin-top: 8px;
+  box-shadow: 0 4px 14px rgba(91,200,192,.4);
+  transition: transform .2s, box-shadow .2s, opacity .2s;
+  margin-top: 4px;
 }
 
 .btn-login:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(91, 200, 192, 0.3);
+  box-shadow: 0 8px 22px rgba(91,200,192,.45);
 }
 
-.btn-login:active:not(:disabled) {
-  transform: translateY(0);
+.btn-login:active:not(:disabled) { transform: translateY(0); }
+.btn-login:disabled { opacity: .6; cursor: not-allowed; }
+
+.spin { animation: spin 0.9s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Demo Box ─────────────────────────────────────────────── */
+.demo-box {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 24px;
 }
 
-.btn-login:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-spinner {
-  width: 14px;
-  height: 14px;
-  animation: spin 1s linear infinite;
-}
-
-/* Demo Section */
-.demo-section {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
-}
-
-.demo-title {
+.demo-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--navy);
+  color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
+  letter-spacing: .6px;
+  margin: 0 0 12px;
 }
 
-.demo-list {
+.demo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.demo-btn {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  background: #f9fafb;
+  cursor: pointer;
+  font-family: var(--font-main);
+  transition: border-color .2s, background .2s;
+  text-align: left;
 }
 
-.demo-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-}
+.demo-btn:hover { border-color: var(--teal); background: #f0fdfa; }
+.demo-btn.active { border-color: var(--teal); background: #f0fdfa; }
 
-.demo-label {
-  color: var(--slate);
-  font-weight: 600;
-}
+.demo-role  { font-size: 11px; font-weight: 700; color: #374151; }
+.demo-email { font-size: 10px; color: #9ca3af; font-family: 'Courier New', monospace; }
 
-.demo-value {
-  color: var(--navy);
-  font-family: 'Monaco', 'Courier New', monospace;
+.demo-pw {
   font-size: 11px;
-  font-weight: 700;
-  background: var(--bg);
-  padding: 3px 8px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.demo-pw code {
+  background: #f3f4f6;
+  padding: 1px 6px;
   border-radius: 4px;
-}
-
-/* Footer */
-.login-footer {
-  margin-top: 24px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
+  color: #374151;
+  font-weight: 700;
+}
+
+.form-footer {
   text-align: center;
+  font-size: 11px;
+  color: #c4c9d4;
+  margin: 0;
 }
 
-/* Animations */
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes zoomIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Responsive */
-@media (max-width: 480px) {
-  .login-card {
-    padding: 24px;
-  }
-
-  .card-title {
-    font-size: 20px;
-  }
-
-  .form-input {
-    padding: 9px 10px 9px 36px;
-    font-size: 14px;
-  }
-
-  .logo-image {
-    width: 56px;
-    height: 56px;
-  }
-
-  .logo-title {
-    font-size: 24px;
-  }
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .brand-panel { display: none; }
+  .form-panel  { background: #fff; }
 }
 </style>

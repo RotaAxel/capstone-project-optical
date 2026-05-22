@@ -26,8 +26,8 @@ const routes = [
       { path: 'inventory',   name: 'Inventory',     component: () => import('@/views/InventoryView.vue'),
         meta: { roles: ['admin', 'inventory_staff'] } },
 
-      // Sales — admin & receptionist
-      { path: 'sales',       name: 'Sales',         component: () => import('@/views/SalesView.vue'),
+      // Transactions — admin & receptionist
+      { path: 'transactions', name: 'Transactions',  component: () => import('@/views/SalesView.vue'),
         meta: { roles: ['admin', 'receptionist'] } },
 
       // Reports — admin full; inventory_staff sees inventory tabs only (enforced in-page)
