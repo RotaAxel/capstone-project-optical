@@ -265,6 +265,7 @@
               <th>Best Order Qty</th>
               <th>Reorder When</th>
               <th>Sales Speed</th>
+              <th>Forecast Accuracy</th>
               <th>Alert</th>
             </tr>
           </thead>
@@ -291,6 +292,15 @@
                 }">
                   {{ r.analytics?.fsn_classification?.replace('_', ' ') ?? '—' }}
                 </span>
+              </td>
+              <td>
+                <template v-if="r.analytics?.result_data?.mape_pct != null">
+                  <span :class="mapeClass(r.analytics.result_data.mape_pct)">
+                    {{ mapeAccuracy(r.analytics.result_data.mape_pct) }}%
+                  </span>
+                  <span class="mape-sub">MAPE {{ r.analytics.result_data.mape_pct }}%</span>
+                </template>
+                <span v-else class="dim">—</span>
               </td>
               <td>
                 <div class="alert-cell">
@@ -465,6 +475,13 @@
                   <div class="sop-kv"><span class="sop-k">MA parameter (θ₁)</span><span class="sop-v mono">{{ selected.analytics?.result_data?.ma_param ?? '—' }}</span></div>
                 </template>
                 <div class="sop-kv"><span class="sop-k">Forecast range (95% accuracy)</span><span class="sop-v dim">{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span></div>
+                <div class="sop-kv" v-if="selected.analytics?.result_data?.mape_pct != null">
+                  <span class="sop-k">Forecast accuracy (MAPE)</span>
+                  <span class="sop-v" :class="mapeClass(selected.analytics.result_data.mape_pct)">
+                    {{ mapeAccuracy(selected.analytics.result_data.mape_pct) }}% accurate
+                    <span class="mape-detail">(error: {{ selected.analytics.result_data.mape_pct }}%)</span>
+                  </span>
+                </div>
                 <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
                   <span class="sop-v" :class="daysRemaining(selected) < 14 ? 'danger-val' : 'ok-val'">{{ daysRemaining(selected) }} days</span>
                 </div>
@@ -648,6 +665,16 @@ function daysRemaining(r) {
   const avg = r.analytics?.result_data?.avg_daily ?? 0
   if (!avg) return '∞'
   return Math.max(0, Math.round(r.product.stock_quantity / avg))
+}
+
+function mapeAccuracy(mapePct) {
+  return Math.max(0, 100 - mapePct).toFixed(1)
+}
+
+function mapeClass(mapePct) {
+  if (mapePct <= 15) return 'mape-good'
+  if (mapePct <= 30) return 'mape-warn'
+  return 'mape-poor'
 }
 
 function holdingCost(r) {
@@ -1118,6 +1145,13 @@ onMounted(loadSummary)
 .alert-pill.danger { background: #fee2e2; color: #b91c1c; }
 .alert-pill.warn   { background: #fef9c3; color: #92400e; }
 .alert-pill.ok     { background: #dcfce7; color: #15803d; }
+
+/* MAPE accuracy */
+.mape-good { font-weight: 700; color: #15803d; }
+.mape-warn { font-weight: 700; color: #d97706; }
+.mape-poor { font-weight: 700; color: #b91c1c; }
+.mape-sub  { display: block; font-size: 10px; color: #9ca3af; margin-top: 2px; }
+.mape-detail { font-size: 11px; font-weight: 400; color: #9ca3af; margin-left: 4px; }
 
 /* Empty state */
 .empty-state { padding: 64px 20px; text-align: center; background: #fff; border-radius: 16px; border: 2px dashed #e5e7eb; display: flex; flex-direction: column; align-items: center; }

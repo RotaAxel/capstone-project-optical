@@ -36,7 +36,7 @@
         :class="{ active: isActive(item.to), 'nav-item--col': collapsed }"
         :title="collapsed ? item.label : ''"
       >
-        <component :is="item.icon" v-if="item.icon" class="nav-svg"/>
+        <span v-if="item.icon" class="nav-svg" v-html="item.icon"/>
         <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
         <span v-if="collapsed && isActive(item.to)" class="active-dot"/>
       </RouterLink>

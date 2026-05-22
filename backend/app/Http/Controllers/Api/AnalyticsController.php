@@ -36,6 +36,9 @@ class AnalyticsController extends Controller
             // Convert 4-week forecast to 30-day equivalent
             $predictedMonthly = array_sum($arima['forecast']) * (30.0 / 7.0);
 
+            // ── MAPE walk-forward validation ──────────────────────────────
+            $mape = $this->computeMAPE($weeklySeries, 1, 1, 1);
+
             // ── EOQ: √(2·D·S / H) ────────────────────────────────────────
             $annualDemand = $avgDaily * 365.0;
             $holdingCost  = max(0.01, $product->cost_price * $this->holdingRate);
@@ -67,6 +70,7 @@ class AnalyticsController extends Controller
                         'conf_lower_30d'  => round(max(0, array_sum($arima['lower']) * (30.0 / 7.0)), 2),
                         'conf_upper_30d'  => round(array_sum($arima['upper'])        * (30.0 / 7.0),  2),
                         'used_fallback'   => $arima['fallback'],
+                        'mape_pct'        => $mape >= 0 ? $mape : null,
                         'weekly_series'   => $weeklySeries,
                         // Demand stats
                         'sales_90d'       => array_sum($dailySeries),
@@ -469,6 +473,44 @@ class AnalyticsController extends Controller
             'params'   => ['phi' => [], 'theta' => [], 'mean' => $level, 'd' => 0],
             'fallback' => true,
         ];
+    }
+
+    // ─── MAPE Walk-forward Validation ─────────────────────────────────────
+
+    /**
+     * Computes MAPE via hold-out validation: trains on the first (n−4) weeks,
+     * forecasts the last 4 weeks, then measures mean absolute percentage error.
+     *
+     * Returns −1.0 when there is insufficient data or all holdout actuals are zero.
+     */
+    private function computeMAPE(array $weeklySeries, int $p, int $d, int $q): float
+    {
+        $n       = count($weeklySeries);
+        $holdOut = 4;
+        $minTrain = $p + $d + max($q, 1) + 2;
+
+        if ($n < $holdOut + $minTrain) {
+            return -1.0;
+        }
+
+        $trainSeries = array_slice($weeklySeries, 0, $n - $holdOut);
+        $actuals     = array_slice($weeklySeries, $n - $holdOut);
+
+        $arima     = $this->runARIMA($trainSeries, $p, $d, $q, $holdOut);
+        $forecasts = $arima['forecast'];
+
+        $errors = [];
+        for ($i = 0; $i < $holdOut; $i++) {
+            if ($actuals[$i] > 0) {
+                $errors[] = abs($actuals[$i] - $forecasts[$i]) / $actuals[$i];
+            }
+        }
+
+        if (empty($errors)) {
+            return -1.0;
+        }
+
+        return round(min((array_sum($errors) / count($errors)) * 100.0, 999.9), 2);
     }
 
     // ─── FSN Classification ────────────────────────────────────────────────

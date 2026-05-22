@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProductController extends Controller
@@ -40,9 +41,15 @@ class ProductController extends Controller
             'stock_quantity'   => 'required|integer|min:0',
             'reorder_point'    => 'required|integer|min:0',
             'reorder_quantity' => 'required|integer|min:1',
+            'image'            => 'nullable|image|max:2048',
         ]);
 
         $validated['sku'] = 'SKU-' . strtoupper(Str::random(8));
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('products', 'public');
+            $validated['image_url'] = Storage::url($path);
+        }
 
         $product = Product::create($validated);
 
@@ -82,7 +89,17 @@ class ProductController extends Controller
             'reorder_point'    => 'sometimes|integer|min:0',
             'reorder_quantity' => 'sometimes|integer|min:1',
             'is_active'        => 'sometimes|boolean',
+            'image'            => 'nullable|image|max:2048',
         ]);
+
+        if ($request->hasFile('image')) {
+            if ($product->image_url) {
+                $old = ltrim(str_replace('/storage', '', $product->image_url), '/');
+                Storage::disk('public')->delete($old);
+            }
+            $path = $request->file('image')->store('products', 'public');
+            $validated['image_url'] = Storage::url($path);
+        }
 
         $product->update($validated);
         return response()->json($product->fresh(['category', 'supplier']));
