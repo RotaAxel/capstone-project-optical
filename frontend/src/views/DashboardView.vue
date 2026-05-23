@@ -8,6 +8,16 @@
     <template v-else>
       <!-- ══════════════════════════════════════════════════════ ADMIN -->
       <template v-if="role === 'admin'">
+                  <!-- Low Stock Alert -->
+          <div v-if="data.stats?.low_stock_count > 0" class="alert-banner">
+            <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div class="alert-content">
+              <p class="alert-title">Low Stock Alert</p>
+              <p class="alert-message">{{ data.stats?.low_stock_count }} product(s) at or below reorder point</p>
+            </div>
+            <RouterLink to="/inventory?low_stock=1" class="alert-action">View Items →</RouterLink>
+          </div>
+          <br>
         <div class="dash-grid">
           <!-- Top 5 Selling Frames -->
           <div class="card top-frames">
@@ -24,6 +34,7 @@
               </div>
             </div>
           </div>
+          
 
           <!-- Monthly Revenue -->
           <div class="card chart-card">
@@ -49,15 +60,7 @@
             </div>
           </div>
 
-          <!-- Low Stock Alert -->
-          <div v-if="data.stats?.low_stock_count > 0" class="alert-banner">
-            <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            <div class="alert-content">
-              <p class="alert-title">Low Stock Alert</p>
-              <p class="alert-message">{{ data.stats?.low_stock_count }} product(s) at or below reorder point</p>
-            </div>
-            <RouterLink to="/inventory?low_stock=1" class="alert-action">View Items →</RouterLink>
-          </div>
+
 
           <!-- Recent Sales & Appointments -->
           <div class="card recent-sales">
