@@ -1,13 +1,18 @@
 <template>
   <div class="patients fade-up">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6" >
-      <div>
-        <h2 class="text-xl font-bold text-gray-900" style="margin:0.2rem;">Patient Records</h2>
-        <p class="text-sm text-gray-500 mt-1" style="margin: 0.2rem;">{{ pagination.total ?? 0 }} total patients</p>
+    <div class="page-header">
+      <div class="flex items-center gap-3">
+        <div class="header-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M23 21v-2a4 4 0 0 0-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <h2 class="page-title">Patient Records</h2>
+          <p class="page-sub">{{ pagination.total ?? 0 }} total patients</p>
+        </div>
       </div>
-      <button v-if="auth.can('admin','receptionist')" @click="openModal()" class="btn btn-success" style="margin: 0.2rem;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <button v-if="auth.can('admin','receptionist')" @click="openModal()" class="btn-add">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
         Add Patient
       </button>
     </div>
@@ -231,6 +236,27 @@ onMounted(() => fetchPage())
 
 <style scoped>
 .patients { padding: 28px 32px 40px; }
+
+.page-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;
+}
+.header-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.header-icon svg { color: white; }
+.page-title { font-size: 20px; font-weight: 800; color: #111827; margin: 0; }
+.page-sub   { font-size: 13px; color: #9ca3af; margin: 2px 0 0; }
+.btn-add {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 20px; border: none; border-radius: 10px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff; font-size: 13px; font-weight: 700; font-family: inherit;
+  cursor: pointer; box-shadow: 0 4px 12px rgba(59,130,246,.3);
+  transition: opacity .2s, transform .2s;
+}
+.btn-add:hover { opacity: .9; transform: translateY(-1px); }
 
 /* Modal — rendered via Teleport so fixed works relative to viewport */
 .modal-backdrop {

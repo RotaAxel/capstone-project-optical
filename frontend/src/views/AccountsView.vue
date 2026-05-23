@@ -1,12 +1,20 @@
 <template>
   <div class="accounts fade-up">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h2 class="text-xl font-bold text-gray-900" style="margin: 0.2rem;">User Accounts</h2>
-        <p class="text-sm text-gray-500 mt-1" style="margin: 0.2rem;">{{ users.length ?? 0 }} total users</p>
+    <div class="page-header">
+      <div class="flex items-center gap-3">
+        <div class="header-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 20h5v-2a4 4 0 00-5.477-3.713M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a4 4 0 015.477-3.713M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="page-title">User Accounts</h2>
+          <p class="page-sub">{{ users.length ?? 0 }} total users</p>
+        </div>
       </div>
-      <button @click="openModal()" class="btn btn-primary" style="margin: 0.2rem;">
+      <button @click="openModal()" class="btn-add">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add User
       </button>
@@ -219,6 +227,23 @@ onMounted(fetchUsers)
 
 <style scoped>
 .accounts { padding: 28px 32px 40px; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.header-icon {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+}
+.page-title { font-size: 20px; font-weight: 700; color: #111827; margin: 0; }
+.page-sub   { font-size: 13px; color: #6b7280; margin: 2px 0 0; }
+.btn-add {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: 10px; border: none; cursor: pointer;
+  background: #4f46e5; color: #fff; font-size: 13px; font-weight: 600;
+  transition: background 0.2s;
+}
+.btn-add:hover { background: #4338ca; }
+
 .user-list { display: flex; flex-direction: column; gap: 18px; margin: 10px; }
 .user-card {
   display: flex; align-items: center; justify-content: space-between;

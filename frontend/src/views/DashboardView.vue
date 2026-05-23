@@ -6,18 +6,22 @@
     </div>
 
     <template v-else>
+
+      <!-- ── Page Header ─────────────────────────────────────── -->
+      <div class="page-header">
+        <div class="flex items-center gap-3">
+          <div class="header-icon">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="3" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="14" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="14" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <h2 class="page-title">Dashboard</h2>
+            <p class="page-sub">{{ dashSubtitle }}</p>
+          </div>
+        </div>
+      </div>
+
       <!-- ══════════════════════════════════════════════════════ ADMIN -->
       <template v-if="role === 'admin'">
-                  <!-- Low Stock Alert -->
-          <div v-if="data.stats?.low_stock_count > 0" class="alert-banner">
-            <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            <div class="alert-content">
-              <p class="alert-title">Low Stock Alert</p>
-              <p class="alert-message">{{ data.stats?.low_stock_count }} product(s) at or below reorder point</p>
-            </div>
-            <RouterLink to="/inventory?low_stock=1" class="alert-action">View Items →</RouterLink>
-          </div>
-          <br>
         <div class="dash-grid">
           <!-- Top 5 Selling Frames -->
           <div class="card top-frames">
@@ -60,7 +64,15 @@
             </div>
           </div>
 
-
+          <!-- Low Stock Alert -->
+          <div v-if="data.stats?.low_stock_count > 0" class="alert-banner">
+            <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div class="alert-content">
+              <p class="alert-title">Low Stock Alert</p>
+              <p class="alert-message">{{ data.stats?.low_stock_count }} product(s) at or below reorder point</p>
+            </div>
+            <RouterLink to="/inventory?low_stock=1" class="alert-action">View Items →</RouterLink>
+          </div>
 
           <!-- Recent Sales & Appointments -->
           <div class="card recent-sales">
@@ -300,6 +312,12 @@ Chart.register(...registerables)
 
 const auth = useAuthStore()
 const role = computed(() => auth.user?.role)
+const dashSubtitle = computed(() => ({
+  admin:           'Full system overview — sales, stock & appointments',
+  receptionist:    'Daily appointments and patient schedule',
+  optometrist:     'Your appointments and recent prescriptions',
+  inventory_staff: 'Stock levels, alerts and movements',
+}[role.value] ?? 'Welcome back'))
 const data = ref({})
 const loading = ref(true)
 let refreshTimer = null
@@ -489,6 +507,18 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   padding: 28px 32px 40px;
 }
 
+.page-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;
+}
+.header-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #1a2744, #2d4a8a);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.header-icon svg { color: white; }
+.page-title { font-size: 20px; font-weight: 800; color: #111827; margin: 0; }
+.page-sub   { font-size: 13px; color: #9ca3af; margin: 2px 0 0; }
+
 /* Admin Dashboard Grid */
 .dash-grid {
   display: grid;
@@ -513,21 +543,28 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .chart-card:nth-child(4) { grid-column: 3; grid-row: 2; }
 
 .alert-banner {
-  grid-column: 1 / 4;
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 20px;
-  background: #FEE2E2;
-  border: 1px solid #FECACA;
+  padding: 14px 20px;
+  background: #FEF2F2;
+  border: 1.5px solid #FECACA;
+  border-left: 5px solid #DC2626;
   border-radius: 12px;
+  margin-bottom: 20px;
+  animation: alertPulse 2s ease-in-out infinite;
 }
 
-.alert-icon {
-  width: 20px;
-  height: 20px;
-  color: #DC2626;
-  flex-shrink: 0;
+@keyframes alertPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  50%       { box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.08); }
+}
+
+.alert-icon-wrap {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: #FEE2E2;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: #DC2626;
 }
 
 .alert-content {
@@ -536,7 +573,7 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 
 .alert-title {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   color: #991B1B;
   margin: 0;
 }
@@ -551,13 +588,19 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   font-size: 12px;
   color: #DC2626;
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
-  transition: color var(--duration) var(--ease);
+  padding: 7px 14px;
+  border: 1.5px solid #FECACA;
+  border-radius: 8px;
+  background: #fff;
+  transition: all 0.2s;
 }
 
 .alert-action:hover {
-  color: #991B1B;
+  background: #DC2626;
+  color: #fff;
+  border-color: #DC2626;
 }
 
 .card {
