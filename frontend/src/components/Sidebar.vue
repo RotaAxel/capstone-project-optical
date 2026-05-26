@@ -18,14 +18,6 @@
 
     <div class="sidebar-hr"/>
 
-    <!-- Search -->
-    <div v-if="!collapsed" class="sidebar-search">
-      <span v-html="icons.search" class="search-svg"/>
-      <input type="text" placeholder="Search for..." v-model="searchQuery" />
-    </div>
-
-    <div class="sidebar-hr"/>
-
     <!-- Nav links -->
     <nav class="sidebar-nav">
       <RouterLink
@@ -85,7 +77,6 @@ const auth        = useAuthStore()
 const route       = useRoute()
 const router      = useRouter()
 const collapsed   = ref(false)
-const searchQuery = ref('')
 
 const isActive    = (path) => route.path.startsWith(path)
 const userInitial = computed(() => (auth.user?.name?.charAt(0) || 'U').toUpperCase())
@@ -100,7 +91,6 @@ const handleLogout = async () => {
 }
 
 const icons = {
-  search: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`,
   logout: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
 }
 </script>
@@ -145,21 +135,6 @@ const icons = {
 
 /* Divider */
 .sidebar-hr { height: 1px; background: var(--border); margin: 2px 10px; opacity: 0.7; flex-shrink: 0; }
-
-/* Search */
-.sidebar-search {
-  margin: 6px 10px 8px; display: flex; align-items: center; gap: 7px;
-  background: var(--bg); border: 1.5px solid var(--border);
-  border-radius: 10px; padding: 7px 10px;
-  transition: border-color var(--duration) var(--ease); flex-shrink: 0;
-}
-.sidebar-search:focus-within { border-color: var(--teal); background: #fff; }
-.search-svg { display: flex; align-items: center; color: var(--muted); flex-shrink: 0; }
-.sidebar-search input {
-  border: none; background: transparent; outline: none;
-  font-family: var(--font-main); font-size: 13px; color: var(--navy); width: 100%;
-}
-.sidebar-search input::placeholder { color: var(--muted); }
 
 /* Nav */
 .sidebar-nav {

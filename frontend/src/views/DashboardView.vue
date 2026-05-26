@@ -22,65 +22,114 @@
 
       <!-- ══════════════════════════════════════════════════════ ADMIN -->
       <template v-if="role === 'admin'">
-          <!-- Low Stock Alert -->
-          <div v-if="data.stats?.low_stock_count > 0" class="alert-banner">
-            <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            <div class="alert-content">
-              <p class="alert-title">Low Stock Alert</p>
-              <p class="alert-message">{{ data.stats?.low_stock_count }} product(s) at or below reorder point</p>
-            </div>
-            <RouterLink to="/inventory?low_stock=1" class="alert-action">View Items →</RouterLink>
+
+        <!-- Low Stock Alert -->
+        <div v-if="data.stats?.low_stock_count > 0" class="alert-banner">
+          <div class="alert-icon-wrap">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
           </div>
-          
-        <div class="dash-grid">
-          <!-- Top 5 Selling Frames -->
+          <div class="alert-content">
+            <p class="alert-title">Low Stock Alert</p>
+            <p class="alert-message">{{ data.stats?.low_stock_count }} product(s) at or below reorder point</p>
+          </div>
+          <RouterLink to="/inventory?low_stock=1" class="alert-action">View Items →</RouterLink>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="asc-icon green">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div class="asc-body">
+              <p class="asc-label">Sales Today</p>
+              <p class="asc-value">₱{{ fmt(data.stats?.sales_today) }}</p>
+              <p class="asc-sub">{{ data.stats?.transactions_today ?? 0 }} transaction(s)</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="asc-icon blue">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+            <div class="asc-body">
+              <p class="asc-label">Sales This Month</p>
+              <p class="asc-value">₱{{ fmt(data.stats?.sales_this_month) }}</p>
+              <p class="asc-sub">Current month total</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="asc-icon purple">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-5.477-3.713M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <div class="asc-body">
+              <p class="asc-label">Total Patients</p>
+              <p class="asc-value">{{ data.stats?.total_patients ?? 0 }}</p>
+              <p class="asc-sub">+{{ data.stats?.new_patients_today ?? 0 }} new today</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="asc-icon orange">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <div class="asc-body">
+              <p class="asc-label">Appointments Today</p>
+              <p class="asc-value">{{ data.stats?.appointments_today ?? 0 }}</p>
+              <p class="asc-sub">Scheduled for today</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="admin-chart-row">
+          <!-- Best Selling -->
           <div class="card top-frames">
             <h3 class="card-title">Best-Selling Products This Month</h3>
             <div class="frame-list">
               <div v-for="(frame, i) in topSellingFrames" :key="i" class="frame-row">
+                <span class="frame-rank">{{ i + 1 }}</span>
                 <div class="frame-info">
                   <span class="frame-name">{{ frame.name }}</span>
-                  <span class="frame-value">{{ frame.value }}</span>
+                  <span class="frame-value">{{ frame.value }} sold</span>
                 </div>
                 <span class="frame-badge" :class="frame.change >= 0 ? 'pos' : 'neg'">
                   {{ frame.change >= 0 ? '+' : '' }}{{ frame.change }}%
                 </span>
               </div>
+              <p v-if="!topSellingFrames.length" class="empty-state">No sales data this month</p>
             </div>
           </div>
-          
 
-          <!-- Monthly Revenue -->
+          <!-- Total Earnings -->
           <div class="card chart-card">
             <h3 class="card-title">Total Earnings Per Month</h3>
             <div class="chart-wrap">
               <canvas ref="stockCanvas"></canvas>
             </div>
           </div>
+        </div>
 
-          <!-- Low Stock Products -->
+        <!-- Charts Row 2 -->
+        <div class="admin-chart-row">
           <div class="card chart-card">
             <h3 class="card-title">Products Running Low on Stock</h3>
             <div class="chart-wrap">
               <canvas ref="deadStockCanvas"></canvas>
             </div>
           </div>
-
-          <!-- Monthly Sales Overview -->
           <div class="card chart-card">
             <h3 class="card-title">Monthly Sales Performance</h3>
             <div class="chart-wrap">
               <canvas ref="stockLevelCanvas"></canvas>
             </div>
           </div>
+        </div>
 
-        
-
-          <!-- Recent Sales & Appointments -->
-          <div class="card recent-sales">
+        <!-- Bottom Row -->
+        <div class="admin-bottom-row">
+          <div class="card">
             <div class="section-header">
               <h2 class="section-title">Recent Sales</h2>
-              <RouterLink to="/transactions" class="view-link">View all →</RouterLink>
+              <RouterLink to="/sales" class="view-link">View all →</RouterLink>
             </div>
             <div class="sale-list">
               <div v-for="sale in data.recent_sales?.slice(0, 5)" :key="sale.id" class="sale-item">
@@ -90,11 +139,11 @@
                 </div>
                 <p class="sale-amount">₱{{ fmt(sale.total_amount) }}</p>
               </div>
-              <p v-if="!data.recent_sales?.length" class="empty-state">No sales today</p>
+              <p v-if="!data.recent_sales?.length" class="empty-state">No sales yet</p>
             </div>
           </div>
 
-          <div class="card upcoming-appointments">
+          <div class="card">
             <div class="section-header">
               <h2 class="section-title">Upcoming Appointments</h2>
               <RouterLink to="/appointments" class="view-link">View all →</RouterLink>
@@ -114,6 +163,7 @@
             </div>
           </div>
         </div>
+
       </template>
 
       <!-- ══════════════════════════════════════════════════════ RECEPTIONIST -->
@@ -521,28 +571,60 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .page-title { font-size: 20px; font-weight: 800; color: #111827; margin: 0; }
 .page-sub   { font-size: 13px; color: #9ca3af; margin: 2px 0 0; }
 
-/* Admin Dashboard Grid */
-.dash-grid {
+/* Admin stat cards */
+.admin-stats-grid {
   display: grid;
-  grid-template-columns: 280px 1fr 1fr;
-  grid-template-rows: auto auto auto auto;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.admin-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(226,232,240,0.5);
+  border-radius: 12px;
+}
+
+.asc-icon {
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.asc-icon.green  { background: #dcfce7; color: #16a34a; }
+.asc-icon.blue   { background: #dbeafe; color: #2563eb; }
+.asc-icon.purple { background: #ede9fe; color: #7c3aed; }
+.asc-icon.orange { background: #ffedd5; color: #ea580c; }
+
+.asc-body { flex: 1; min-width: 0; }
+.asc-label { font-size: 11px; font-weight: 600; color: var(--muted); margin: 0; text-transform: uppercase; letter-spacing: 0.4px; }
+.asc-value { font-size: 20px; font-weight: 800; color: var(--navy); margin: 2px 0; line-height: 1.2; }
+.asc-sub   { font-size: 11px; color: var(--muted); margin: 0; }
+
+/* Admin chart rows */
+.admin-chart-row {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.admin-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 18px;
 }
 
-.top-frames {
-  grid-row: 1 / 3;
-  grid-column: 1;
-}
+.top-frames { /* no extra overrides needed */ }
 
 .chart-card {
   padding: 20px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(6px);
 }
-
-.chart-card:nth-child(2) { grid-column: 2 / 4; grid-row: 1; }
-.chart-card:nth-child(3) { grid-column: 2; grid-row: 2; }
-.chart-card:nth-child(4) { grid-column: 3; grid-row: 2; }
 
 .alert-banner {
   display: flex;
@@ -629,15 +711,16 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .frame-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 10px 12px;
   background: var(--bg);
   border-radius: 8px;
 }
 
-.frame-info { display: flex; flex-direction: column; }
-.frame-name { font-size: 11px; color: var(--muted); }
-.frame-value { font-size: 15px; font-weight: 800; color: var(--navy); margin-top: 2px; }
+.frame-rank { width: 20px; height: 20px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.frame-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.frame-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frame-value { font-size: 13px; font-weight: 800; color: var(--navy); margin-top: 2px; }
 
 .frame-badge {
   font-size: 12px;

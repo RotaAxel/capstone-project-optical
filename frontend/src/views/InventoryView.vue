@@ -439,7 +439,7 @@ async function fetchPage(page = 1) {
   loading.value = true
   try {
     const { data } = await api.get('/products', {
-      params: { page, search: search.value || undefined, category_id: filterCategory.value || undefined, low_stock: filterLowStock.value ? 1 : undefined }
+      params: { page, per_page: 16, search: search.value || undefined, category_id: filterCategory.value || undefined, low_stock: filterLowStock.value ? 1 : undefined }
     })
     products.value   = data.data
     pagination.value = { current_page: data.current_page, last_page: data.last_page, total: data.total }

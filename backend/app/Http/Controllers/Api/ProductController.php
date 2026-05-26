@@ -22,7 +22,7 @@ class ProductController extends Controller
             ->when($request->category_id, fn($q) => $q->where('category_id', $request->category_id))
             ->when($request->low_stock, fn($q) => $q->whereColumn('stock_quantity', '<=', 'reorder_point'));
 
-        return response()->json($query->latest()->paginate(15));
+        return response()->json($query->latest()->paginate($request->per_page ?? 16));
     }
 
     public function store(Request $request)
