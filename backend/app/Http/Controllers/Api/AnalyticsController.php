@@ -19,13 +19,28 @@ class AnalyticsController extends Controller
 
     public function run()
     {
-        $products = Product::all();
+        set_time_limit(0);
+        ini_set('memory_limit', '512M');
+
+        $products = Product::with('category')->get();
         $results  = [];
+
+        // ── Bulk-load all sale items in 2 queries (avoids N+1) ────────────
+        $weeklySince = now()->subWeeks(24)->startOfWeek();
+        $dailySince  = now()->subDays(89)->startOfDay();
+
+        $weeklyRows = SaleItem::where('created_at', '>=', $weeklySince)
+            ->get(['product_id', 'created_at', 'quantity'])
+            ->groupBy('product_id');
+
+        $dailyRows = SaleItem::where('created_at', '>=', $dailySince)
+            ->get(['product_id', 'created_at', 'quantity'])
+            ->groupBy('product_id');
 
         foreach ($products as $product) {
             /** @var \App\Models\Product $product */
-            $weeklySeries = $this->buildWeeklyTimeSeries($product->id, 24);
-            $dailySeries  = $this->buildDailyDemandSeries($product->id, 90);
+            $weeklySeries = $this->buildWeeklyTimeSeriesFromRows($weeklyRows->get($product->id, collect()), 24);
+            $dailySeries  = $this->buildDailyDemandSeriesFromRows($dailyRows->get($product->id, collect()), 90);
 
             $n            = count($dailySeries);
             $avgDaily     = $n > 0 ? array_sum($dailySeries) / $n : 0.0;
@@ -51,7 +66,7 @@ class AnalyticsController extends Controller
             $rop         = ($avgDaily * $this->leadTime) + $safetyStock;
 
             // ── FSN: activity-based classification ───────────────────────
-            $fsn = $this->classifyFSN($product->id, $avgDaily);
+            $fsn = $this->classifyFSN($weeklyRows->get($product->id, collect()), $avgDaily);
 
             $log = AnalyticsLog::updateOrCreate(
                 [
@@ -127,19 +142,12 @@ class AnalyticsController extends Controller
 
     // ─── Time Series Builders ──────────────────────────────────────────────
 
-    /**
-     * Returns an array of weekly sales totals for the last $weeks weeks,
-     * filling 0 for weeks with no sales. Uses one DB query.
-     */
-    private function buildWeeklyTimeSeries(int $productId, int $weeks): array
+    /** Builds weekly series from a pre-loaded Collection of SaleItem rows. */
+    private function buildWeeklyTimeSeriesFromRows(\Illuminate\Support\Collection $rows, int $weeks): array
     {
-        $since = now()->subWeeks($weeks)->startOfWeek();
-
-        $rows = SaleItem::where('product_id', $productId)
-            ->where('created_at', '>=', $since)
-            ->get(['created_at', 'quantity']);
-
+        $since   = now()->subWeeks($weeks)->startOfWeek();
         $weekMap = [];
+
         foreach ($rows as $row) {
             $key = Carbon::parse($row->created_at)->startOfWeek()->toDateString();
             $weekMap[$key] = ($weekMap[$key] ?? 0) + $row->quantity;
@@ -155,19 +163,12 @@ class AnalyticsController extends Controller
         return $series;
     }
 
-    /**
-     * Returns an array of daily sales totals for the last $days days,
-     * filling 0 for days with no sales. Uses one DB query.
-     */
-    private function buildDailyDemandSeries(int $productId, int $days): array
+    /** Builds daily series from a pre-loaded Collection of SaleItem rows. */
+    private function buildDailyDemandSeriesFromRows(\Illuminate\Support\Collection $rows, int $days): array
     {
-        $since = now()->subDays($days - 1)->startOfDay();
-
-        $rows = SaleItem::where('product_id', $productId)
-            ->where('created_at', '>=', $since)
-            ->get(['created_at', 'quantity']);
-
+        $since  = now()->subDays($days - 1)->startOfDay();
         $dayMap = [];
+
         foreach ($rows as $row) {
             $key = Carbon::parse($row->created_at)->toDateString();
             $dayMap[$key] = ($dayMap[$key] ?? 0) + $row->quantity;
@@ -523,26 +524,22 @@ class AnalyticsController extends Controller
      *   Fast       : active in ≥ 50% of weeks  OR  avg demand ≥ 1 unit/day
      *   Slow       : everything else (10–50% activity, 0.1–1 unit/day)
      */
-    private function classifyFSN(int $productId, float $avgDailyDemand): array
+    private function classifyFSN(\Illuminate\Support\Collection $weeklyRows, float $avgDailyDemand): array
     {
         $weeksToCheck = 24;
-        $since        = now()->subWeeks($weeksToCheck)->startOfWeek();
-
-        $rows = SaleItem::where('product_id', $productId)
-            ->where('created_at', '>=', $since)
-            ->get(['created_at', 'quantity']);
 
         $weekSet = [];
-        foreach ($rows as $row) {
+        $lastSaleTs = null;
+        foreach ($weeklyRows as $row) {
             $weekStart = Carbon::parse($row->created_at)->startOfWeek()->toDateString();
             $weekSet[$weekStart] = true;
+            if ($lastSaleTs === null || $row->created_at > $lastSaleTs) {
+                $lastSaleTs = $row->created_at;
+            }
         }
+
         $activeWeeks   = count($weekSet);
         $activityRatio = $activeWeeks / $weeksToCheck;
-
-        $lastSaleTs   = SaleItem::where('product_id', $productId)
-            ->orderByDesc('created_at')
-            ->value('created_at');
 
         $lastSaleDate = $lastSaleTs ? Carbon::parse($lastSaleTs)->toDateString() : null;
         $monthsNoSale = $lastSaleTs

@@ -252,6 +252,7 @@
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
           </svg>
           <span class="results-title">Analytics Results</span>
+          <span class="results-count">{{ results.length }} products</span>
         </div>
         <span class="results-computed">Computed: {{ computedAt }}</span>
       </div>
@@ -270,7 +271,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in results" :key="r.product.id" @click="openDetail(r)" class="res-row">
+            <tr v-for="r in pagedResults" :key="r.product.id" @click="openDetail(r)" class="res-row">
               <td>
                 <p class="res-product">{{ r.product.name }}</p>
                 <p class="res-sku">{{ r.product.sku }}</p>
@@ -316,6 +317,61 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination footer -->
+      <div v-if="tableLastPage > 1" class="res-pagination">
+        <span class="res-page-info">Showing {{ tablePageFrom }}–{{ tablePageTo }} of {{ results.length }}</span>
+        <div class="res-page-btns">
+          <button class="res-page-btn" :disabled="tablePage === 1" @click="tablePage--">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Prev
+          </button>
+          <span class="res-page-cur">{{ tablePage }} / {{ tableLastPage }}</span>
+          <button class="res-page-btn" :disabled="tablePage === tableLastPage" @click="tablePage++">
+            Next
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Running Overlay ───────────────────────────────────── -->
+    <div v-if="running" class="running-overlay">
+      <div class="running-card">
+        <div class="running-anim">
+          <div class="running-ring"></div>
+          <svg class="running-icon" width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+        </div>
+        <div class="running-text">
+          <p class="running-title">Computing Analytics…</p>
+          <p class="running-stage">{{ loadingStage }}</p>
+        </div>
+        <div class="running-right">
+          <p class="running-elapsed">{{ loadingElapsed }}s</p>
+          <div class="running-dots">
+            <span :class="{ active: loadingDot >= 0 }"></span>
+            <span :class="{ active: loadingDot >= 1 }"></span>
+            <span :class="{ active: loadingDot >= 2 }"></span>
+          </div>
+        </div>
+      </div>
+      <div class="running-steps">
+        <div v-for="(step, i) in runningSteps" :key="i" class="running-step" :class="step.state">
+          <div class="rs-icon">
+            <svg v-if="step.state === 'done'" width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div v-else-if="step.state === 'active'" class="rs-spin"></div>
+            <div v-else class="rs-dot"></div>
+          </div>
+          <span class="rs-label">{{ step.label }}</span>
+          <span v-if="step.state === 'done'" class="rs-done">done</span>
+          <span v-else-if="step.state === 'active'" class="rs-working">working…</span>
+        </div>
       </div>
     </div>
 
@@ -641,7 +697,68 @@ const computedAt              = ref('')
 const selected                = ref(null)
 const selectedForecastProduct = ref(null)
 
+const tablePage     = ref(1)
+const tablePageSize = 20
+
+const tableLastPage  = computed(() => Math.max(1, Math.ceil(results.value.length / tablePageSize)))
+const pagedResults   = computed(() => {
+  const start = (tablePage.value - 1) * tablePageSize
+  return results.value.slice(start, start + tablePageSize)
+})
+const tablePageFrom  = computed(() => results.value.length === 0 ? 0 : (tablePage.value - 1) * tablePageSize + 1)
+const tablePageTo    = computed(() => Math.min(tablePage.value * tablePageSize, results.value.length))
+
+// ── Loading state ─────────────────────────────────────────
+const loadingStage   = ref('')
+const loadingElapsed = ref(0)
+const loadingDot     = ref(0)
+
+const STAGES = [
+  { label: 'Loading sales history',        threshold: 0  },
+  { label: 'Running ARIMA forecasting',    threshold: 3  },
+  { label: 'Computing EOQ & ROP values',   threshold: 10 },
+  { label: 'Classifying products (FSN)',   threshold: 18 },
+  { label: 'Finalizing analytics report',  threshold: 26 },
+]
+
+const runningSteps = computed(() => {
+  const elapsed = loadingElapsed.value
+  return STAGES.map((s, i) => {
+    const next = STAGES[i + 1]
+    if (next && elapsed >= next.threshold) return { ...s, state: 'done' }
+    if (elapsed >= s.threshold)            return { ...s, state: 'active' }
+    return { ...s, state: 'pending' }
+  })
+})
+
+let _elapsedTimer = null
+let _dotTimer     = null
+
+function startLoadingTimers() {
+  loadingElapsed.value = 0
+  loadingDot.value     = 0
+  loadingStage.value   = STAGES[0].label
+
+  _elapsedTimer = setInterval(() => {
+    loadingElapsed.value++
+    const active = [...STAGES].reverse().find(s => loadingElapsed.value >= s.threshold)
+    if (active) loadingStage.value = active.label
+  }, 1000)
+
+  _dotTimer = setInterval(() => {
+    loadingDot.value = (loadingDot.value + 1) % 3
+  }, 500)
+}
+
+function stopLoadingTimers() {
+  clearInterval(_elapsedTimer)
+  clearInterval(_dotTimer)
+  _elapsedTimer = null
+  _dotTimer     = null
+}
+
 watch(results, (val) => {
+  tablePage.value = 1
   if (val.length && selectedForecastProduct.value === null) {
     selectedForecastProduct.value = val[0].product.id
   }
@@ -994,12 +1111,16 @@ const eoqRopOptions = {
 
 async function runAnalytics() {
   running.value = true
+  startLoadingTimers()
   try {
     const { data } = await api.post('/analytics/run')
     results.value    = data.results
     computedAt.value = new Date(data.computed_at).toLocaleString('en-PH')
     await loadSummary()
-  } finally { running.value = false }
+  } finally {
+    stopLoadingTimers()
+    running.value = false
+  }
 }
 
 async function loadSummary() {
@@ -1117,8 +1238,25 @@ onMounted(loadSummary)
 .results-card   { background: #fff; border-radius: 16px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 12px rgba(0,0,0,.05); overflow: hidden; }
 .results-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #f9fafb; border-bottom: 1.5px solid #f3f4f6; font-size: 13px; color: #4b5563; }
 .results-title  { font-weight: 700; color: #111827; }
+.results-count  { font-size: 11px; font-weight: 600; color: #6366f1; background: #eef2ff; border-radius: 20px; padding: 2px 9px; }
 .results-computed { font-size: 11px; color: #9ca3af; }
 .table-wrap     { overflow-x: auto; }
+
+.res-pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; border-top: 1.5px solid #f3f4f6; background: #f9fafb;
+}
+.res-page-info  { font-size: 12px; color: #6b7280; font-weight: 500; }
+.res-page-btns  { display: flex; align-items: center; gap: 8px; }
+.res-page-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 14px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+  background: #fff; font-family: inherit; font-size: 12px; font-weight: 700;
+  color: #374151; cursor: pointer; transition: all .2s;
+}
+.res-page-btn:hover:not(:disabled) { background: #eff6ff; border-color: #3b82f6; color: #2563eb; }
+.res-page-btn:disabled { opacity: .4; cursor: not-allowed; }
+.res-page-cur   { font-size: 12px; font-weight: 700; color: #111827; min-width: 52px; text-align: center; }
 
 .res-table { width: 100%; border-collapse: collapse; }
 .res-table thead tr { background: #f9fafb; border-bottom: 2px solid #f3f4f6; }
@@ -1152,6 +1290,71 @@ onMounted(loadSummary)
 .mape-poor { font-weight: 700; color: #b91c1c; }
 .mape-sub  { display: block; font-size: 10px; color: #9ca3af; margin-top: 2px; }
 .mape-detail { font-size: 11px; font-weight: 400; color: #9ca3af; margin-left: 4px; }
+
+/* Running overlay */
+.running-overlay {
+  display: flex; flex-direction: column; gap: 12px;
+}
+.running-card {
+  display: flex; align-items: center; gap: 20px;
+  background: #fff; border: 1.5px solid #dbeafe; border-radius: 16px;
+  padding: 20px 24px; box-shadow: 0 4px 20px rgba(59,130,246,.1);
+}
+.running-anim {
+  position: relative; width: 56px; height: 56px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.running-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 3px solid #dbeafe;
+  border-top-color: #3b82f6;
+  animation: spin 1s linear infinite;
+}
+.running-icon { color: #3b82f6; z-index: 1; }
+.running-text { flex: 1; min-width: 0; }
+.running-title { font-size: 15px; font-weight: 800; color: #111827; margin: 0 0 4px; }
+.running-stage { font-size: 13px; color: #3b82f6; font-weight: 600; margin: 0; }
+.running-right { text-align: right; flex-shrink: 0; }
+.running-elapsed {
+  font-size: 22px; font-weight: 800; color: #111827;
+  font-variant-numeric: tabular-nums; line-height: 1; margin-bottom: 6px;
+}
+.running-dots { display: flex; gap: 5px; justify-content: flex-end; }
+.running-dots span {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #e5e7eb; transition: background .2s;
+}
+.running-dots span.active { background: #3b82f6; }
+
+.running-steps {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+}
+.running-step {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: #fff; border: 1.5px solid #f3f4f6;
+  border-radius: 12px; padding: 12px 10px; text-align: center;
+  transition: border-color .3s, background .3s;
+}
+.running-step.active  { border-color: #bfdbfe; background: #eff6ff; }
+.running-step.done    { border-color: #bbf7d0; background: #f0fdf4; }
+.rs-icon {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.running-step.pending .rs-icon { background: #f3f4f6; }
+.running-step.active  .rs-icon { background: #dbeafe; }
+.running-step.done    .rs-icon { background: #dcfce7; color: #16a34a; }
+.rs-spin {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid #bfdbfe; border-top-color: #2563eb;
+  animation: spin 0.7s linear infinite;
+}
+.rs-dot { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; }
+.rs-label { font-size: 11px; font-weight: 600; color: #4b5563; line-height: 1.4; }
+.running-step.active  .rs-label { color: #1d4ed8; }
+.running-step.done    .rs-label { color: #15803d; }
+.rs-done    { font-size: 10px; font-weight: 700; color: #15803d; background: #dcfce7; border-radius: 4px; padding: 1px 6px; }
+.rs-working { font-size: 10px; font-weight: 700; color: #1d4ed8; background: #dbeafe; border-radius: 4px; padding: 1px 6px; }
 
 /* Empty state */
 .empty-state { padding: 64px 20px; text-align: center; background: #fff; border-radius: 16px; border: 2px dashed #e5e7eb; display: flex; flex-direction: column; align-items: center; }
@@ -1218,8 +1421,8 @@ span.blue   { color: #2563eb; }
 span.purple { color: #9333ea; }
 span.orange { color: #ea580c; }
 
-@media (max-width: 1024px) { .algo-grid { grid-template-columns: repeat(2, 1fr); } .chart-row-1 { grid-template-columns: 1fr; } .chart-row-2 { grid-template-columns: 1fr; } .fsn-summary { grid-template-columns: 1fr; } }
-@media (max-width: 640px)  { .algo-grid { grid-template-columns: 1fr; } .analytics-page { padding: 16px; } }
+@media (max-width: 1024px) { .algo-grid { grid-template-columns: repeat(2, 1fr); } .chart-row-1 { grid-template-columns: 1fr; } .chart-row-2 { grid-template-columns: 1fr; } .fsn-summary { grid-template-columns: 1fr; } .running-steps { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .algo-grid { grid-template-columns: 1fr; } .analytics-page { padding: 16px; } .running-steps { grid-template-columns: repeat(2, 1fr); } .running-card { flex-wrap: wrap; } }
 
 /* ── Slide-over Panel Content (.sop-*) ─────────────────── */
 
