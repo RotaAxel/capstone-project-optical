@@ -13,7 +13,20 @@ class PrescriptionController extends Controller
         $query = Prescription::with(['patient', 'optometrist'])
             ->when($request->patient_id, fn($q) => $q->where('patient_id', $request->patient_id));
 
-        return response()->json($query->latest()->paginate(15));
+        if ($request->highlight_id) {
+            $target = Prescription::find($request->highlight_id);
+            if ($target) {
+                // Stable sort: created_at DESC, id DESC — count rows that come before target
+                $before = (clone $query)->where(function ($q) use ($target) {
+                    $q->where('created_at', '>', $target->created_at)
+                      ->orWhere(fn($q2) => $q2->where('created_at', $target->created_at)->where('id', '>', $target->id));
+                })->count();
+                $page = (int) floor($before / 15) + 1;
+                return response()->json($query->orderBy('created_at', 'desc')->orderBy('id', 'desc')->paginate(15, ['*'], 'page', $page));
+            }
+        }
+
+        return response()->json($query->orderBy('created_at', 'desc')->orderBy('id', 'desc')->paginate(15));
     }
 
     public function store(Request $request)

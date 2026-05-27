@@ -340,12 +340,13 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
-const auth  = useAuthStore()
-const route = useRoute()
+const auth   = useAuthStore()
+const route  = useRoute()
+const router = useRouter()
 const highlightId = ref(null)
 
 const prescriptions = ref([])
@@ -441,17 +442,21 @@ async function activateHighlight(id) {
   filterDate.value  = ''
   loading.value = true
   try {
-    const { data } = await api.get('/prescriptions', { params: { per_page: 9999 } })
+    const { data } = await api.get('/prescriptions', { params: { highlight_id: id } })
     prescriptions.value = data.data
-    pagination.value    = { current_page: 1, last_page: 1, total: data.total }
+    pagination.value    = { current_page: data.current_page, last_page: data.last_page, total: data.total }
   } catch {}
   finally { loading.value = false }
 
   await nextTick()
+  await new Promise(r => setTimeout(r, 80))
   const el = document.querySelector(`[data-rx-id="${id}"]`)
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    setTimeout(() => { highlightId.value = null }, 2600)
+    setTimeout(() => {
+      highlightId.value = null
+      router.replace({ path: route.path, query: {} })
+    }, 950)
   }
 }
 
@@ -478,11 +483,11 @@ onMounted(async () => {
 
 @keyframes card-blink {
   0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
-  50%       { box-shadow: 0 0 0 6px rgba(245,158,11,.85); background-color: rgba(255,251,235,.55); }
+  50%       { box-shadow: 0 0 0 7px rgba(245,158,11,.9); background-color: rgba(255,251,235,.6); }
 }
 .card-highlighted {
   outline: 2px solid #f59e0b;
-  animation: card-blink 0.4s ease-in-out 6;
+  animation: card-blink 0.3s ease-in-out 3;
   position: relative; z-index: 1;
 }
 

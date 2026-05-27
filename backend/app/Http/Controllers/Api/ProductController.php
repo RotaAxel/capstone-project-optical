@@ -13,6 +13,8 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
+        $perPage = (int)($request->per_page ?? 16);
+
         $query = Product::with(['category', 'supplier'])
             ->when($request->search, fn($q) => $q->where(function ($q) use ($request) {
                 $q->where('name', 'like', "%{$request->search}%")
@@ -22,7 +24,20 @@ class ProductController extends Controller
             ->when($request->category_id, fn($q) => $q->where('category_id', $request->category_id))
             ->when($request->low_stock, fn($q) => $q->whereColumn('stock_quantity', '<=', 'reorder_point'));
 
-        return response()->json($query->latest()->paginate($request->per_page ?? 16));
+        if ($request->highlight_id) {
+            $target = Product::find($request->highlight_id);
+            if ($target) {
+                // Stable sort: created_at DESC, id DESC — count rows that come before target
+                $before = (clone $query)->where(function ($q) use ($target) {
+                    $q->where('created_at', '>', $target->created_at)
+                      ->orWhere(fn($q2) => $q2->where('created_at', $target->created_at)->where('id', '>', $target->id));
+                })->count();
+                $page = (int) floor($before / $perPage) + 1;
+                return response()->json($query->orderBy('created_at', 'desc')->orderBy('id', 'desc')->paginate($perPage, ['*'], 'page', $page));
+            }
+        }
+
+        return response()->json($query->orderBy('created_at', 'desc')->orderBy('id', 'desc')->paginate($perPage));
     }
 
     public function store(Request $request)

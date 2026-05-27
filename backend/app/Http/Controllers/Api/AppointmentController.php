@@ -15,7 +15,20 @@ class AppointmentController extends Controller
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->date, fn($q) => $q->whereDate('appointment_date', $request->date));
 
-        return response()->json($query->orderBy('appointment_date')->paginate(15));
+        if ($request->highlight_id) {
+            $target = Appointment::find($request->highlight_id);
+            if ($target) {
+                // Stable sort: appointment_date ASC, id ASC — count rows that come before target
+                $before = (clone $query)->where(function ($q) use ($target) {
+                    $q->where('appointment_date', '<', $target->appointment_date)
+                      ->orWhere(fn($q2) => $q2->where('appointment_date', $target->appointment_date)->where('id', '<', $target->id));
+                })->count();
+                $page = (int) floor($before / 15) + 1;
+                return response()->json($query->orderBy('appointment_date')->orderBy('id')->paginate(15, ['*'], 'page', $page));
+            }
+        }
+
+        return response()->json($query->orderBy('appointment_date')->orderBy('id')->paginate(15));
     }
 
     public function store(Request $request)
