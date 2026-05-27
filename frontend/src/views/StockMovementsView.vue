@@ -70,6 +70,19 @@
           <p class="stat-lbl">Adjustments</p>
         </div>
       </div>
+
+      <div class="stat-card">
+        <div class="stat-icon red">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="stat-num red">{{ (summary.damage ?? 0) + (summary.loss ?? 0) }}</p>
+          <p class="stat-lbl">Damage &amp; Loss</p>
+        </div>
+      </div>
     </div>
 
     <!-- ── Filter Bar ─────────────────────────────────────────── -->
@@ -85,6 +98,8 @@
         <option value="stock_in">Stock In</option>
         <option value="sale">Sale</option>
         <option value="adjustment">Adjustment</option>
+        <option value="damage">Damage</option>
+        <option value="loss">Loss</option>
         <option value="return">Return</option>
       </select>
       <div class="filter-search">
@@ -235,7 +250,14 @@ function fmtDay(d)  { return d ? new Date(d).toLocaleDateString('en-PH',  { mont
 function fmtTime(d) { return d ? new Date(d).toLocaleTimeString('en-PH',  { hour: '2-digit', minute: '2-digit' }) : '' }
 
 function typeLabel(t) {
-  return { stock_in: 'Stock In', sale: 'Sale', adjustment: 'Adjustment', return: 'Return' }[t] ?? t ?? '—'
+  return {
+    stock_in:   'Stock In',
+    sale:       'Sale',
+    adjustment: 'Adjustment',
+    damage:     'Damage',
+    loss:       'Loss',
+    return:     'Return',
+  }[t] ?? t ?? '—'
 }
 
 function typePill(t) {
@@ -244,11 +266,13 @@ function typePill(t) {
     return:     'pill-green',
     sale:       'pill-blue',
     adjustment: 'pill-amber',
+    damage:     'pill-red',
+    loss:       'pill-red',
   }[t] ?? 'pill-gray'
 }
 
-function qtySign(t)  { return ['stock_in', 'return', 'adjustment'].includes(t) ? '+' : '−' }
-function qtyClass(t) { return ['stock_in', 'return', 'adjustment'].includes(t) ? 'qty-pos' : 'qty-neg' }
+function qtySign(t)  { return ['stock_in', 'return'].includes(t) ? '+' : '−' }
+function qtyClass(t) { return ['stock_in', 'return'].includes(t) ? 'qty-pos' : 'qty-neg' }
 
 function userInitials(name) {
   if (!name) return '?'
@@ -279,17 +303,19 @@ onMounted(() => { fetchPage(); fetchSummary() })
 .page-sub     { font-size: 12px; color: #6b7280; margin: 2px 0 0; }
 
 /* Stats */
-.stats-row  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.stats-row  { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px; }
 .stat-card  { background: #fff; border-radius: 14px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 8px rgba(0,0,0,.04); padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
 .stat-icon  { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .stat-icon.orange { background: #fff7ed; color: #ea580c; }
 .stat-icon.green  { background: #f0fdf4; color: #16a34a; }
 .stat-icon.blue   { background: #eff6ff; color: #2563eb; }
 .stat-icon.amber  { background: #fffbeb; color: #d97706; }
+.stat-icon.red    { background: #fef2f2; color: #dc2626; }
 .stat-num   { font-size: 1.5rem; font-weight: 800; color: #111827; line-height: 1; }
 .stat-num.green  { color: #16a34a; }
 .stat-num.blue   { color: #2563eb; }
 .stat-num.amber  { color: #d97706; }
+.stat-num.red    { color: #dc2626; }
 .stat-lbl   { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
 
 /* Filter bar */
@@ -337,6 +363,7 @@ onMounted(() => { fetchPage(); fetchSummary() })
 .pill-green { background: #f0fdf4; color: #15803d; }
 .pill-blue  { background: #eff6ff; color: #1d4ed8; }
 .pill-amber { background: #fffbeb; color: #b45309; }
+.pill-red   { background: #fee2e2; color: #b91c1c; }
 .pill-gray  { background: #f9fafb; color: #4b5563; }
 
 /* Qty change */
@@ -359,6 +386,7 @@ onMounted(() => { fetchPage(); fetchSummary() })
 .pag-btn:disabled { opacity: .4; cursor: not-allowed; }
 .pag-btn.ellipsis { border: none; cursor: default; }
 
+@media (max-width: 1200px) { .stats-row { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 1024px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 640px)  { .stats-row { grid-template-columns: 1fr; } .sm-page { padding: 16px; } }
 </style>

@@ -107,7 +107,7 @@
     </div>
 
     <div v-else-if="products.length" class="products-grid">
-      <div v-for="p in products" :key="p.id" class="product-card">
+      <div v-for="p in products" :key="p.id" class="product-card" :class="{ 'card-highlighted': p.id === highlightId }" :data-product-id="p.id">
         <!-- Top status stripe -->
         <div class="card-stripe" :class="stockStripe(p)"></div>
 
@@ -160,6 +160,10 @@
           <button @click="openStockIn(p)" class="action-btn btn-stockin">
             <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
             Stock In
+          </button>
+          <button @click="openAdjust(p)" class="action-btn btn-adjust">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            Adjust
           </button>
           <button @click="openModal(p)" class="action-btn btn-edit">
             <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -343,12 +347,72 @@
       </div>
     </div>
   </Teleport>
+
+  <!-- ── Adjust Stock Modal ──────────────────────────────── -->
+  <Teleport to="body">
+    <div v-if="showAdjustModal" class="modal-backdrop" @click.self="showAdjustModal = false">
+      <div class="modal-box modal-md">
+        <div class="modal-header">
+          <div class="flex items-center gap-3">
+            <div class="mh-icon orange">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <div>
+              <h3 class="modal-title">Adjust Stock</h3>
+              <p class="modal-sub">{{ adjustProduct?.name }}</p>
+            </div>
+          </div>
+          <button @click="showAdjustModal = false" class="modal-close">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <form @submit.prevent="doAdjust" class="modal-body">
+          <div class="form-grid-1">
+            <div class="fg">
+              <label class="fl">Adjustment Type *</label>
+              <select v-model="adjustForm.type" class="fi" required>
+                <option value="adjustment">Adjustment — manual stock correction</option>
+                <option value="damage">Damage — items damaged, unusable</option>
+                <option value="loss">Loss — theft, expiry, or unexplained loss</option>
+              </select>
+            </div>
+            <div class="adjust-info-row" :class="adjustForm.type">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
+              <span v-if="adjustForm.type === 'adjustment'">Stock will be reduced by the entered quantity.</span>
+              <span v-else-if="adjustForm.type === 'damage'">Damaged items will be deducted and recorded as a damage event.</span>
+              <span v-else>Lost items will be deducted and recorded as a loss event.</span>
+            </div>
+            <div class="fg">
+              <label class="fl">Quantity *</label>
+              <input v-model.number="adjustForm.quantity" type="number" min="1" :max="adjustProduct?.stock_quantity" class="fi" required />
+              <span class="fi-hint">Current stock: {{ adjustProduct?.stock_quantity ?? 0 }} units</span>
+            </div>
+            <div class="fg">
+              <label class="fl">Reference No.</label>
+              <input v-model="adjustForm.reference_number" class="fi" placeholder="e.g. ADJ-001" />
+            </div>
+            <div class="fg">
+              <label class="fl">Reason / Notes *</label>
+              <textarea v-model="adjustForm.notes" class="fi fi--ta" rows="2" placeholder="Describe the reason for this adjustment…" required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" @click="showAdjustModal = false" class="btn-cancel">Cancel</button>
+            <button type="submit" class="btn-save orange-btn" :disabled="saving">{{ saving ? 'Processing…' : 'Confirm Adjustment' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, useTemplateRef } from 'vue'
+import { ref, computed, onMounted, nextTick, watch, useTemplateRef } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import { useAlerts } from '@/composables/useAlerts'
+
+const route = useRoute()
 
 const { alerts } = useAlerts(false)
 
@@ -363,6 +427,7 @@ const loading        = ref(true)
 const search         = ref('')
 const filterCategory = ref('')
 const filterLowStock = ref(false)
+const highlightId    = ref(null)
 const showModal      = ref(false)
 const showStockInModal = ref(false)
 const editingId      = ref(null)
@@ -388,7 +453,10 @@ function clearImage() {
   imagePreview.value = ''
   if (imgInput.value) imgInput.value.value = ''
 }
-const stockInForm = ref({ product_id: '', quantity: 1, unit_cost: null, reference_number: '', notes: '' })
+const stockInForm  = ref({ product_id: '', quantity: 1, unit_cost: null, reference_number: '', notes: '' })
+const showAdjustModal = ref(false)
+const adjustProduct   = ref(null)
+const adjustForm      = ref({ type: 'adjustment', quantity: 1, reference_number: '', notes: '' })
 
 const lowStockCount  = computed(() => products.value.filter(p => p.stock_quantity > 0 && p.stock_quantity <= p.reorder_point).length)
 const outOfStockCount = computed(() => products.value.filter(p => p.stock_quantity === 0).length)
@@ -509,7 +577,48 @@ async function doStockIn() {
   } finally { saving.value = false }
 }
 
+function openAdjust(product) {
+  adjustProduct.value = product
+  adjustForm.value = { type: 'adjustment', quantity: 1, reference_number: '', notes: '' }
+  showAdjustModal.value = true
+}
+
+async function doAdjust() {
+  saving.value = true
+  try {
+    await api.post(`/products/${adjustProduct.value.id}/adjust`, adjustForm.value)
+    showAdjustModal.value = false
+    fetchPage(pagination.value.current_page ?? 1)
+  } finally { saving.value = false }
+}
+
 function fmtAmt(v) { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }
+
+async function activateHighlight(id) {
+  highlightId.value    = id
+  search.value         = ''
+  filterCategory.value = ''
+  filterLowStock.value = false
+  loading.value = true
+  try {
+    // Load all products so the target is in view without filtering
+    const { data } = await api.get('/products', { params: { per_page: 9999 } })
+    products.value   = data.data
+    pagination.value = { current_page: 1, last_page: 1, total: data.total }
+  } catch {}
+  finally { loading.value = false }
+
+  await nextTick()
+  const el = document.querySelector(`[data-product-id="${id}"]`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setTimeout(() => { highlightId.value = null }, 2600)
+  }
+}
+
+watch(() => route.query.highlight, (newId) => {
+  if (newId) activateHighlight(Number(newId))
+})
 
 onMounted(async () => {
   try {
@@ -519,13 +628,28 @@ onMounted(async () => {
     ])
     categories.value = cats.data
     suppliers.value  = sups.data.data ?? sups.data
+  } catch {}
+
+  if (route.query.highlight) {
+    activateHighlight(Number(route.query.highlight))
+  } else {
     fetchPage()
-  } catch { loading.value = false }
+  }
 })
 </script>
 
 <style scoped>
 .inv-page { padding: 28px 32px 48px; }
+
+@keyframes card-blink {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+  50%       { box-shadow: 0 0 0 6px rgba(245,158,11,.85); background-color: rgba(255,251,235,.55); }
+}
+.card-highlighted {
+  outline: 2px solid #f59e0b;
+  animation: card-blink 0.4s ease-in-out 6;
+  position: relative; z-index: 1;
+}
 
 /* ── Header ─────────────────────────────────────────── */
 .page-header {
@@ -722,6 +846,8 @@ onMounted(async () => {
 }
 .btn-stockin { background: #f0fdfa; color: #0d9488; }
 .btn-stockin:hover { background: #ccfbf1; }
+.btn-adjust  { background: #fff7ed; color: #c2410c; }
+.btn-adjust:hover  { background: #ffedd5; }
 .btn-edit    { background: #f3f4f6; color: #374151; }
 .btn-edit:hover    { background: #e5e7eb; }
 
@@ -848,8 +974,26 @@ onMounted(async () => {
 }
 .btn-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13,148,136,0.4); }
 .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-save.green-btn { background: linear-gradient(135deg, #10b981, #059669); }
-.btn-save.green-btn:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(16,185,129,0.4); }
+.btn-save.green-btn  { background: linear-gradient(135deg, #10b981, #059669); }
+.btn-save.green-btn:hover:not(:disabled)  { box-shadow: 0 4px 12px rgba(16,185,129,0.4); }
+.btn-save.orange-btn { background: linear-gradient(135deg, #f97316, #ea580c); }
+.btn-save.orange-btn:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(249,115,22,0.4); }
+
+/* Adjust modal extras */
+.mh-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.mh-icon.orange { background: linear-gradient(135deg, #f97316, #ea580c); color: #fff; }
+.fi-hint { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.adjust-info-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 12px; border-radius: 9px; font-size: 12px; font-weight: 500;
+}
+.adjust-info-row.adjustment { background: #eff6ff; color: #1d4ed8; }
+.adjust-info-row.damage     { background: #fff7ed; color: #c2410c; }
+.adjust-info-row.loss       { background: #fef2f2; color: #b91c1c; }
+.adjust-info-row svg        { flex-shrink: 0; margin-top: 1px; }
 
 /* Responsive */
 @media (max-width: 1300px) { .products-grid { grid-template-columns: repeat(3, 1fr); } }

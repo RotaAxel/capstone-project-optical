@@ -78,7 +78,7 @@
       </div>
 
       <template v-else-if="prescriptions.length">
-        <div v-for="rx in prescriptions" :key="rx.id" class="rx-card">
+        <div v-for="rx in prescriptions" :key="rx.id" class="rx-card" :class="{ 'card-highlighted': rx.id === highlightId }" :data-rx-id="rx.id">
 
           <!-- Patient -->
           <div class="rx-patient">
@@ -339,11 +339,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
-const auth = useAuthStore()
+const auth  = useAuthStore()
+const route = useRoute()
+const highlightId = ref(null)
 
 const prescriptions = ref([])
 const patients      = ref([])
@@ -432,17 +435,56 @@ function fmt(v) { return v != null && v !== '' ? Number(v).toFixed(2) : '—' }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 function isExpired(d) { return d && new Date(d) < new Date() }
 
+async function activateHighlight(id) {
+  highlightId.value = id
+  search.value      = ''
+  filterDate.value  = ''
+  loading.value = true
+  try {
+    const { data } = await api.get('/prescriptions', { params: { per_page: 9999 } })
+    prescriptions.value = data.data
+    pagination.value    = { current_page: 1, last_page: 1, total: data.total }
+  } catch {}
+  finally { loading.value = false }
+
+  await nextTick()
+  const el = document.querySelector(`[data-rx-id="${id}"]`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setTimeout(() => { highlightId.value = null }, 2600)
+  }
+}
+
+watch(() => route.query.highlight, (newId) => {
+  if (newId) activateHighlight(Number(newId))
+})
+
 onMounted(async () => {
   try {
     const { data } = await api.get('/patients', { params: { per_page: 500 } })
     patients.value = data.data
-  } catch { /* */ }
-  fetchPage()
+  } catch {}
+
+  if (route.query.highlight) {
+    activateHighlight(Number(route.query.highlight))
+  } else {
+    fetchPage()
+  }
 })
 </script>
 
 <style scoped>
 .rx-page { padding: 28px 32px 48px; }
+
+@keyframes card-blink {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+  50%       { box-shadow: 0 0 0 6px rgba(245,158,11,.85); background-color: rgba(255,251,235,.55); }
+}
+.card-highlighted {
+  outline: 2px solid #f59e0b;
+  animation: card-blink 0.4s ease-in-out 6;
+  position: relative; z-index: 1;
+}
 
 /* ── Header ─────────────────────────────────────────── */
 .page-header {

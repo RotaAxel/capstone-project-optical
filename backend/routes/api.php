@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('products/{product}',         [ProductController::class, 'update']);
         Route::delete('products/{product}',      [ProductController::class, 'destroy']);
         Route::post('products/{product}/stock-in', [ProductController::class, 'stockIn']);
+        Route::post('products/{product}/adjust',   [ProductController::class, 'adjust']);
         Route::get('stock-movements/summary', [StockMovementController::class, 'summary']);
         Route::apiResource('stock-movements', StockMovementController::class)->only(['index', 'show']);
     });

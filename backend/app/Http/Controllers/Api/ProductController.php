@@ -139,4 +139,32 @@ class ProductController extends Controller
 
         return response()->json(['product' => $product->fresh(), 'movement' => $movement]);
     }
+
+    public function adjust(Request $request, Product $product)
+    {
+        $validated = $request->validate([
+            'type'             => 'required|in:adjustment,damage,loss',
+            'quantity'         => 'required|integer|min:1',
+            'reference_number' => 'nullable|string',
+            'notes'            => 'nullable|string',
+        ]);
+
+        $before = $product->stock_quantity;
+        $after  = max(0, $before - $validated['quantity']);
+
+        $product->update(['stock_quantity' => $after]);
+
+        $movement = StockMovement::create([
+            'product_id'       => $product->id,
+            'user_id'          => $request->user()->id,
+            'type'             => $validated['type'],
+            'quantity'         => $validated['quantity'],
+            'quantity_before'  => $before,
+            'quantity_after'   => $after,
+            'reference_number' => $validated['reference_number'] ?? null,
+            'notes'            => $validated['notes'] ?? null,
+        ]);
+
+        return response()->json(['product' => $product->fresh(), 'movement' => $movement]);
+    }
 }

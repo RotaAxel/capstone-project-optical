@@ -291,7 +291,8 @@ async function fetchAlerts() {
 
 function goToAlert(alert) {
   showAlerts.value = false
-  router.push('/inventory')
+  const query = alert.highlight_id ? { highlight: alert.highlight_id } : {}
+  router.push({ path: alert.route ?? '/inventory', query })
 }
 
 onMounted(fetchAlerts)

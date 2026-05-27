@@ -86,7 +86,7 @@
       </div>
 
       <template v-else-if="appointments.length">
-        <div v-for="a in appointments" :key="a.id" class="appt-card" :class="statusBorder(a.status)">
+        <div v-for="a in appointments" :key="a.id" class="appt-card" :class="[statusBorder(a.status), { 'card-highlighted': a.id === highlightId }]" :data-appt-id="a.id">
           <!-- Status stripe -->
           <div class="status-stripe" :class="statusStripe(a.status)"></div>
 
@@ -223,11 +223,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
-const auth = useAuthStore()
+const auth  = useAuthStore()
+const route = useRoute()
+const highlightId = ref(null)
 
 const appointments = ref([])
 const patients     = ref([])
@@ -303,6 +306,30 @@ function statusPill(s) {
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 function fmtTime(d) { return d ? new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '' }
 
+async function activateHighlight(id) {
+  highlightId.value  = id
+  filterDate.value   = ''
+  filterStatus.value = ''
+  loading.value = true
+  try {
+    const { data } = await api.get('/appointments', { params: { per_page: 9999 } })
+    appointments.value = data.data
+    pagination.value   = { current_page: 1, last_page: 1, total: data.total }
+  } catch {}
+  finally { loading.value = false }
+
+  await nextTick()
+  const el = document.querySelector(`[data-appt-id="${id}"]`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setTimeout(() => { highlightId.value = null }, 2600)
+  }
+}
+
+watch(() => route.query.highlight, (newId) => {
+  if (newId) activateHighlight(Number(newId))
+})
+
 onMounted(async () => {
   try {
     const [pts, opts] = await Promise.all([
@@ -311,13 +338,28 @@ onMounted(async () => {
     ])
     patients.value     = pts.data.data
     optometrists.value = opts.data
-    fetchPage()
   } catch { loading.value = false }
+
+  if (route.query.highlight) {
+    activateHighlight(Number(route.query.highlight))
+  } else {
+    fetchPage()
+  }
 })
 </script>
 
 <style scoped>
 .appts-page { padding: 28px 32px 48px; }
+
+@keyframes card-blink {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+  50%       { box-shadow: 0 0 0 6px rgba(245,158,11,.85); background-color: rgba(255,251,235,.55); }
+}
+.card-highlighted {
+  outline: 2px solid #f59e0b;
+  animation: card-blink 0.4s ease-in-out 6;
+  position: relative; z-index: 1;
+}
 
 /* ── Header ─────────────────────────────────────────── */
 .page-header {

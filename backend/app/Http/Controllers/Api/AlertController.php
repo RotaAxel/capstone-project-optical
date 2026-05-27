@@ -46,13 +46,16 @@ class AlertController extends Controller
         $outOfStock = Product::where('stock_quantity', 0)->where('is_active', true)->get();
         foreach ($outOfStock as $p) {
             $alerts[] = [
-                'id'         => 'oos-' . $p->id,
-                'type'       => 'out_of_stock',
-                'severity'   => 'critical',
-                'title'      => 'Out of Stock',
-                'message'    => "{$p->name} ({$p->sku}) has 0 units remaining.",
-                'product'    => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'stock' => $p->stock_quantity],
-                'created_at' => now(),
+                'id'           => 'oos-' . $p->id,
+                'type'         => 'out_of_stock',
+                'severity'     => 'critical',
+                'title'        => 'Out of Stock',
+                'message'      => "{$p->name} ({$p->sku}) has 0 units remaining.",
+                'product'      => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'stock' => $p->stock_quantity],
+                'route'        => '/inventory',
+                'highlight_id' => $p->id,
+                'search_hint'  => $p->sku,
+                'created_at'   => now(),
             ];
         }
 
@@ -62,13 +65,16 @@ class AlertController extends Controller
             ->get();
         foreach ($lowStock as $p) {
             $alerts[] = [
-                'id'         => 'low-' . $p->id,
-                'type'       => 'low_stock',
-                'severity'   => 'warning',
-                'title'      => 'Low Stock',
-                'message'    => "{$p->name} ({$p->sku}) has only {$p->stock_quantity} units left (ROP: {$p->reorder_point}).",
-                'product'    => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'stock' => $p->stock_quantity, 'rop' => $p->reorder_point],
-                'created_at' => now(),
+                'id'           => 'low-' . $p->id,
+                'type'         => 'low_stock',
+                'severity'     => 'warning',
+                'title'        => 'Low Stock',
+                'message'      => "{$p->name} ({$p->sku}) has only {$p->stock_quantity} units left (ROP: {$p->reorder_point}).",
+                'product'      => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'stock' => $p->stock_quantity, 'rop' => $p->reorder_point],
+                'route'        => '/inventory',
+                'highlight_id' => $p->id,
+                'search_hint'  => $p->sku,
+                'created_at'   => now(),
             ];
         }
 
@@ -89,13 +95,16 @@ class AlertController extends Controller
             $p    = $log->product;
             $days = max(1, round(($p->stock_quantity - $log->rop_value) / max(0.01, $log->result_data['avg_daily'] ?? 0.01)));
             $alerts[] = [
-                'id'         => 'pred-' . $p->id,
-                'type'       => 'predictive_restock',
-                'severity'   => 'info',
-                'title'      => 'Restock Soon',
-                'message'    => "{$p->name} will reach reorder point in ~{$days} days based on demand forecast.",
-                'product'    => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'stock' => $p->stock_quantity, 'predicted_demand' => $log->predicted_demand, 'rop' => $log->rop_value],
-                'created_at' => now(),
+                'id'           => 'pred-' . $p->id,
+                'type'         => 'predictive_restock',
+                'severity'     => 'info',
+                'title'        => 'Restock Soon',
+                'message'      => "{$p->name} will reach reorder point in ~{$days} days based on demand forecast.",
+                'product'      => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'stock' => $p->stock_quantity, 'predicted_demand' => $log->predicted_demand, 'rop' => $log->rop_value],
+                'route'        => '/inventory',
+                'highlight_id' => $p->id,
+                'search_hint'  => $p->sku,
+                'created_at'   => now(),
             ];
         }
 
@@ -113,12 +122,15 @@ class AlertController extends Controller
 
         if ($count > 0) {
             $alerts[] = [
-                'id'         => 'appt-today',
-                'type'       => 'appointments',
-                'severity'   => 'info',
-                'title'      => 'Today\'s Appointments',
-                'message'    => "{$count} appointment(s) scheduled for today.",
-                'created_at' => now(),
+                'id'           => 'appt-today',
+                'type'         => 'appointments',
+                'severity'     => 'info',
+                'title'        => 'Today\'s Appointments',
+                'message'      => "{$count} appointment(s) scheduled for today.",
+                'route'        => '/appointments',
+                'highlight_id' => null,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -130,12 +142,15 @@ class AlertController extends Controller
 
         if ($tmrCount > 0) {
             $alerts[] = [
-                'id'         => 'appt-tomorrow',
-                'type'       => 'appointments',
-                'severity'   => 'info',
-                'title'      => 'Tomorrow\'s Appointments',
-                'message'    => "{$tmrCount} appointment(s) scheduled for tomorrow.",
-                'created_at' => now(),
+                'id'           => 'appt-tomorrow',
+                'type'         => 'appointments',
+                'severity'     => 'info',
+                'title'        => 'Tomorrow\'s Appointments',
+                'message'      => "{$tmrCount} appointment(s) scheduled for tomorrow.",
+                'route'        => '/appointments',
+                'highlight_id' => null,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -154,12 +169,15 @@ class AlertController extends Controller
 
         if ($scheduled > 0) {
             $alerts[] = [
-                'id'         => 'appt-today',
-                'type'       => 'appointments',
-                'severity'   => 'info',
-                'title'      => 'Today\'s Appointments',
-                'message'    => "{$scheduled} appointment(s) still scheduled today.",
-                'created_at' => now(),
+                'id'           => 'appt-today',
+                'type'         => 'appointments',
+                'severity'     => 'info',
+                'title'        => 'Today\'s Appointments',
+                'message'      => "{$scheduled} appointment(s) still scheduled today.",
+                'route'        => '/appointments',
+                'highlight_id' => null,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -173,12 +191,15 @@ class AlertController extends Controller
             $name = $appt->patient ? $appt->patient->first_name . ' ' . $appt->patient->last_name : 'Unknown';
             $time = Carbon::parse($appt->appointment_date)->format('g:i A');
             $alerts[] = [
-                'id'         => 'appt-soon-' . $appt->id,
-                'type'       => 'appointments',
-                'severity'   => 'warning',
-                'title'      => 'Appointment Starting Soon',
-                'message'    => "{$name} has an appointment at {$time}.",
-                'created_at' => now(),
+                'id'           => 'appt-soon-' . $appt->id,
+                'type'         => 'appointments',
+                'severity'     => 'warning',
+                'title'        => 'Appointment Starting Soon',
+                'message'      => "{$name} has an appointment at {$time}.",
+                'route'        => '/appointments',
+                'highlight_id' => $appt->id,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -193,12 +214,15 @@ class AlertController extends Controller
             $name = $appt->patient ? $appt->patient->first_name . ' ' . $appt->patient->last_name : 'Unknown';
             $time = Carbon::parse($appt->appointment_date)->format('g:i A');
             $alerts[] = [
-                'id'         => 'noshow-' . $appt->id,
-                'type'       => 'no_show',
-                'severity'   => 'warning',
-                'title'      => 'Possible No-Show',
-                'message'    => "{$name} was scheduled at {$time} but has not been marked as completed.",
-                'created_at' => now(),
+                'id'           => 'noshow-' . $appt->id,
+                'type'         => 'no_show',
+                'severity'     => 'warning',
+                'title'        => 'Possible No-Show',
+                'message'      => "{$name} was scheduled at {$time} but has not been marked as completed.",
+                'route'        => '/appointments',
+                'highlight_id' => $appt->id,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -209,12 +233,15 @@ class AlertController extends Controller
 
         if ($tomorrow > 0) {
             $alerts[] = [
-                'id'         => 'appt-tomorrow',
-                'type'       => 'appointments',
-                'severity'   => 'info',
-                'title'      => 'Tomorrow\'s Schedule',
-                'message'    => "{$tomorrow} appointment(s) scheduled for tomorrow.",
-                'created_at' => now(),
+                'id'           => 'appt-tomorrow',
+                'type'         => 'appointments',
+                'severity'     => 'info',
+                'title'        => 'Tomorrow\'s Schedule',
+                'message'      => "{$tomorrow} appointment(s) scheduled for tomorrow.",
+                'route'        => '/appointments',
+                'highlight_id' => null,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -235,12 +262,15 @@ class AlertController extends Controller
 
         if ($myToday > 0) {
             $alerts[] = [
-                'id'         => 'my-appt-today',
-                'type'       => 'appointments',
-                'severity'   => 'info',
-                'title'      => 'Your Appointments Today',
-                'message'    => "You have {$myToday} appointment(s) scheduled for today.",
-                'created_at' => now(),
+                'id'           => 'my-appt-today',
+                'type'         => 'appointments',
+                'severity'     => 'info',
+                'title'        => 'Your Appointments Today',
+                'message'      => "You have {$myToday} appointment(s) scheduled for today.",
+                'route'        => '/appointments',
+                'highlight_id' => null,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -255,12 +285,15 @@ class AlertController extends Controller
             $name = $appt->patient ? $appt->patient->first_name . ' ' . $appt->patient->last_name : 'Unknown';
             $time = Carbon::parse($appt->appointment_date)->format('g:i A');
             $alerts[] = [
-                'id'         => 'my-appt-soon-' . $appt->id,
-                'type'       => 'appointments',
-                'severity'   => 'warning',
-                'title'      => 'Patient Arriving Soon',
-                'message'    => "{$name} is scheduled at {$time}.",
-                'created_at' => now(),
+                'id'           => 'my-appt-soon-' . $appt->id,
+                'type'         => 'appointments',
+                'severity'     => 'warning',
+                'title'        => 'Patient Arriving Soon',
+                'message'      => "{$name} is scheduled at {$time}.",
+                'route'        => '/appointments',
+                'highlight_id' => $appt->id,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -271,16 +304,19 @@ class AlertController extends Controller
             ->get();
 
         foreach ($expiringSoon as $rx) {
-            $name    = $rx->patient ? $rx->patient->first_name . ' ' . $rx->patient->last_name : 'Unknown';
+            $name     = $rx->patient ? $rx->patient->first_name . ' ' . $rx->patient->last_name : 'Unknown';
             $daysLeft = $today->diffInDays(Carbon::parse($rx->valid_until));
             $severity = $daysLeft <= 2 ? 'warning' : 'info';
             $alerts[] = [
-                'id'         => 'rx-expiring-' . $rx->id,
-                'type'       => 'prescription_expiring',
-                'severity'   => $severity,
-                'title'      => 'Prescription Expiring Soon',
-                'message'    => "{$name}'s prescription expires in {$daysLeft} day(s).",
-                'created_at' => now(),
+                'id'           => 'rx-expiring-' . $rx->id,
+                'type'         => 'prescription_expiring',
+                'severity'     => $severity,
+                'title'        => 'Prescription Expiring Soon',
+                'message'      => "{$name}'s prescription expires in {$daysLeft} day(s).",
+                'route'        => '/prescriptions',
+                'highlight_id' => $rx->id,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
@@ -296,12 +332,15 @@ class AlertController extends Controller
             $name = $appt->patient ? $appt->patient->first_name . ' ' . $appt->patient->last_name : 'Unknown';
             $time = Carbon::parse($appt->appointment_date)->format('g:i A');
             $alerts[] = [
-                'id'         => 'my-overdue-' . $appt->id,
-                'type'       => 'overdue_appointment',
-                'severity'   => 'warning',
-                'title'      => 'Appointment Not Completed',
-                'message'    => "{$name}'s {$time} appointment has not been marked completed.",
-                'created_at' => now(),
+                'id'           => 'my-overdue-' . $appt->id,
+                'type'         => 'overdue_appointment',
+                'severity'     => 'warning',
+                'title'        => 'Appointment Not Completed',
+                'message'      => "{$name}'s {$time} appointment has not been marked completed.",
+                'route'        => '/appointments',
+                'highlight_id' => $appt->id,
+                'search_hint'  => null,
+                'created_at'   => now(),
             ];
         }
 
