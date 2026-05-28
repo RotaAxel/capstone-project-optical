@@ -1223,7 +1223,7 @@ onMounted(loadSummary)
 .chart-row-2 { grid-template-columns: 1fr 1fr; }
 
 .chart-card  { background: #fff; border-radius: 14px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 8px rgba(0,0,0,.04); overflow: hidden; display: flex; flex-direction: column; }
-.chart-card-wide { }
+
 
 .chart-header { display: flex; align-items: flex-start; gap: 10px; padding: 14px 18px; border-bottom: 1.5px solid transparent; flex-wrap: wrap; }
 .ch-blue   { background: #eff6ff; border-bottom-color: #dbeafe; }

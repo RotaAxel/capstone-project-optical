@@ -74,8 +74,8 @@ class HistoricalTransactionSeeder extends Seeder
         $saleCount  = 0;
         $itemCount  = 0;
 
-        // ── 365-day loop ──────────────────────────────────────────────────────
-        for ($day = 365; $day >= 1; $day--) {
+        // ── 1460-day loop ──────────────────────────────────────────────────────
+        for ($day = 1460; $day >= 1; $day--) {
             $date  = Carbon::now()->subDays($day)->startOfDay();
             $month = (int) $date->month;
             $dow   = (int) $date->dayOfWeek; // 0 = Sun, 6 = Sat

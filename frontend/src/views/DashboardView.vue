@@ -618,8 +618,6 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   gap: 18px;
 }
 
-.top-frames { /* no extra overrides needed */ }
-
 .chart-card {
   padding: 20px;
   background: rgba(255, 255, 255, 0.92);

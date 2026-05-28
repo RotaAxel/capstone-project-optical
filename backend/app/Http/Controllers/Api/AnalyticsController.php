@@ -14,8 +14,8 @@ class AnalyticsController extends Controller
     private float $holdingRate = 0.20;
     private float $serviceZ    = 1.645;
     private int   $leadTime    = 7;
-    private int   $weekWindow  = 52;
-    private int   $dayWindow   = 364;
+    private int   $weekWindow  = 208;
+    private int   $dayWindow   = 1460;
 
     // ─── Public Endpoints ─────────────────────────────────────────────────
 
