@@ -83,7 +83,7 @@
         <div>
           <p class="algo-label">FSN</p>
           <p class="algo-name">Sales Speed</p>
-          <p class="algo-desc">Rates products by how fast they sell (last 24 weeks)</p>
+          <p class="algo-desc">Rates products by how fast they sell (last 52 weeks)</p>
         </div>
       </div>
 
@@ -266,7 +266,7 @@
               <th>Best Order Qty</th>
               <th>Reorder When</th>
               <th>Sales Speed</th>
-              <th>Forecast Accuracy</th>
+              <th>Forecast Accuracy <span class="th-note">(WMAPE)</span></th>
               <th>Alert</th>
             </tr>
           </thead>
@@ -295,11 +295,11 @@
                 </span>
               </td>
               <td>
-                <template v-if="r.analytics?.result_data?.mape_pct != null">
-                  <span :class="mapeClass(r.analytics.result_data.mape_pct)">
-                    {{ mapeAccuracy(r.analytics.result_data.mape_pct) }}%
+                <template v-if="wmapePct(r.analytics?.result_data) != null">
+                  <span :class="mapeClass(wmapePct(r.analytics.result_data))">
+                    {{ mapeAccuracy(wmapePct(r.analytics.result_data)) }}%
                   </span>
-                  <span class="mape-sub">MAPE {{ r.analytics.result_data.mape_pct }}%</span>
+                  <span class="mape-sub">WMAPE {{ wmapePct(r.analytics.result_data) }}%</span>
                 </template>
                 <span v-else class="dim">—</span>
               </td>
@@ -519,9 +519,7 @@
                   </svg>
                   ARIMA
                 </div>
-                <span class="sop-sec-formula">
-                  {{ selected.analytics?.result_data?.used_fallback ? 'Exponential Smoothing (fallback)' : 'ARIMA(1,1,1)' }}
-                </span>
+                <span class="sop-sec-formula">{{ methodLabel(selected.analytics?.result_data) }}</span>
               </div>
               <div class="sop-sec-body">
                 <div class="sop-kv"><span class="sop-k">Sales last 90 days</span><span class="sop-v">{{ selected.analytics?.result_data?.sales_90d ?? '—' }} units</span></div>
@@ -531,11 +529,11 @@
                   <div class="sop-kv"><span class="sop-k">MA parameter (θ₁)</span><span class="sop-v mono">{{ selected.analytics?.result_data?.ma_param ?? '—' }}</span></div>
                 </template>
                 <div class="sop-kv"><span class="sop-k">Forecast range (95% accuracy)</span><span class="sop-v dim">{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span></div>
-                <div class="sop-kv" v-if="selected.analytics?.result_data?.mape_pct != null">
-                  <span class="sop-k">Forecast accuracy (MAPE)</span>
-                  <span class="sop-v" :class="mapeClass(selected.analytics.result_data.mape_pct)">
-                    {{ mapeAccuracy(selected.analytics.result_data.mape_pct) }}% accurate
-                    <span class="mape-detail">(error: {{ selected.analytics.result_data.mape_pct }}%)</span>
+                <div class="sop-kv" v-if="wmapePct(selected.analytics?.result_data) != null">
+                  <span class="sop-k">Forecast accuracy (WMAPE)</span>
+                  <span class="sop-v" :class="mapeClass(wmapePct(selected.analytics.result_data))">
+                    {{ mapeAccuracy(wmapePct(selected.analytics.result_data)) }}% accurate
+                    <span class="mape-detail">(WMAPE: {{ wmapePct(selected.analytics.result_data) }}%)</span>
                   </span>
                 </div>
                 <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
@@ -645,7 +643,7 @@
                     <span>Fast ≥50%</span>
                   </div>
                 </div>
-                <div class="sop-kv"><span class="sop-k">Weeks with sales (last 24)</span><span class="sop-v">{{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 24 }} weeks</span></div>
+                <div class="sop-kv"><span class="sop-k">Weeks with sales (last 52)</span><span class="sop-v">{{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 52 }} weeks</span></div>
                 <div class="sop-kv"><span class="sop-k">Last sale date</span><span class="sop-v">{{ selected.analytics?.result_data?.last_sale_date ?? 'No sales recorded' }}</span></div>
                 <div class="sop-kv"><span class="sop-k">Average daily sales</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
                 <div class="sop-result" :class="{
@@ -770,11 +768,23 @@ function fsnLabel(cls) {
   return { fast: 'Fast Moving', slow: 'Slow Moving', non_moving: 'Non-Moving' }[cls] ?? '—'
 }
 
+function methodLabel(rd) {
+  if (!rd) return 'ARIMA(1,1,1)'
+  if (rd.method_used === 'croston')    return "Croston's Method (intermittent demand)"
+  if (rd.method_used === 'ses')        return 'Optimised SES (non-moving)'
+  if (rd.method_used === 'auto_arima') {
+    const o = rd.arima_order ?? [1, 1, 1]
+    return `Auto-ARIMA(${o.join(',')})`
+  }
+  if (rd.used_fallback) return 'Exponential Smoothing (fallback)'
+  return 'ARIMA(1,1,1)'
+}
+
 function fsnDescription(cls) {
   return {
-    fast:       'Active in ≥50% of the last 24 weeks or ≥1 unit/day average. Prioritise replenishment and maintain higher safety stock.',
-    slow:       'Active in 10–50% of the last 24 weeks. Monitor levels regularly and avoid over-ordering.',
-    non_moving: 'Active in <10% of the last 24 weeks or no sale in ≥6 months. Review for dead stock — consider promotions or clearance.',
+    fast:       'Active in ≥50% of the last 52 weeks or ≥1 unit/day average. Prioritise replenishment and maintain higher safety stock.',
+    slow:       'Active in 10–50% of the last 52 weeks. Monitor levels regularly and avoid over-ordering.',
+    non_moving: 'Active in <10% of the last 52 weeks or no sale in ≥6 months. Review for dead stock — consider promotions or clearance.',
   }[cls] ?? ''
 }
 
@@ -782,6 +792,11 @@ function daysRemaining(r) {
   const avg = r.analytics?.result_data?.avg_daily ?? 0
   if (!avg) return '∞'
   return Math.max(0, Math.round(r.product.stock_quantity / avg))
+}
+
+// Returns wmape_pct if present, falls back to mape_pct for rows computed before the rename
+function wmapePct(rd) {
+  return rd?.wmape_pct ?? rd?.mape_pct ?? null
 }
 
 function mapeAccuracy(mapePct) {
@@ -1087,7 +1102,7 @@ const fsnActivityOptions = {
   scales: {
     x: { ticks: { font: { size: 10 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
     y: { beginAtZero: true, max: 105, ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#f3f4f6' },
-         title: { display: true, text: '% of weeks with sales activity (last 24 weeks)', font: { size: 10 }, color: '#9ca3af' } },
+         title: { display: true, text: '% of weeks with sales activity (last 52 weeks)', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
 
@@ -1284,7 +1299,7 @@ onMounted(loadSummary)
 .alert-pill.warn   { background: #fef9c3; color: #92400e; }
 .alert-pill.ok     { background: #dcfce7; color: #15803d; }
 
-/* MAPE accuracy */
+/* WMAPE accuracy */
 .mape-good { font-weight: 700; color: #15803d; }
 .mape-warn { font-weight: 700; color: #d97706; }
 .mape-poor { font-weight: 700; color: #b91c1c; }
