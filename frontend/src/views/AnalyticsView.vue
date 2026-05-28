@@ -789,9 +789,9 @@ function fsnDescription(cls) {
 }
 
 function daysRemaining(r) {
-  const avg = r.analytics?.result_data?.avg_daily ?? 0
-  if (!avg) return '∞'
-  return Math.max(0, Math.round(r.product.stock_quantity / avg))
+  const daily = predictedDaily(r)
+  if (!daily) return '∞'
+  return Math.max(0, Math.round(r.product.stock_quantity / daily))
 }
 
 // Returns wmape_pct if present, falls back to mape_pct for rows computed before the rename
@@ -954,24 +954,32 @@ const forecastLineOptions = {
   },
 }
 
+// Returns predicted daily demand for a result row.
+// Uses ARIMA/Croston predicted_demand (÷30) when available, falls back to historical avg_daily.
+function predictedDaily(r) {
+  const predicted = parseFloat(r.analytics?.predicted_demand ?? 0)
+  if (predicted > 0) return predicted / 30
+  return r.analytics?.result_data?.avg_daily ?? 0
+}
+
+function daysLeft(r) {
+  const daily = predictedDaily(r)
+  return daily > 0 ? Math.min(365, Math.round(r.product.stock_quantity / daily)) : 365
+}
+
 const stockRunwayData = computed(() => ({
   labels: productLabels.value,
   datasets: [{
     label: 'Days of Stock Remaining',
-    data: results.value.map(r => {
-      const avg = r.analytics?.result_data?.avg_daily ?? 0
-      return avg > 0 ? Math.min(365, Math.round(r.product.stock_quantity / avg)) : 365
-    }),
+    data: results.value.map(r => daysLeft(r)),
     backgroundColor: results.value.map(r => {
-      const avg  = r.analytics?.result_data?.avg_daily ?? 0
-      const days = avg > 0 ? r.product.stock_quantity / avg : 999
+      const days = daysLeft(r)
       if (days < 14) return 'rgba(239,68,68,0.75)'
       if (days < 30) return 'rgba(234,179,8,0.75)'
       return 'rgba(34,197,94,0.75)'
     }),
     borderColor: results.value.map(r => {
-      const avg  = r.analytics?.result_data?.avg_daily ?? 0
-      const days = avg > 0 ? r.product.stock_quantity / avg : 999
+      const days = daysLeft(r)
       if (days < 14) return '#ef4444'
       if (days < 30) return '#ca8a04'
       return '#16a34a'
