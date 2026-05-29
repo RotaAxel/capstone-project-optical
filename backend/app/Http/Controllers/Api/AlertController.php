@@ -14,14 +14,13 @@ class AlertController extends Controller
 {
     public function index(Request $request)
     {
-        $user   = $request->user();
-        $role   = $user->role;
+        $user = $request->user();
 
-        $alerts = match ($role) {
-            'receptionist'    => $this->receptionistAlerts(),
-            'optometrist'     => $this->optometristAlerts($user),
-            'inventory_staff' => $this->inventoryAlerts(),
-            default           => array_merge($this->inventoryAlerts(), $this->adminAppointmentAlerts()),
+        $alerts = match (true) {
+            $user->isReceptionist()   => $this->receptionistAlerts(),
+            $user->isOptometrist()    => $this->optometristAlerts($user),
+            $user->isInventoryStaff() => $this->inventoryAlerts(),
+            default                   => array_merge($this->inventoryAlerts(), $this->adminAppointmentAlerts()),
         };
 
         // Sort: critical → warning → info
@@ -84,16 +83,19 @@ class AlertController extends Controller
             })
             ->whereHas('product', fn($q) => $q->where('is_active', true))
             ->get()
-            ->filter(fn($log) =>
-                $log->product &&
-                $log->product->stock_quantity > $log->product->reorder_point &&
-                $log->rop_value > 0 &&
-                $log->product->stock_quantity <= ($log->rop_value * 1.5)
-            );
+            ->filter(function ($log) {
+                $avgDaily = $log->result_data['avg_daily'] ?? 0;
+                return $log->product
+                    && $avgDaily > 0  // only products with real measured demand
+                    && $log->product->stock_quantity > $log->product->reorder_point  // above ROP (not already alerting)
+                    && $log->rop_value > 0
+                    && (($log->product->stock_quantity - $log->rop_value) / $avgDaily) <= 14;  // hits ROP within 14 days
+            });
 
         foreach ($predictive as $log) {
-            $p    = $log->product;
-            $days = max(1, round(($p->stock_quantity - $log->rop_value) / max(0.01, $log->result_data['avg_daily'] ?? 0.01)));
+            $p        = $log->product;
+            $avgDaily = $log->result_data['avg_daily'];
+            $days     = max(1, (int) round(($p->stock_quantity - $log->rop_value) / $avgDaily));
             $alerts[] = [
                 'id'           => 'pred-' . $p->id,
                 'type'         => 'predictive_restock',

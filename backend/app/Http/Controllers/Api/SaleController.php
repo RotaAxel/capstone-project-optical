@@ -10,6 +10,7 @@ use App\Models\StockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class SaleController extends Controller
 {
@@ -21,7 +22,8 @@ class SaleController extends Controller
             ->when($request->date_to, fn($q) => $q->whereDate('created_at', '<=', $request->date_to))
             ->when($request->status, fn($q) => $q->where('status', $request->status));
 
-        return response()->json($query->latest()->paginate(15));
+        $perPage = min((int) ($request->per_page ?? 15), 100);
+        return response()->json($query->latest()->paginate($perPage));
     }
 
     public function store(Request $request)
@@ -41,17 +43,46 @@ class SaleController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated, $request) {
+            // Lock all products first and validate stock before any writes
+            $productMap = [];
+            foreach ($validated['items'] as $item) {
+                $product = Product::lockForUpdate()->findOrFail($item['product_id']);
+                if ($product->stock_quantity < $item['quantity']) {
+                    throw ValidationException::withMessages([
+                        'items' => ["Insufficient stock for \"{$product->name}\". Available: {$product->stock_quantity}, requested: {$item['quantity']}."],
+                    ]);
+                }
+                $productMap[$item['product_id']] = $product;
+            }
+
+            // Validate per-item discount does not exceed line price
+            foreach ($validated['items'] as $item) {
+                $lineMax = $item['unit_price'] * $item['quantity'];
+                if (($item['discount'] ?? 0) > $lineMax) {
+                    throw ValidationException::withMessages([
+                        'items' => ["Item discount cannot exceed its line total (max ₱{$lineMax})."],
+                    ]);
+                }
+            }
+
             $subtotal = 0;
             foreach ($validated['items'] as $item) {
                 $subtotal += ($item['unit_price'] * $item['quantity']) - ($item['discount'] ?? 0);
             }
 
-            $discount   = $validated['discount_amount'] ?? 0;
-            $total      = $subtotal - $discount;
-            $change     = $validated['amount_paid'] - $total;
+            $discount = $validated['discount_amount'] ?? 0;
+            $total    = max(0, $subtotal - $discount);
+            $change   = $validated['amount_paid'] - $total;
 
+            if ($validated['amount_paid'] < $total) {
+                throw ValidationException::withMessages([
+                    'amount_paid' => ["Amount paid (₱{$validated['amount_paid']}) is less than the total (₱{$total})."],
+                ]);
+            }
+
+            // Create with a guaranteed-unique temp receipt; overwrite with ID-based number below
             $sale = Sale::create([
-                'receipt_number'  => 'REC-' . strtoupper(Str::random(8)),
+                'receipt_number'  => 'TEMP-' . strtoupper(Str::uuid()),
                 'patient_id'      => $validated['patient_id'] ?? null,
                 'cashier_id'      => $request->user()->id,
                 'prescription_id' => $validated['prescription_id'] ?? null,
@@ -66,8 +97,12 @@ class SaleController extends Controller
                 'notes'           => $validated['notes'] ?? null,
             ]);
 
+            // ID is now known — use it for a collision-free, human-readable receipt number
+            $sale->receipt_number = 'REC-' . str_pad($sale->id, 8, '0', STR_PAD_LEFT);
+            $sale->save();
+
             foreach ($validated['items'] as $item) {
-                $product = Product::findOrFail($item['product_id']);
+                $product      = $productMap[$item['product_id']];
                 $itemSubtotal = ($item['unit_price'] * $item['quantity']) - ($item['discount'] ?? 0);
 
                 SaleItem::create([
@@ -84,13 +119,13 @@ class SaleController extends Controller
                 $product->update(['stock_quantity' => $after]);
 
                 StockMovement::create([
-                    'product_id'      => $product->id,
-                    'user_id'         => $request->user()->id,
-                    'type'            => 'sale',
-                    'quantity'        => $item['quantity'],
-                    'quantity_before' => $before,
-                    'quantity_after'  => $after,
-                    'reference_number'=> $sale->receipt_number,
+                    'product_id'       => $product->id,
+                    'user_id'          => $request->user()->id,
+                    'type'             => 'sale',
+                    'quantity'         => $item['quantity'],
+                    'quantity_before'  => $before,
+                    'quantity_after'   => $after,
+                    'reference_number' => $sale->receipt_number,
                 ]);
             }
 
@@ -103,7 +138,26 @@ class SaleController extends Controller
         return response()->json($sale->load(['patient', 'cashier', 'items.product', 'prescription']));
     }
 
-    public function update(Request $request, Sale $sale) {}
+    public function update(Request $request, Sale $sale) { /* reserved */ }
 
-    public function destroy(Sale $sale) {}
+    public function destroy(Sale $sale)
+    {
+        $sale->delete(); // soft delete — record retained for audit trail
+        return response()->json(null, 204);
+    }
+
+    public function stats()
+    {
+        $stats = DB::table('sales')
+            ->whereNull('deleted_at')
+            ->where('status', 'completed')
+            ->selectRaw("
+                COUNT(*) as total,
+                COALESCE(SUM(total_amount), 0) as total_revenue,
+                SUM(CASE WHEN payment_method = 'cash' THEN 1 ELSE 0 END) as cash_count,
+                SUM(CASE WHEN payment_method IN ('card', 'gcash', 'maya') THEN 1 ELSE 0 END) as digital_count
+            ")
+            ->first();
+        return response()->json($stats);
+    }
 }

@@ -685,14 +685,6 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   border-color: #DC2626;
 }
 
-.card {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(226, 232, 240, 0.5);
-  border-radius: 12px;
-  padding: 20px;
-}
-
 .card-title {
   font-size: 13px;
   font-weight: 700;

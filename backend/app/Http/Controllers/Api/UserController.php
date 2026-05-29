@@ -9,9 +9,15 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(User::latest()->paginate(15));
+        $query = User::query()
+            ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%")
+                ->orWhere('email', 'like', "%{$request->search}%"))
+            ->when($request->role, fn($q) => $q->where('role', $request->role));
+
+        $perPage = min((int)($request->per_page ?? 15), 100);
+        return response()->json($query->latest()->paginate($perPage));
     }
 
     public function optometrists()
@@ -51,6 +57,13 @@ class UserController extends Controller
             'password'  => 'nullable|min:8|confirmed',
         ]);
 
+        // Prevent demoting the last admin
+        if (isset($validated['role']) && $validated['role'] !== 'admin' && $user->role === 'admin') {
+            if (User::where('role', 'admin')->where('id', '!=', $user->id)->count() === 0) {
+                return response()->json(['message' => 'Cannot demote the last admin account.'], 422);
+            }
+        }
+
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
@@ -61,8 +74,14 @@ class UserController extends Controller
         return response()->json($user->fresh());
     }
 
-    public function destroy(User $user)
+    public function destroy(User $user, Request $request)
     {
+        if ($user->id === $request->user()->id) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 422);
+        }
+        if ($user->role === 'admin' && User::where('role', 'admin')->where('id', '!=', $user->id)->count() === 0) {
+            return response()->json(['message' => 'Cannot delete the last admin account.'], 422);
+        }
         $user->delete();
         return response()->json(['message' => 'User deleted.']);
     }

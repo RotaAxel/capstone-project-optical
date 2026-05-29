@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class PatientController extends Controller
@@ -19,8 +20,23 @@ class PatientController extends Controller
                   ->orWhere('phone', 'like', "%{$request->search}%");
             }));
 
-        $perPage = min((int) ($request->per_page ?? 15), 500);
+        $perPage = min((int) ($request->per_page ?? 15), 100);
         return response()->json($query->latest()->paginate($perPage));
+    }
+
+    public function stats()
+    {
+        $stats = DB::table('patients')
+            ->whereNull('deleted_at')
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN gender = 'male'   THEN 1 ELSE 0 END) as male_count,
+                SUM(CASE WHEN gender = 'female' THEN 1 ELSE 0 END) as female_count,
+                SUM(CASE WHEN created_at >= ?   THEN 1 ELSE 0 END) as new_this_month
+            ", [now()->startOfMonth()])
+            ->first();
+
+        return response()->json($stats);
     }
 
     public function store(Request $request)
@@ -38,10 +54,12 @@ class PatientController extends Controller
             'medical_history'         => 'nullable|string',
         ]);
 
-        $validated['patient_code'] = 'PAT-' . strtoupper(Str::random(6));
+        $validated['patient_code'] = 'TEMP-' . strtoupper(Str::uuid());
         $validated['created_by']   = $request->user()->id;
 
         $patient = Patient::create($validated);
+        $patient->patient_code = 'PAT-' . str_pad($patient->id, 6, '0', STR_PAD_LEFT);
+        $patient->save();
 
         return response()->json($patient->load('createdBy'), 201);
     }
@@ -50,10 +68,9 @@ class PatientController extends Controller
     {
         return response()->json($patient->load([
             'createdBy',
-            'prescriptions.optometrist',
-            'appointments.optometrist',
-            'sales.cashier',
-            'sales.items.product',
+            'prescriptions' => fn($q) => $q->with('optometrist')->latest()->limit(100),
+            'appointments'  => fn($q) => $q->with('optometrist')->latest()->limit(100),
+            'sales'         => fn($q) => $q->with(['cashier', 'items.product'])->latest()->limit(50),
         ]));
     }
 
@@ -79,7 +96,13 @@ class PatientController extends Controller
 
     public function destroy(Patient $patient)
     {
+        if ($patient->sales()->exists() || $patient->prescriptions()->exists() || $patient->appointments()->exists()) {
+            return response()->json([
+                'message' => 'Cannot delete a patient who has linked sales, prescriptions, or appointments.',
+            ], 409);
+        }
+
         $patient->delete();
-        return response()->json(['message' => 'Patient deleted.']);
+        return response()->json(null, 204);
     }
 }

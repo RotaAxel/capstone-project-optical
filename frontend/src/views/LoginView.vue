@@ -180,8 +180,8 @@ function validateEmail() {
 function validatePassword() {
   if (!form.password) {
     errors.password = 'Password is required'
-  } else if (form.password.length < 6) {
-    errors.password = 'Password must be at least 6 characters'
+  } else if (form.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters'
   } else {
     errors.password = ''
   }

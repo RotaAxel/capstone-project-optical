@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -13,7 +14,7 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $perPage = (int)($request->per_page ?? 16);
+        $perPage = min((int)($request->per_page ?? 16), 100);
 
         $query = Product::with(['category', 'supplier'])
             ->when($request->search, fn($q) => $q->where(function ($q) use ($request) {
@@ -59,7 +60,8 @@ class ProductController extends Controller
             'image'            => 'nullable|image|max:2048',
         ]);
 
-        $validated['sku'] = 'SKU-' . strtoupper(Str::random(8));
+        // Temp UUID SKU satisfies NOT NULL + unique; overwritten with ID-based SKU below
+        $validated['sku'] = 'TEMP-' . strtoupper(Str::uuid());
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
@@ -67,6 +69,8 @@ class ProductController extends Controller
         }
 
         $product = Product::create($validated);
+        $product->sku = 'SKU-' . str_pad($product->id, 8, '0', STR_PAD_LEFT);
+        $product->save();
 
         if ($validated['stock_quantity'] > 0) {
             StockMovement::create([
@@ -129,10 +133,10 @@ class ProductController extends Controller
     public function stockIn(Request $request, Product $product)
     {
         $validated = $request->validate([
-            'quantity'         => 'required|integer|min:1',
+            'quantity'         => 'required|integer|min:1|max:10000',
             'unit_cost'        => 'nullable|numeric|min:0',
-            'reference_number' => 'nullable|string',
-            'notes'            => 'nullable|string',
+            'reference_number' => 'nullable|string|max:100',
+            'notes'            => 'nullable|string|max:500',
         ]);
 
         $before = $product->stock_quantity;
@@ -155,6 +159,20 @@ class ProductController extends Controller
         return response()->json(['product' => $product->fresh(), 'movement' => $movement]);
     }
 
+    public function stats()
+    {
+        $stats = DB::table('products')
+            ->whereNull('deleted_at')
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN stock_quantity > 0 AND stock_quantity <= reorder_point THEN 1 ELSE 0 END) as low_stock,
+                SUM(CASE WHEN stock_quantity = 0 THEN 1 ELSE 0 END) as out_of_stock,
+                COALESCE(SUM(stock_quantity * cost_price), 0) as stock_value
+            ")
+            ->first();
+        return response()->json($stats);
+    }
+
     public function adjust(Request $request, Product $product)
     {
         $validated = $request->validate([
@@ -165,7 +183,8 @@ class ProductController extends Controller
         ]);
 
         $before = $product->stock_quantity;
-        $after  = max(0, $before - $validated['quantity']);
+        $actual = min($validated['quantity'], $before);
+        $after  = $before - $actual;
 
         $product->update(['stock_quantity' => $after]);
 
@@ -173,7 +192,7 @@ class ProductController extends Controller
             'product_id'       => $product->id,
             'user_id'          => $request->user()->id,
             'type'             => $validated['type'],
-            'quantity'         => $validated['quantity'],
+            'quantity'         => $actual,
             'quantity_before'  => $before,
             'quantity_after'   => $after,
             'reference_number' => $validated['reference_number'] ?? null,

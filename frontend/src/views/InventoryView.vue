@@ -459,9 +459,14 @@ const showAdjustModal = ref(false)
 const adjustProduct   = ref(null)
 const adjustForm      = ref({ type: 'adjustment', quantity: 1, reference_number: '', notes: '' })
 
-const lowStockCount  = computed(() => products.value.filter(p => p.stock_quantity > 0 && p.stock_quantity <= p.reorder_point).length)
-const outOfStockCount = computed(() => products.value.filter(p => p.stock_quantity === 0).length)
-const stockValue     = computed(() => products.value.reduce((s, p) => s + (p.stock_quantity * p.cost_price), 0))
+const invStats = ref({})
+const lowStockCount   = computed(() => invStats.value.low_stock   ?? 0)
+const outOfStockCount = computed(() => invStats.value.out_of_stock ?? 0)
+const stockValue      = computed(() => invStats.value.stock_value  ?? 0)
+
+async function fetchStats() {
+  try { const { data } = await api.get('/products/stats'); invStats.value = data } catch { /* */ }
+}
 
 function stockStripe(p) {
   if (p.stock_quantity === 0) return 'stripe-red'
@@ -548,7 +553,7 @@ async function saveProduct() {
     } else {
       await api.post('/products', payload, { headers })
     }
-    closeModal(); fetchPage(pagination.value.current_page ?? 1)
+    closeModal(); fetchPage(pagination.value.current_page ?? 1); fetchStats()
   } catch (e) {
     formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save.'
   } finally { saving.value = false }
@@ -574,7 +579,7 @@ async function doStockIn() {
   try {
     const pid = stockInProduct.value?.id ?? stockInForm.value.product_id
     await api.post(`/products/${pid}/stock-in`, stockInForm.value)
-    showStockInModal.value = false; fetchPage(pagination.value.current_page ?? 1)
+    showStockInModal.value = false; fetchPage(pagination.value.current_page ?? 1); fetchStats()
   } finally { saving.value = false }
 }
 
@@ -589,7 +594,7 @@ async function doAdjust() {
   try {
     await api.post(`/products/${adjustProduct.value.id}/adjust`, adjustForm.value)
     showAdjustModal.value = false
-    fetchPage(pagination.value.current_page ?? 1)
+    fetchPage(pagination.value.current_page ?? 1); fetchStats()
   } finally { saving.value = false }
 }
 
@@ -634,6 +639,7 @@ onMounted(async () => {
     suppliers.value  = sups.data.data ?? sups.data
   } catch {}
 
+  fetchStats()
   if (route.query.highlight) {
     activateHighlight(Number(route.query.highlight))
   } else {
@@ -680,15 +686,6 @@ onMounted(async () => {
 /* ── Stats ──────────────────────────────────────────── */
 .stats-row {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;
-}
-.stat-card {
-  display: flex; align-items: center; gap: 14px; padding: 18px 20px;
-  background: white; border: 1.5px solid #f3f4f6; border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.stat-icon {
-  width: 42px; height: 42px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .stat-icon svg { color: white; }
 .stat-icon.teal  { background: #0d9488; }

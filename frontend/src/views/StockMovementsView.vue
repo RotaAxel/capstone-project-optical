@@ -304,8 +304,6 @@ onMounted(() => { fetchPage(); fetchSummary() })
 
 /* Stats */
 .stats-row  { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px; }
-.stat-card  { background: #fff; border-radius: 14px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 8px rgba(0,0,0,.04); padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
-.stat-icon  { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .stat-icon.orange { background: #fff7ed; color: #ea580c; }
 .stat-icon.green  { background: #f0fdf4; color: #16a34a; }
 .stat-icon.blue   { background: #eff6ff; color: #2563eb; }
@@ -330,8 +328,6 @@ onMounted(() => { fetchPage(); fetchSummary() })
 .clear-btn     { display: flex; align-items: center; gap: 5px; padding: 8px 14px; border: 1.5px solid #fde68a; border-radius: 9px; background: #fffbeb; color: #92400e; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all .2s; white-space: nowrap; }
 .clear-btn:hover { background: #fef3c7; }
 
-/* Table card */
-.table-card { background: #fff; border-radius: 16px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 12px rgba(0,0,0,.05); overflow: hidden; }
 .table-wrap { overflow-x: auto; }
 
 /* Empty state */

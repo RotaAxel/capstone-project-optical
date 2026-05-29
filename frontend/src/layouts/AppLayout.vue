@@ -57,6 +57,14 @@
         />
       </header>
 
+      <!-- Flash notification banner -->
+      <Transition name="flash">
+        <div v-if="flashStore.message" class="flash-banner" :class="flashStore.type">
+          <span>{{ flashStore.message }}</span>
+          <button type="button" class="flash-close" @click="flashStore.clear()">×</button>
+        </div>
+      </Transition>
+
       <!-- Main Content Area -->
       <main class="main-area">
         <Transition name="page">
@@ -182,15 +190,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useFlashStore } from '@/stores/flash'
 import Sidebar from '@/components/Sidebar.vue'
 import Topbar from '@/components/TopBar.vue'
 import api from '@/services/api'
 
-const auth = useAuthStore()
-const route = useRoute()
+const auth       = useAuthStore()
+const flashStore = useFlashStore()
+const route  = useRoute()
 const router = useRouter()
 
 const showAlerts = ref(false)
@@ -208,9 +218,14 @@ const profileForm   = ref({ name: '', email: '', phone: '', password: '', passwo
 
 const badgeCount = computed(() => criticalCount.value + warningCount.value)
 
+// Reactive clock — updates every 30 s so timeAgo strings stay fresh without a page reload
+const now = ref(Date.now())
+let tickTimer  = null
+let alertTimer = null
+
 function timeAgo(date) {
-  const secs = Math.floor((new Date() - date) / 1000)
-  if (secs < 60) return 'just now'
+  const secs = Math.floor((now.value - date) / 1000)
+  if (secs < 60)  return 'just now'
   if (secs < 120) return '1 min ago'
   return Math.floor(secs / 60) + ' mins ago'
 }
@@ -295,7 +310,16 @@ function goToAlert(alert) {
   router.push({ path: alert.route ?? '/inventory', query })
 }
 
-onMounted(fetchAlerts)
+onMounted(() => {
+  fetchAlerts()
+  tickTimer  = setInterval(() => { now.value = Date.now() }, 30_000)
+  alertTimer = setInterval(fetchAlerts, 5 * 60 * 1000)
+})
+
+onUnmounted(() => {
+  clearInterval(tickTimer)
+  clearInterval(alertTimer)
+})
 
 function openProfile() {
   profileError.value   = ''
@@ -317,9 +341,10 @@ async function saveProfile() {
   profileSuccess.value = ''
   profileSaving.value  = true
   try {
-    const { data } = await api.put('/me', profileForm.value)
-    auth.user = data.user
-    localStorage.setItem('user', JSON.stringify(data.user))
+    await api.put('/me', profileForm.value)
+    const { data: meData } = await api.get('/me')
+    auth.user = meData
+    localStorage.setItem('user', JSON.stringify(meData))
     profileSuccess.value = 'Profile updated successfully.'
     profileForm.value.password = ''
     profileForm.value.password_confirmation = ''
@@ -692,4 +717,21 @@ async function handleLogout() {
   transition: opacity .2s;
 }
 .pm-btn-save:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ── Flash banner ──────────────────────────────────────── */
+.flash-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 24px; font-size: 13px; font-weight: 600;
+  border-bottom: 1px solid transparent;
+}
+.flash-banner.warning { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.flash-banner.error   { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.flash-banner.info    { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+.flash-close {
+  background: none; border: none; font-size: 18px; cursor: pointer;
+  color: inherit; opacity: .7; line-height: 1; padding: 0 4px;
+}
+.flash-close:hover { opacity: 1; }
+.flash-enter-active, .flash-leave-active { transition: all .25s ease; }
+.flash-enter-from, .flash-leave-to { opacity: 0; transform: translateY(-8px); max-height: 0; }
 </style>

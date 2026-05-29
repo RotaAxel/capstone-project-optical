@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Appointment extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'patient_id', 'optometrist_id', 'created_by',
         'appointment_date', 'type', 'status', 'reason', 'notes',

@@ -1,12 +1,12 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import api from '@/services/api'
 
-const alerts       = ref([])
-const loading      = ref(false)
-const lastChecked  = ref(null)
-let   pollInterval = null
+const alerts      = ref([])
+const loading     = ref(false)
+const lastChecked = ref(null)
 
 export function useAlerts(autoPoll = true, intervalMs = 60000) {
+  let pollInterval = null
   const criticalCount = computed(() => alerts.value.filter(a => a.severity === 'critical').length)
   const warningCount  = computed(() => alerts.value.filter(a => a.severity === 'warning').length)
   const totalCount    = computed(() => alerts.value.length)

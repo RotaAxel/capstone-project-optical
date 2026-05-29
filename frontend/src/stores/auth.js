@@ -4,7 +4,8 @@ import api from '@/services/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const user  = ref(JSON.parse(localStorage.getItem('user') || 'null'))
-  const token = ref(localStorage.getItem('token') || null)
+  // sessionStorage clears on tab/browser close — reduces XSS token theft window vs localStorage
+  const token = ref(sessionStorage.getItem('token') || null)
 
   const isAuthenticated = computed(() => !!token.value)
   const isAdmin          = computed(() => user.value?.role === 'admin')
@@ -21,16 +22,16 @@ export const useAuthStore = defineStore('auth', () => {
     const { data } = await api.post('/login', { email, password })
     user.value  = data.user
     token.value = data.token
+    sessionStorage.setItem('token', data.token)
     localStorage.setItem('user',  JSON.stringify(data.user))
-    localStorage.setItem('token', data.token)
   }
 
   async function logout() {
     await api.post('/logout').catch(() => {})
     user.value  = null
     token.value = null
+    sessionStorage.removeItem('token')
     localStorage.removeItem('user')
-    localStorage.removeItem('token')
   }
 
   return { user, token, isAuthenticated, isAdmin, isReceptionist, isOptometrist, isInventoryStaff, can, login, logout }

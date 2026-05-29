@@ -39,9 +39,9 @@
           </svg>
         </div>
         <div>
-          <p class="algo-label">ARIMA</p>
+          <p class="algo-label">Holt-Winters / ARIMA</p>
           <p class="algo-name">Demand Forecast</p>
-          <p class="algo-desc">Predicts future sales using past trends, with 95% confidence</p>
+          <p class="algo-desc">Captures seasonal peaks (Christmas, back-to-school) plus trend for 95% CI forecasts</p>
         </div>
       </div>
 
@@ -254,7 +254,12 @@
           <span class="results-title">Analytics Results</span>
           <span class="results-count">{{ results.length }} products</span>
         </div>
-        <span class="results-computed">Computed: {{ computedAt }}</span>
+        <span class="results-computed">
+          Computed: {{ computedAt }}
+          <span v-if="running" class="stale-badge refreshing">● Refreshing…</span>
+          <span v-else-if="summary?.is_stale" class="stale-badge">● Outdated</span>
+          <span v-else class="stale-badge fresh">● Up to date</span>
+        </span>
       </div>
       <div class="table-wrap">
         <table class="res-table">
@@ -266,7 +271,7 @@
               <th>Best Order Qty</th>
               <th>Reorder When</th>
               <th>Sales Speed</th>
-              <th>Forecast Accuracy <span class="th-note">(WMAPE)</span></th>
+              <th>Forecast Error <span class="th-note">(WMAPE — lower is more accurate)</span></th>
               <th>Alert</th>
             </tr>
           </thead>
@@ -297,9 +302,9 @@
               <td>
                 <template v-if="wmapePct(r.analytics?.result_data) != null">
                   <span :class="mapeClass(wmapePct(r.analytics.result_data))">
-                    {{ mapeAccuracy(wmapePct(r.analytics.result_data)) }}%
+                    {{ wmapePct(r.analytics.result_data) }}%
                   </span>
-                  <span class="mape-sub">WMAPE {{ wmapePct(r.analytics.result_data) }}%</span>
+                  <span class="mape-sub">error rate</span>
                 </template>
                 <span v-else class="dim">—</span>
               </td>
@@ -530,10 +535,10 @@
                 </template>
                 <div class="sop-kv"><span class="sop-k">Forecast range (95% accuracy)</span><span class="sop-v dim">{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span></div>
                 <div class="sop-kv" v-if="wmapePct(selected.analytics?.result_data) != null">
-                  <span class="sop-k">Forecast accuracy (WMAPE)</span>
+                  <span class="sop-k">Forecast error rate (WMAPE — lower is better)</span>
                   <span class="sop-v" :class="mapeClass(wmapePct(selected.analytics.result_data))">
-                    {{ mapeAccuracy(wmapePct(selected.analytics.result_data)) }}% accurate
-                    <span class="mape-detail">(WMAPE: {{ wmapePct(selected.analytics.result_data) }}%)</span>
+                    {{ wmapePct(selected.analytics.result_data) }}%
+                    <span class="mape-detail">{{ wmapePct(selected.analytics.result_data) <= 30 ? '● Good' : wmapePct(selected.analytics.result_data) <= 60 ? '● Fair' : '● Poor' }}</span>
                   </span>
                 </div>
                 <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
@@ -643,7 +648,13 @@
                     <span>Fast ≥50%</span>
                   </div>
                 </div>
-                <div class="sop-kv"><span class="sop-k">Weeks with sales (last 52)</span><span class="sop-v">{{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 52 }} weeks</span></div>
+                <div class="sop-kv">
+                  <span class="sop-k">Weeks with sales (last 52)</span>
+                  <span class="sop-v">
+                    {{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 52 }} weeks
+                    <span v-if="selected.analytics?.result_data?.total_weeks != null && selected.analytics.result_data.total_weeks < 52" class="stale-badge">Stale — re-run analytics</span>
+                  </span>
+                </div>
                 <div class="sop-kv"><span class="sop-k">Last sale date</span><span class="sop-v">{{ selected.analytics?.result_data?.last_sale_date ?? 'No sales recorded' }}</span></div>
                 <div class="sop-kv"><span class="sop-k">Average daily sales</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
                 <div class="sop-result" :class="{
@@ -757,8 +768,10 @@ function stopLoadingTimers() {
 
 watch(results, (val) => {
   tablePage.value = 1
-  if (val.length && selectedForecastProduct.value === null) {
-    selectedForecastProduct.value = val[0].product.id
+  const ids = new Set(val.map(r => r.product.id))
+  // Reset selection if current product was removed or this is first load
+  if (!ids.has(selectedForecastProduct.value)) {
+    selectedForecastProduct.value = val[0]?.product.id ?? null
   }
 })
 
@@ -770,8 +783,12 @@ function fsnLabel(cls) {
 
 function methodLabel(rd) {
   if (!rd) return 'ARIMA(1,1,1)'
-  if (rd.method_used === 'croston')    return "Croston's Method (intermittent demand)"
-  if (rd.method_used === 'ses')        return 'Optimised SES (non-moving)'
+  if (rd.method_used === 'holt_winters') {
+    const v = rd.hw_variant === 'multiplicative' ? 'Multiplicative' : 'Additive'
+    return `Holt-Winters ${v} (γ=${rd.hw_gamma ?? '—'})`
+  }
+  if (rd.method_used === 'croston')      return "Croston's Method (intermittent demand)"
+  if (rd.method_used === 'ses')          return 'Optimised SES (non-moving)'
   if (rd.method_used === 'auto_arima') {
     const o = rd.arima_order ?? [1, 1, 1]
     return `Auto-ARIMA(${o.join(',')})`
@@ -804,8 +821,8 @@ function mapeAccuracy(mapePct) {
 }
 
 function mapeClass(mapePct) {
-  if (mapePct <= 15) return 'mape-good'
-  if (mapePct <= 30) return 'mape-warn'
+  if (mapePct <= 30) return 'mape-good'
+  if (mapePct <= 60) return 'mape-warn'
   return 'mape-poor'
 }
 
@@ -964,7 +981,8 @@ function predictedDaily(r) {
 
 function daysLeft(r) {
   const daily = predictedDaily(r)
-  return daily > 0 ? Math.min(365, Math.round(r.product.stock_quantity / daily)) : 365
+  const stock = Math.max(0, r.product?.stock_quantity ?? 0)
+  return daily > 0 ? Math.min(365, Math.round(stock / daily)) : 365
 }
 
 const stockRunwayData = computed(() => ({
@@ -1150,9 +1168,17 @@ async function loadSummary() {
   try {
     const { data } = await api.get('/analytics/summary')
     summary.value = data
-    if (!results.value.length && data.items?.length) {
-      results.value = data.items.map(a => ({ product: a.product, analytics: a }))
-      computedAt.value = 'Last computed'
+
+    if (data.items?.length) {
+      results.value    = data.items.map(a => ({ product: a.product, analytics: a }))
+      computedAt.value = data.last_run
+        ? new Date(data.last_run + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'Never'
+    }
+
+    // Auto-run when results have never been computed or are from a previous day
+    if (data.is_stale && !running.value) {
+      runAnalytics()
     }
   } catch {}
 }
@@ -1260,10 +1286,14 @@ onMounted(loadSummary)
 /* Results table */
 .results-card   { background: #fff; border-radius: 16px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 12px rgba(0,0,0,.05); overflow: hidden; }
 .results-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #f9fafb; border-bottom: 1.5px solid #f3f4f6; font-size: 13px; color: #4b5563; }
+.stale-badge { font-size: 11px; font-weight: 700; margin-left: 8px; color: #d97706; }
+.stale-badge.fresh { color: #16a34a; }
+.stale-badge.refreshing { color: #3b82f6; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .results-title  { font-weight: 700; color: #111827; }
 .results-count  { font-size: 11px; font-weight: 600; color: #6366f1; background: #eef2ff; border-radius: 20px; padding: 2px 9px; }
 .results-computed { font-size: 11px; color: #9ca3af; }
-.table-wrap     { overflow-x: auto; }
+.table-wrap     { overflow-x: visible; }
 
 .res-pagination {
   display: flex; align-items: center; justify-content: space-between;
@@ -1283,7 +1313,7 @@ onMounted(loadSummary)
 
 .res-table { width: 100%; border-collapse: collapse; }
 .res-table thead tr { background: #f9fafb; border-bottom: 2px solid #f3f4f6; }
-.res-table thead th { padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+.res-table thead th { padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; }
 .th-note { font-size: 10px; font-weight: 500; color: #9ca3af; }
 .res-table tbody tr { border-bottom: 1px solid #f9fafb; transition: background .15s; cursor: pointer; }
 .res-table tbody tr:hover { background: #eff6ff; }
@@ -1650,4 +1680,11 @@ span.orange { color: #ea580c; }
 .sop-fsn-note.fast { background: #f0fdf4; color: #15803d; }
 .sop-fsn-note.slow { background: #fefce8; color: #92400e; }
 .sop-fsn-note.non  { background: #fef2f2; color: #b91c1c; }
+
+.stale-badge {
+  display: inline-block; margin-left: 8px;
+  padding: 2px 7px; border-radius: 10px;
+  background: #fef3c7; color: #92400e;
+  font-size: 10px; font-weight: 700;
+}
 </style>

@@ -124,14 +124,49 @@ html, body, #app {
 }
 .btn-ghost:hover { background: var(--bg); color: var(--navy); }
 
-/* Card */
+/* ── Cards ───────────────────────────────────────────────── */
+
+/* Base glassmorphism card — used on Dashboard and generic wrappers */
 .card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   border: 1px solid rgba(226, 232, 240, 0.6);
+  padding: 20px;
+}
+
+/* Stat card — summary metric tiles shared across all list pages */
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1.5px solid #f3f4f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Stat icon base — layout only; colour variants stay per-page */
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Table / data card — wraps paginated tables in Reports & StockMovements */
+.table-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1.5px solid #f3f4f6;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
 }
 
 /* Page header */

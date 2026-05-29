@@ -20,11 +20,11 @@ class DashboardController extends Controller
         $user  = $request->user();
         $today = now()->toDateString();
 
-        return match ($user->role) {
-            'receptionist'    => response()->json($this->receptionistData($today)),
-            'optometrist'     => response()->json($this->optometristData($user, $today)),
-            'inventory_staff' => response()->json($this->inventoryData($today)),
-            default           => response()->json($this->adminData($today)),
+        return match (true) {
+            $user->isReceptionist()   => response()->json($this->receptionistData($today)),
+            $user->isOptometrist()    => response()->json($this->optometristData($user, $today)),
+            $user->isInventoryStaff() => response()->json($this->inventoryData($today)),
+            default                   => response()->json($this->adminData($today)),
         };
     }
 
@@ -163,7 +163,7 @@ class DashboardController extends Controller
                 'slow'       => $latest->where('fsn_classification', 'slow')->count(),
                 'non_moving' => $latest->where('fsn_classification', 'non_moving')->count(),
             ],
-            'low_stock_products'   => Product::with('category')->where('is_active', true)->whereColumn('stock_quantity', '<=', 'reorder_point')->orderBy('stock_quantity')->get(),
+            'low_stock_products'   => Product::with('category')->where('is_active', true)->whereColumn('stock_quantity', '<=', 'reorder_point')->orderBy('stock_quantity')->limit(20)->get(),
             'recent_stock_movements' => StockMovement::with(['product', 'user'])->latest()->limit(10)->get(),
         ];
     }

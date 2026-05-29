@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Prescription;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PrescriptionController extends Controller
 {
@@ -31,6 +34,7 @@ class PrescriptionController extends Controller
 
     public function store(Request $request)
     {
+        $user      = $request->user();
         $validated = $request->validate([
             'patient_id'       => 'required|exists:patients,id',
             'exam_date'        => 'required|date',
@@ -48,9 +52,20 @@ class PrescriptionController extends Controller
             'visual_acuity_od' => 'nullable|numeric',
             'visual_acuity_os' => 'nullable|numeric',
             'notes'            => 'nullable|string',
+            'optometrist_id'   => $user->isAdmin() ? 'required|exists:users,id' : 'nullable',
         ]);
 
-        $validated['optometrist_id'] = $request->user()->id;
+        if ($user->isAdmin()) {
+            $opto = User::find($validated['optometrist_id']);
+            if (!$opto || $opto->role !== 'optometrist') {
+                throw ValidationException::withMessages([
+                    'optometrist_id' => ['The selected user must have the optometrist role.'],
+                ]);
+            }
+        } else {
+            $validated['optometrist_id'] = $user->id;
+        }
+
         $prescription = Prescription::create($validated);
 
         return response()->json($prescription->load(['patient', 'optometrist']), 201);
@@ -88,5 +103,21 @@ class PrescriptionController extends Controller
     {
         $prescription->delete();
         return response()->json(['message' => 'Prescription deleted.']);
+    }
+
+    public function stats()
+    {
+        $today      = now()->toDateString();
+        $monthStart = now()->startOfMonth()->toDateString();
+        $stats = DB::table('prescriptions')
+            ->whereNull('deleted_at')
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN valid_until IS NOT NULL AND valid_until >= ? THEN 1 ELSE 0 END) as active,
+                SUM(CASE WHEN valid_until IS NOT NULL AND valid_until < ?  THEN 1 ELSE 0 END) as expired,
+                SUM(CASE WHEN exam_date >= ? THEN 1 ELSE 0 END) as this_month
+            ", [$today, $today, $monthStart])
+            ->first();
+        return response()->json($stats);
     }
 }

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useFlashStore } from '@/stores/flash'
 
 const routes = [
   { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { guest: true } },
@@ -52,7 +53,14 @@ const routes = [
     ],
   },
 
-  { path: '/:pathMatch(.*)*', redirect: '/' },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: to => {
+      const flash = useFlashStore()
+      flash.set(`Page "${to.path}" was not found.`, 'warning')
+      return '/dashboard'
+    },
+  },
 ]
 
 const router = createRouter({
@@ -66,9 +74,12 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth && !auth.isAuthenticated) return next('/login')
   if (to.meta.guest && auth.isAuthenticated) return next('/')
 
-  // Role-based route guard
+  // Role-based route guard — notify user and redirect to their appropriate home
   if (to.meta.roles && !to.meta.roles.includes(auth.user?.role)) {
-    return next('/dashboard')  // redirect to dashboard instead of showing 403
+    const flash = useFlashStore()
+    flash.set("You don't have permission to access that page.", 'warning')
+    const roleHome = { inventory_staff: '/inventory' }
+    return next(roleHome[auth.user?.role] ?? '/dashboard')
   }
 
   next()

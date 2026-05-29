@@ -87,7 +87,6 @@ export const handleError = (error) => {
   }
 
   // Generic error
-  console.error('Uncaught error:', error)
   return {
     type: ErrorTypes.UNKNOWN,
     message: ErrorMessages.UNKNOWN,
@@ -109,7 +108,6 @@ export const retryWithBackoff = async (fn, options = {}) => {
       const delay = Math.min(initialDelay * Math.pow(2, i), maxDelay)
       
       if (i < maxRetries - 1) {
-        console.warn(`Attempt ${i + 1} failed, retrying in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
@@ -143,7 +141,5 @@ export const logError = (error, context = {}) => {
   }
   
   // TODO: Send to error logging service (Sentry, LogRocket, etc.)
-  console.error('Error Log:', errorLog)
-  
   return errorLog
 }

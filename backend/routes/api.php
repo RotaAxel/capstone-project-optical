@@ -35,29 +35,38 @@ Route::middleware('auth:sanctum')->group(function () {
     // Alerts — all roles (each sees relevant alerts)
     Route::get('/alerts', [AlertController::class, 'index']);
 
-    // ── Patients — admin & receptionist write; optometrist read-only ──────────
-    Route::get('patients',          [PatientController::class, 'index']);
-    Route::get('patients/{patient}', [PatientController::class, 'show']);
+    // ── Patients — clinic staff only; inventory_staff has no access ──────────
+    Route::middleware('role:admin,receptionist,optometrist')->group(function () {
+        Route::get('patients',           [PatientController::class, 'index']);
+        Route::get('patients/stats',     [PatientController::class, 'stats']);
+        Route::get('patients/{patient}', [PatientController::class, 'show']);
+    });
     Route::middleware('role:admin,receptionist')->group(function () {
-        Route::post('patients',                [PatientController::class, 'store']);
-        Route::put('patients/{patient}',       [PatientController::class, 'update']);
+        Route::post('patients',          [PatientController::class, 'store']);
+        Route::put('patients/{patient}', [PatientController::class, 'update']);
     });
     Route::middleware('role:admin')->group(function () {
-        Route::delete('patients/{patient}',    [PatientController::class, 'destroy']);
+        Route::delete('patients/{patient}', [PatientController::class, 'destroy']);
     });
 
-    // ── Prescriptions — admin & optometrist full; receptionist read-only ──────
-    Route::get('prescriptions',               [PrescriptionController::class, 'index']);
-    Route::get('prescriptions/{prescription}',[PrescriptionController::class, 'show']);
+    // ── Prescriptions — clinic staff only; inventory_staff has no access ──────
+    Route::middleware('role:admin,receptionist,optometrist')->group(function () {
+        Route::get('prescriptions',                [PrescriptionController::class, 'index']);
+        Route::get('prescriptions/stats',          [PrescriptionController::class, 'stats']);
+        Route::get('prescriptions/{prescription}', [PrescriptionController::class, 'show']);
+    });
     Route::middleware('role:admin,optometrist')->group(function () {
-        Route::post('prescriptions',                     [PrescriptionController::class, 'store']);
-        Route::put('prescriptions/{prescription}',       [PrescriptionController::class, 'update']);
-        Route::delete('prescriptions/{prescription}',    [PrescriptionController::class, 'destroy']);
+        Route::post('prescriptions',                  [PrescriptionController::class, 'store']);
+        Route::put('prescriptions/{prescription}',    [PrescriptionController::class, 'update']);
+        Route::delete('prescriptions/{prescription}', [PrescriptionController::class, 'destroy']);
     });
 
-    // ── Appointments — admin & receptionist manage; optometrist update status ─
-    Route::get('appointments',              [AppointmentController::class, 'index']);
-    Route::get('appointments/{appointment}',[AppointmentController::class, 'show']);
+    // ── Appointments — clinic staff only; inventory_staff has no access ───────
+    Route::middleware('role:admin,receptionist,optometrist')->group(function () {
+        Route::get('appointments',               [AppointmentController::class, 'index']);
+        Route::get('appointments/stats',         [AppointmentController::class, 'stats']);
+        Route::get('appointments/{appointment}', [AppointmentController::class, 'show']);
+    });
     Route::middleware('role:admin,receptionist')->group(function () {
         Route::post('appointments',                  [AppointmentController::class, 'store']);
         Route::delete('appointments/{appointment}',  [AppointmentController::class, 'destroy']);
@@ -68,8 +77,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Products read — admin, inventory_staff & receptionist (needed for sales form)
     Route::middleware('role:admin,inventory_staff,receptionist')->group(function () {
-        Route::get('products',          [ProductController::class, 'index']);
-        Route::get('products/{product}',[ProductController::class, 'show']);
+        Route::get('products',           [ProductController::class, 'index']);
+        Route::get('products/stats',     [ProductController::class, 'stats']);
+        Route::get('products/{product}', [ProductController::class, 'show']);
     });
 
     // ── Inventory write — admin & inventory_staff only ────────────────────────
@@ -87,9 +97,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Sales — admin & receptionist ─────────────────────────────────────────
     Route::middleware('role:admin,receptionist')->group(function () {
-        Route::get('sales',          [SaleController::class, 'index']);
-        Route::get('sales/{sale}',   [SaleController::class, 'show']);
-        Route::post('sales',         [SaleController::class, 'store']);
+        Route::get('sales',            [SaleController::class, 'index']);
+        Route::get('sales/stats',      [SaleController::class, 'stats']);
+        Route::get('sales/{sale}',     [SaleController::class, 'show']);
+        Route::post('sales',           [SaleController::class, 'store']);
+        Route::delete('sales/{sale}',  [SaleController::class, 'destroy']);
     });
 
     // ── Reports — sales reports admin only; inventory reports admin & inventory_staff

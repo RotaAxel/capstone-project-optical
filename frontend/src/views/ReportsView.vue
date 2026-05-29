@@ -63,7 +63,7 @@
       </div>
 
       <template v-if="dailyData">
-        <div class="stats-row">
+        <div class="stats-row stats-3">
           <div class="stat-card">
             <div class="stat-icon indigo">
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -277,7 +277,18 @@
             </div>
             <div>
               <p class="stat-num amber">{{ inventoryData.low_stock_count }}</p>
-              <p class="stat-lbl">Low Stock Items</p>
+              <p class="stat-lbl">Low Stock</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="stat-num red">{{ inventoryData.out_of_stock_count }}</p>
+              <p class="stat-lbl">Out of Stock</p>
             </div>
           </div>
           <div class="stat-card">
@@ -304,18 +315,18 @@
             <table class="rep-table">
               <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Stock Value</th></tr></thead>
               <tbody>
-                <tr v-for="p in inventoryData.products" :key="p.id" :class="{ 'row-warn': p.is_low_stock }">
+                <tr v-for="p in inventoryData.products" :key="p.id" :class="{ 'row-warn': p.is_low_stock || p.is_out_of_stock }">
                   <td><span class="mono-badge">{{ p.sku }}</span></td>
                   <td class="product-name-cell">{{ p.name }}</td>
                   <td><span class="cat-badge">{{ p.category }}</span></td>
                   <td>
-                    <span :class="p.is_low_stock ? 'stock-low' : 'stock-ok'">{{ p.stock_quantity }}</span>
+                    <span :class="p.is_out_of_stock ? 'stock-low' : (p.is_low_stock ? 'stock-low' : 'stock-ok')">{{ p.stock_quantity }}</span>
                   </td>
                   <td class="rop-val">{{ p.reorder_point }}</td>
                   <td>
-                    <span :class="p.is_low_stock ? 'status-pill red' : 'status-pill green'">
+                    <span :class="p.is_out_of_stock ? 'status-pill red' : (p.is_low_stock ? 'status-pill amber' : 'status-pill green')">
                       <span class="status-dot"></span>
-                      {{ p.is_low_stock ? 'Low Stock' : 'In Stock' }}
+                      {{ p.is_out_of_stock ? 'Out of Stock' : (p.is_low_stock ? 'Low Stock' : 'In Stock') }}
                     </span>
                   </td>
                   <td><span class="amount-val">₱{{ fmt(p.stock_value) }}</span></td>
@@ -552,10 +563,9 @@ function payPill(m) {
 .gen-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99,102,241,.4); }
 
 /* Stats */
-.stats-row   { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.stats-row   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.stats-3     { grid-template-columns: repeat(3, 1fr); }
 .stats-2     { grid-template-columns: repeat(2, 1fr); }
-.stat-card   { background: #fff; border-radius: 14px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 8px rgba(0,0,0,.04); padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
-.stat-icon   { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .stat-icon.indigo { background: #eef2ff; color: #4f46e5; }
 .stat-icon.green  { background: #f0fdf4; color: #16a34a; }
 .stat-icon.red    { background: #fef2f2; color: #dc2626; }
@@ -567,8 +577,6 @@ function payPill(m) {
 .stat-num.amber  { color: #d97706; }
 .stat-lbl    { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
 
-/* Table card */
-.table-card    { background: #fff; border-radius: 16px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 12px rgba(0,0,0,.05); overflow: hidden; }
 .table-heading { display: flex; align-items: center; gap: 8px; padding: 14px 20px; font-size: 13px; font-weight: 700; color: #374151; border-bottom: 1.5px solid #f3f4f6; }
 .table-wrap    { overflow-x: auto; }
 
@@ -596,6 +604,7 @@ function payPill(m) {
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 .status-dot  { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .status-pill.green { background: #dcfce7; color: #15803d; }
+.status-pill.amber { background: #fef3c7; color: #92400e; }
 .status-pill.red   { background: #fee2e2; color: #b91c1c; }
 
 /* Payment pill */
@@ -640,6 +649,7 @@ function payPill(m) {
 .empty-title { font-size: 15px; font-weight: 700; color: #374151; margin-bottom: 6px; }
 .empty-sub   { font-size: 13px; color: #9ca3af; }
 
-@media (max-width: 1024px) { .stats-row { grid-template-columns: repeat(2, 1fr); } .stats-2 { grid-template-columns: 1fr; } }
-@media (max-width: 640px)  { .stats-row { grid-template-columns: 1fr; } .rep-page { padding: 16px; } .tab-nav { flex-wrap: wrap; } }
+@media (max-width: 1200px) { .stats-row { grid-template-columns: repeat(2, 1fr); } .stats-3 { grid-template-columns: repeat(3, 1fr); } .stats-2 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px)  { .stats-row { grid-template-columns: repeat(2, 1fr); } .stats-3 { grid-template-columns: repeat(2, 1fr); } .stats-2 { grid-template-columns: 1fr; } }
+@media (max-width: 640px)  { .stats-row { grid-template-columns: 1fr; } .stats-3 { grid-template-columns: 1fr; } .rep-page { padding: 16px; } .tab-nav { flex-wrap: wrap; } }
 </style>

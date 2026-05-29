@@ -62,6 +62,8 @@ class AuthController extends Controller
 
         if (!empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
+            // Revoke all other active sessions so stolen tokens can't persist after a password change
+            $user->tokens()->where('id', '!=', $request->user()->currentAccessToken()->id)->delete();
         }
 
         $user->save();

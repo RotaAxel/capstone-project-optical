@@ -369,13 +369,14 @@ const emptyForm = () => ({
 })
 const form = ref(emptyForm())
 
-const now = new Date()
-const activeCount    = computed(() => prescriptions.value.filter(r => r.valid_until && !isExpired(r.valid_until)).length)
-const expiredCount   = computed(() => prescriptions.value.filter(r => r.valid_until && isExpired(r.valid_until)).length)
-const thisMonthCount = computed(() => prescriptions.value.filter(r => {
-  const d = new Date(r.exam_date)
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-}).length)
+const rxStats        = ref({})
+const activeCount    = computed(() => rxStats.value.active     ?? 0)
+const expiredCount   = computed(() => rxStats.value.expired    ?? 0)
+const thisMonthCount = computed(() => rxStats.value.this_month ?? 0)
+
+async function fetchStats() {
+  try { const { data } = await api.get('/prescriptions/stats'); rxStats.value = data } catch { /* */ }
+}
 
 let debounceTimer
 function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => fetchPage(1), 400) }
@@ -421,7 +422,7 @@ async function save() {
   try {
     if (editingId.value) await api.put(`/prescriptions/${editingId.value}`, form.value)
     else await api.post('/prescriptions', form.value)
-    closeModal(); fetchPage(pagination.value.current_page ?? 1)
+    closeModal(); fetchPage(pagination.value.current_page ?? 1); fetchStats()
   } catch (e) {
     formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save prescription.'
   } finally { saving.value = false }
@@ -429,7 +430,7 @@ async function save() {
 
 async function deletePrescription(rx) {
   if (!confirm(`Delete prescription for ${rx.patient?.first_name} on ${fmtDate(rx.exam_date)}?`)) return
-  try { await api.delete(`/prescriptions/${rx.id}`); fetchPage(pagination.value.current_page ?? 1) } catch { /* */ }
+  try { await api.delete(`/prescriptions/${rx.id}`); fetchPage(pagination.value.current_page ?? 1); fetchStats() } catch { /* */ }
 }
 
 function fmt(v) { return v != null && v !== '' ? Number(v).toFixed(2) : '—' }
@@ -470,6 +471,7 @@ onMounted(async () => {
     patients.value = data.data
   } catch {}
 
+  fetchStats()
   if (route.query.highlight) {
     activateHighlight(Number(route.query.highlight))
   } else {
@@ -516,15 +518,6 @@ onMounted(async () => {
 /* ── Stats ──────────────────────────────────────────── */
 .stats-row {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
-}
-.stat-card {
-  display: flex; align-items: center; gap: 14px; padding: 18px 20px;
-  background: white; border: 1.5px solid #f3f4f6; border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.stat-icon {
-  width: 42px; height: 42px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .stat-icon svg { color: white; }
 .stat-icon.purple { background: #7c3aed; }

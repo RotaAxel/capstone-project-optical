@@ -18,7 +18,8 @@ class StockMovementController extends Controller
                    ->orWhere('sku', 'like', "%{$request->search}%")
             ));
 
-        return response()->json($query->latest()->paginate(20));
+        $perPage = min((int)($request->per_page ?? 20), 100);
+        return response()->json($query->latest()->paginate($perPage));
     }
 
     public function summary()

@@ -25,7 +25,7 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         </div>
         <div>
-          <p class="stat-num">{{ pagination.total ?? appointments.length }}</p>
+          <p class="stat-num">{{ apptStats.total ?? 0 }}</p>
           <p class="stat-lbl">Total</p>
         </div>
       </div>
@@ -34,7 +34,7 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div>
-          <p class="stat-num">{{ countByStatus('scheduled') }}</p>
+          <p class="stat-num">{{ apptStats.scheduled ?? 0 }}</p>
           <p class="stat-lbl">Scheduled</p>
         </div>
       </div>
@@ -43,7 +43,7 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div>
-          <p class="stat-num">{{ countByStatus('completed') }}</p>
+          <p class="stat-num">{{ apptStats.completed ?? 0 }}</p>
           <p class="stat-lbl">Completed</p>
         </div>
       </div>
@@ -52,7 +52,7 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div>
-          <p class="stat-num">{{ countByStatus('cancelled') + countByStatus('no_show') }}</p>
+          <p class="stat-num">{{ apptStats.cancelled_no_show ?? 0 }}</p>
           <p class="stat-lbl">Cancelled / No-show</p>
         </div>
       </div>
@@ -237,6 +237,7 @@ const appointments = ref([])
 const patients     = ref([])
 const optometrists = ref([])
 const pagination   = ref({})
+const apptStats    = ref({})
 const loading      = ref(true)
 const filterDate   = ref('')
 const filterStatus = ref('')
@@ -248,7 +249,9 @@ const formError    = ref('')
 const emptyForm = () => ({ patient_id: '', optometrist_id: '', appointment_date: '', type: 'eye_exam', reason: '' })
 const form = ref(emptyForm())
 
-const countByStatus = (s) => appointments.value.filter(a => a.status === s).length
+async function fetchStats() {
+  try { const { data } = await api.get('/appointments/stats'); apptStats.value = data } catch { /* */ }
+}
 
 function clearFilters() { filterDate.value = ''; filterStatus.value = ''; fetchPage(1) }
 
@@ -283,7 +286,7 @@ async function save() {
   try {
     if (editingId.value) await api.put(`/appointments/${editingId.value}`, form.value)
     else await api.post('/appointments', form.value)
-    closeModal(); fetchPage(pagination.value.current_page ?? 1)
+    closeModal(); fetchPage(pagination.value.current_page ?? 1); fetchStats()
   } catch (e) {
     formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save appointment.'
   } finally { saving.value = false }
@@ -291,7 +294,7 @@ async function save() {
 
 async function updateStatus(appt, status) {
   await api.put(`/appointments/${appt.id}`, { status })
-  fetchPage(pagination.value.current_page ?? 1)
+  fetchPage(pagination.value.current_page ?? 1); fetchStats()
 }
 
 function statusBorder(s) {
@@ -345,6 +348,7 @@ onMounted(async () => {
     optometrists.value = opts.data
   } catch { loading.value = false }
 
+  fetchStats()
   if (route.query.highlight) {
     activateHighlight(Number(route.query.highlight))
   } else {
@@ -393,15 +397,6 @@ onMounted(async () => {
 /* ── Stats ──────────────────────────────────────────── */
 .stats-row {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
-}
-.stat-card {
-  display: flex; align-items: center; gap: 14px; padding: 18px 20px;
-  background: white; border: 1.5px solid #f3f4f6; border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.stat-icon {
-  width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center;
-  justify-content: center; flex-shrink: 0;
 }
 .stat-icon svg { color: white; }
 .stat-icon.blue  { background: #3b82f6; }

@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
@@ -36,11 +39,18 @@ class AppointmentController extends Controller
         $validated = $request->validate([
             'patient_id'       => 'required|exists:patients,id',
             'optometrist_id'   => 'required|exists:users,id',
-            'appointment_date' => 'required|date',
+            'appointment_date' => 'required|date|after_or_equal:today',
             'type'             => 'required|in:eye_exam,follow_up,fitting,other',
             'reason'           => 'nullable|string',
             'notes'            => 'nullable|string',
         ]);
+
+        $opto = User::find($validated['optometrist_id']);
+        if (!$opto || $opto->role !== 'optometrist' || !$opto->is_active) {
+            throw ValidationException::withMessages([
+                'optometrist_id' => ['The selected user must be an active optometrist.'],
+            ]);
+        }
 
         $validated['created_by'] = $request->user()->id;
         $validated['status']     = 'scheduled';
@@ -56,13 +66,25 @@ class AppointmentController extends Controller
 
     public function update(Request $request, Appointment $appointment)
     {
-        $appointment->update($request->validate([
-            'appointment_date' => 'sometimes|date',
+        $validated = $request->validate([
+            'optometrist_id'   => 'sometimes|exists:users,id',
+            'appointment_date' => 'sometimes|date|after_or_equal:today',
             'type'             => 'sometimes|in:eye_exam,follow_up,fitting,other',
             'status'           => 'sometimes|in:scheduled,completed,cancelled,no_show',
             'reason'           => 'nullable|string',
             'notes'            => 'nullable|string',
-        ]));
+        ]);
+
+        if (isset($validated['optometrist_id'])) {
+            $opto = User::find($validated['optometrist_id']);
+            if (!$opto || $opto->role !== 'optometrist' || !$opto->is_active) {
+                throw ValidationException::withMessages([
+                    'optometrist_id' => ['The selected user must be an active optometrist.'],
+                ]);
+            }
+        }
+
+        $appointment->update($validated);
 
         return response()->json($appointment->fresh(['patient', 'optometrist']));
     }
@@ -71,5 +93,19 @@ class AppointmentController extends Controller
     {
         $appointment->delete();
         return response()->json(['message' => 'Appointment deleted.']);
+    }
+
+    public function stats()
+    {
+        $stats = DB::table('appointments')
+            ->whereNull('deleted_at')
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'scheduled'  THEN 1 ELSE 0 END) as scheduled,
+                SUM(CASE WHEN status = 'completed'  THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status IN ('cancelled', 'no_show') THEN 1 ELSE 0 END) as cancelled_no_show
+            ")
+            ->first();
+        return response()->json($stats);
     }
 }

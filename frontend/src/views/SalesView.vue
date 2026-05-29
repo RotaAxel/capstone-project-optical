@@ -46,8 +46,8 @@
           </svg>
         </div>
         <div>
-          <p class="stat-num green">₱{{ fmt(pageRevenue) }}</p>
-          <p class="stat-lbl">Page Revenue</p>
+          <p class="stat-num green">₱{{ fmt(saleStats.total_revenue ?? 0) }}</p>
+          <p class="stat-lbl">Total Revenue</p>
         </div>
       </div>
 
@@ -59,7 +59,7 @@
           </svg>
         </div>
         <div>
-          <p class="stat-num blue">{{ cashCount }}</p>
+          <p class="stat-num blue">{{ saleStats.cash_count ?? 0 }}</p>
           <p class="stat-lbl">Cash Sales</p>
         </div>
       </div>
@@ -72,7 +72,7 @@
           </svg>
         </div>
         <div>
-          <p class="stat-num purple">{{ digitalCount }}</p>
+          <p class="stat-num purple">{{ saleStats.digital_count ?? 0 }}</p>
           <p class="stat-lbl">Digital Payments</p>
         </div>
       </div>
@@ -267,7 +267,12 @@
               </div>
               <div class="item-qty">
                 <label class="fl">Qty</label>
-                <input v-model="item.quantity" type="number" min="1" class="fi" @input="recalc" />
+                <input v-model.number="item.quantity" type="number" min="1" class="fi"
+                  :class="{ 'fi-warn': item.max_stock != null && item.quantity > item.max_stock }"
+                  @input="recalc" />
+                <span v-if="item.max_stock != null && item.quantity > item.max_stock" class="stock-warn">
+                  Only {{ item.max_stock }} in stock
+                </span>
               </div>
               <div class="item-price">
                 <label class="fl">Unit Price</label>
@@ -432,10 +437,11 @@ const saleError  = ref('')
 const saleForm = ref({ patient_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] })
 const totals   = ref({ subtotal: 0, total: 0, change: 0 })
 
-// Computed stats from current page
-const pageRevenue   = computed(() => sales.value.reduce((s, sale) => s + Number(sale.total_amount || 0), 0))
-const cashCount     = computed(() => sales.value.filter(s => s.payment_method === 'cash').length)
-const digitalCount  = computed(() => sales.value.filter(s => ['card','gcash','maya'].includes(s.payment_method)).length)
+const saleStats = ref({})
+
+async function fetchStats() {
+  try { const { data } = await api.get('/sales/stats'); saleStats.value = data } catch { /* */ }
+}
 
 const visiblePages = computed(() => {
   const pages = [], total = pagination.value.last_page ?? 1, cur = pagination.value.current_page ?? 1
@@ -461,7 +467,11 @@ function removeItem(idx) { saleForm.value.items.splice(idx, 1); recalc() }
 
 function fillPrice(item) {
   const prod = products.value.find(p => p.id === item.product_id)
-  if (prod) { item.unit_price = prod.selling_price; recalc() }
+  if (prod) {
+    item.unit_price  = prod.selling_price
+    item.max_stock   = prod.stock_quantity
+    recalc()
+  }
 }
 
 function openSaleModal()  { showSaleModal.value = true }
@@ -477,10 +487,19 @@ function viewSale(sale) { viewingSale.value = sale }
 function clearFilters() { search.value = ''; dateFrom.value = ''; dateTo.value = ''; fetchPage(1) }
 
 async function submitSale() {
-  saleError.value = ''; saving.value = true
+  saleError.value = ''
+
+  const overStock = saleForm.value.items.find(i => i.max_stock != null && i.quantity > i.max_stock)
+  if (overStock) {
+    const prod = products.value.find(p => p.id === overStock.product_id)
+    saleError.value = `Insufficient stock for "${prod?.name ?? 'item'}". Available: ${overStock.max_stock}, requested: ${overStock.quantity}.`
+    return
+  }
+
+  saving.value = true
   try {
     await api.post('/sales', saleForm.value)
-    closeSaleModal(); fetchPage(1)
+    closeSaleModal(); fetchPage(1); fetchStats()
   } catch (e) {
     saleError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || e.response?.data?.message || 'Failed to process sale.'
   } finally { saving.value = false }
@@ -525,7 +544,7 @@ onMounted(async () => {
     ])
     patients.value = pts.data.data
     products.value = prods.data.data
-    fetchPage()
+    fetchPage(); fetchStats()
   } catch { loading.value = false }
 })
 </script>
@@ -543,8 +562,6 @@ onMounted(async () => {
 
 /* Stats */
 .stats-row  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
-.stat-card  { background: #fff; border-radius: 14px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 8px rgba(0,0,0,.04); padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
-.stat-icon  { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .stat-icon.emerald { background: #ecfdf5; color: #059669; }
 .stat-icon.green   { background: #f0fdf4; color: #16a34a; }
 .stat-icon.blue    { background: #eff6ff; color: #2563eb; }
@@ -673,7 +690,9 @@ onMounted(async () => {
 .change-row    { font-weight: 700; color: #15803d; }
 .change-amount { font-size: 16px; font-weight: 800; }
 
-.error-box { background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 9px; padding: 10px 14px; font-size: 13px; color: #dc2626; margin-top: 12px; }
+.fi-warn    { border-color: #f59e0b !important; background: #fffbeb !important; }
+.stock-warn { display: block; font-size: 11px; color: #d97706; font-weight: 600; margin-top: 3px; }
+.error-box  { background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 9px; padding: 10px 14px; font-size: 13px; color: #dc2626; margin-top: 12px; }
 
 .btn-cancel { padding: 10px 20px; border: 1.5px solid #e5e7eb; border-radius: 9px; background: #fff; color: #374151; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all .2s; }
 .btn-cancel:hover { background: #f9fafb; }

@@ -234,6 +234,7 @@ const auth = useAuthStore()
 
 const patients   = ref([])
 const pagination = ref({})
+const globalStats = ref({ total: 0, male_count: 0, female_count: 0, new_this_month: 0 })
 const loading    = ref(true)
 const search     = ref('')
 const showModal  = ref(false)
@@ -249,6 +250,13 @@ let debounceTimer
 function debouncedFetch() {
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => fetchPage(1), 400)
+}
+
+async function fetchStats() {
+  try {
+    const { data } = await api.get('/patients/stats')
+    globalStats.value = data
+  } catch {}
 }
 
 async function fetchPage(page = 1) {
@@ -286,6 +294,7 @@ async function savePatient() {
     }
     closeModal()
     fetchPage(pagination.value.current_page ?? 1)
+    fetchStats()
   } catch (e) {
     formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save patient.'
   } finally {
@@ -297,6 +306,7 @@ async function deletePatient(patient) {
   if (!confirm(`Delete patient ${patient.first_name} ${patient.last_name}?`)) return
   await api.delete(`/patients/${patient.id}`)
   fetchPage(pagination.value.current_page ?? 1)
+  fetchStats()
 }
 
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
@@ -313,15 +323,9 @@ function avatarColor(gender) {
   return { male: 'av-blue', female: 'av-pink', other: 'av-green' }[gender] ?? 'av-gray'
 }
 
-const maleCount     = computed(() => patients.value.filter(p => p.gender === 'male').length)
-const femaleCount   = computed(() => patients.value.filter(p => p.gender === 'female').length)
-const newThisMonth  = computed(() => {
-  const now = new Date()
-  return patients.value.filter(p => {
-    const d = new Date(p.created_at)
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  }).length
-})
+const maleCount    = computed(() => globalStats.value.male_count    ?? 0)
+const femaleCount  = computed(() => globalStats.value.female_count  ?? 0)
+const newThisMonth = computed(() => globalStats.value.new_this_month ?? 0)
 
 const visiblePages = computed(() => {
   const pages = [], total = pagination.value.last_page ?? 1, cur = pagination.value.current_page ?? 1
@@ -334,7 +338,7 @@ const visiblePages = computed(() => {
   return pages
 })
 
-onMounted(() => fetchPage())
+onMounted(() => { fetchPage(); fetchStats() })
 </script>
 
 <style scoped>
