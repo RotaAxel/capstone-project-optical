@@ -68,10 +68,20 @@ class AnalyticsController extends Controller
 
             // ── Method selection based on demand sparsity ───────────────────
             $method         = $this->selectMethod($weeklySeries);
-            $forecastResult = $this->forecast($weeklySeries, $method, 4);
+            $forecastResult = $this->forecast($weeklySeries, $method, 24); // 24 weeks = 6 months
 
-            // Convert 4-week forecast to 30-day equivalent
-            $predictedMonthly = array_sum($forecastResult['forecast']) * (30.0 / 7.0);
+            // Aggregate 24 weekly values into 6 monthly buckets (4 weeks each)
+            $forecastMonthly  = [];
+            $lowerMonthly     = [];
+            $upperMonthly     = [];
+            for ($m = 0; $m < 6; $m++) {
+                $forecastMonthly[] = round(array_sum(array_slice($forecastResult['forecast'], $m * 4, 4)), 2);
+                $lowerMonthly[]    = round(max(0, array_sum(array_slice($forecastResult['lower'],   $m * 4, 4))), 2);
+                $upperMonthly[]    = round(array_sum(array_slice($forecastResult['upper'],   $m * 4, 4)), 2);
+            }
+
+            // 30-day predicted demand = first month (4 weeks) scaled to 30 days
+            $predictedMonthly = array_sum(array_slice($forecastResult['forecast'], 0, 4)) * (30.0 / 7.0);
 
             // ── WMAPE via hold-out with the same method ─────────────────────
             $mape = $this->computeWMAPE($weeklySeries, $method);
@@ -108,10 +118,12 @@ class AnalyticsController extends Controller
                         'used_fallback'   => $forecastResult['fallback'],
                         'hw_gamma'        => isset($params['gamma'])   ? round($params['gamma'], 4) : null,
                         'hw_variant'      => $params['variant'] ?? 'additive',
-                        // Forecast outputs
-                        'forecast_weekly' => array_map(fn($v) => round($v, 2), $forecastResult['forecast']),
-                        'conf_lower_30d'  => round(max(0, array_sum($forecastResult['lower']) * (30.0 / 7.0)), 2),
-                        'conf_upper_30d'  => round(array_sum($forecastResult['upper']) * (30.0 / 7.0), 2),
+                        // Forecast outputs (6-month monthly aggregation)
+                        'forecast_monthly'    => $forecastMonthly,
+                        'conf_lower_monthly'  => $lowerMonthly,
+                        'conf_upper_monthly'  => $upperMonthly,
+                        'conf_lower_30d'      => round($lowerMonthly[0] * (30.0 / 7.0), 2),
+                        'conf_upper_30d'      => round($upperMonthly[0] * (30.0 / 7.0), 2),
                         'wmape_pct'       => $mape >= 0 ? $mape : null,
                         'weekly_series'   => $weeklySeries,
                         // Demand statistics (last 90 days for display, full window for computation)
@@ -670,6 +682,12 @@ class AnalyticsController extends Controller
      */
     private function computeWMAPE(array $series, string $method): float
     {
+        // WMAPE is only meaningful for fast-moving / regular-demand products.
+        // Slow (Croston) and non-moving (SES) items have intermittent demand where
+        // high percentage errors are statistically expected and do not indicate a
+        // model failure — showing a number would be misleading.
+        if (!in_array($method, ['holt_winters', 'auto_arima'])) return -1.0;
+
         $n       = count($series);
         $holdOut = 52; // full year — stable estimate covering all seasonal peaks
 

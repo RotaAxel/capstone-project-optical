@@ -29,6 +29,45 @@
       </button>
     </div>
 
+    <!-- ── Running Overlay ───────────────────────────────────── -->
+    <div v-if="running" class="running-overlay">
+      <div class="running-card">
+        <div class="running-anim">
+          <div class="running-ring"></div>
+          <svg class="running-icon" width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+        </div>
+        <div class="running-text">
+          <p class="running-title">Computing Analytics…</p>
+          <p class="running-stage">{{ loadingStage }}</p>
+        </div>
+        <div class="running-right">
+          <p class="running-elapsed">{{ loadingElapsed }}s</p>
+          <div class="running-dots">
+            <span :class="{ active: loadingDot >= 0 }"></span>
+            <span :class="{ active: loadingDot >= 1 }"></span>
+            <span :class="{ active: loadingDot >= 2 }"></span>
+          </div>
+        </div>
+      </div>
+      <div class="running-steps">
+        <div v-for="(step, i) in runningSteps" :key="i" class="running-step" :class="step.state">
+          <div class="rs-icon">
+            <svg v-if="step.state === 'done'" width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div v-else-if="step.state === 'active'" class="rs-spin"></div>
+            <div v-else class="rs-dot"></div>
+          </div>
+          <span class="rs-label">{{ step.label }}</span>
+          <span v-if="step.state === 'done'" class="rs-done">done</span>
+          <span v-else-if="step.state === 'active'" class="rs-working">working…</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Algorithm Info Cards ────────────────────────────────── -->
     <div class="algo-grid">
 
@@ -169,11 +208,11 @@
             <div class="ch-dot blue"></div>
             <div>
               <p class="ch-title">Predicted Future Demand</p>
-              <p class="ch-sub">Past sales + 4-week demand estimate (95% confidence)</p>
+              <p class="ch-sub">Current demand + 6-month forecast (95% confidence)</p>
             </div>
             <div class="ch-legend">
-              <span class="leg-item"><span class="leg-line blue-line"></span>Actual</span>
-              <span class="leg-item"><span class="leg-line orange-dash"></span>Forecast</span>
+              <span class="leg-item"><span class="leg-line blue-line"></span>Current</span>
+              <span class="leg-item"><span class="leg-line orange-dash"></span>Monthly Forecast</span>
               <span class="leg-item"><span class="leg-band"></span>95% CI</span>
             </div>
           </div>
@@ -254,12 +293,22 @@
           <span class="results-title">Analytics Results</span>
           <span class="results-count">{{ results.length }} products</span>
         </div>
-        <span class="results-computed">
-          Computed: {{ computedAt }}
-          <span v-if="running" class="stale-badge refreshing">● Refreshing…</span>
-          <span v-else-if="summary?.is_stale" class="stale-badge">● Outdated</span>
-          <span v-else class="stale-badge fresh">● Up to date</span>
-        </span>
+        <div class="results-header-right">
+          <button @click="toggleFsnSort" class="fsn-sort-btn" :title="fsnSortDir === 'asc' ? 'Currently: Fast → Non-moving. Click to reverse.' : 'Currently: Non-moving → Fast. Click to reverse.'">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h10a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h6a1 1 0 010 2H4a1 1 0 01-1-1z"/>
+            </svg>
+            <span v-if="fsnSortDir === 'asc'">Fast → Non-moving</span>
+            <span v-else>Non-moving → Fast</span>
+            <span class="sort-arrow-icon">{{ fsnSortDir === 'asc' ? '↑' : '↓' }}</span>
+          </button>
+          <span class="results-computed">
+            Computed: {{ computedAt }}
+            <span v-if="running" class="stale-badge refreshing">● Refreshing…</span>
+            <span v-else-if="summary?.is_stale" class="stale-badge">● Outdated</span>
+            <span v-else class="stale-badge fresh">● Up to date</span>
+          </span>
+        </div>
       </div>
       <div class="table-wrap">
         <table class="res-table">
@@ -270,8 +319,11 @@
               <th>Expected Sales <span class="th-note">(30 days)</span></th>
               <th>Best Order Qty</th>
               <th>Reorder When</th>
-              <th>Sales Speed</th>
-              <th>Forecast Error <span class="th-note">(WMAPE — lower is more accurate)</span></th>
+              <th class="th-sortable" @click="toggleFsnSort" title="Sort by Sales Speed">
+                Sales Speed
+                <span class="col-sort-arrow">{{ fsnSortDir === 'asc' ? '↑' : '↓' }}</span>
+              </th>
+              <th>Forecast Error <span class="th-note">(WMAPE — fast items only)</span></th>
               <th>Alert</th>
             </tr>
           </thead>
@@ -306,6 +358,10 @@
                   </span>
                   <span class="mape-sub">error rate</span>
                 </template>
+                <template v-else-if="r.analytics?.fsn_classification === 'slow' || r.analytics?.fsn_classification === 'non_moving'">
+                  <span class="dim">—</span>
+                  <span class="mape-sub">intermittent</span>
+                </template>
                 <span v-else class="dim">—</span>
               </td>
               <td>
@@ -337,45 +393,6 @@
             Next
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Running Overlay ───────────────────────────────────── -->
-    <div v-if="running" class="running-overlay">
-      <div class="running-card">
-        <div class="running-anim">
-          <div class="running-ring"></div>
-          <svg class="running-icon" width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-          </svg>
-        </div>
-        <div class="running-text">
-          <p class="running-title">Computing Analytics…</p>
-          <p class="running-stage">{{ loadingStage }}</p>
-        </div>
-        <div class="running-right">
-          <p class="running-elapsed">{{ loadingElapsed }}s</p>
-          <div class="running-dots">
-            <span :class="{ active: loadingDot >= 0 }"></span>
-            <span :class="{ active: loadingDot >= 1 }"></span>
-            <span :class="{ active: loadingDot >= 2 }"></span>
-          </div>
-        </div>
-      </div>
-      <div class="running-steps">
-        <div v-for="(step, i) in runningSteps" :key="i" class="running-step" :class="step.state">
-          <div class="rs-icon">
-            <svg v-if="step.state === 'done'" width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <polyline points="20 6 9 17 4 12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <div v-else-if="step.state === 'active'" class="rs-spin"></div>
-            <div v-else class="rs-dot"></div>
-          </div>
-          <span class="rs-label">{{ step.label }}</span>
-          <span v-if="step.state === 'done'" class="rs-done">done</span>
-          <span v-else-if="step.state === 'active'" class="rs-working">working…</span>
         </div>
       </div>
     </div>
@@ -540,6 +557,10 @@
                     {{ wmapePct(selected.analytics.result_data) }}%
                     <span class="mape-detail">{{ wmapePct(selected.analytics.result_data) <= 30 ? '● Good' : wmapePct(selected.analytics.result_data) <= 60 ? '● Fair' : '● Poor' }}</span>
                   </span>
+                </div>
+                <div class="sop-kv" v-else-if="selected.analytics?.fsn_classification === 'slow' || selected.analytics?.fsn_classification === 'non_moving'">
+                  <span class="sop-k">Forecast error rate</span>
+                  <span class="sop-v dim">Not measured — intermittent demand makes percentage error unreliable for {{ selected.analytics.fsn_classification === 'slow' ? 'slow' : 'non-moving' }} items</span>
                 </div>
                 <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
                   <span class="sop-v" :class="daysRemaining(selected) < 14 ? 'danger-val' : 'ok-val'">{{ daysRemaining(selected) }} days</span>
@@ -708,14 +729,32 @@ const selectedForecastProduct = ref(null)
 
 const tablePage     = ref(1)
 const tablePageSize = 20
+const fsnSortDir    = ref('asc') // 'asc' = Fast → Slow → Non-moving, 'desc' = reverse
 
-const tableLastPage  = computed(() => Math.max(1, Math.ceil(results.value.length / tablePageSize)))
+const fsnRank = { fast: 0, slow: 1, non_moving: 2 }
+
+const sortedResults = computed(() => {
+  const arr = [...results.value]
+  arr.sort((a, b) => {
+    const ra = fsnRank[a.analytics?.fsn_classification] ?? 3
+    const rb = fsnRank[b.analytics?.fsn_classification] ?? 3
+    return fsnSortDir.value === 'asc' ? ra - rb : rb - ra
+  })
+  return arr
+})
+
+const tableLastPage  = computed(() => Math.max(1, Math.ceil(sortedResults.value.length / tablePageSize)))
 const pagedResults   = computed(() => {
   const start = (tablePage.value - 1) * tablePageSize
-  return results.value.slice(start, start + tablePageSize)
+  return sortedResults.value.slice(start, start + tablePageSize)
 })
-const tablePageFrom  = computed(() => results.value.length === 0 ? 0 : (tablePage.value - 1) * tablePageSize + 1)
-const tablePageTo    = computed(() => Math.min(tablePage.value * tablePageSize, results.value.length))
+const tablePageFrom  = computed(() => sortedResults.value.length === 0 ? 0 : (tablePage.value - 1) * tablePageSize + 1)
+const tablePageTo    = computed(() => Math.min(tablePage.value * tablePageSize, sortedResults.value.length))
+
+function toggleFsnSort() {
+  fsnSortDir.value = fsnSortDir.value === 'asc' ? 'desc' : 'asc'
+  tablePage.value  = 1
+}
 
 // ── Loading state ─────────────────────────────────────────
 const loadingStage   = ref('')
@@ -873,35 +912,29 @@ const forecastLineData = computed(() => {
   const r = selectedForecastRow.value
   if (!r?.analytics?.result_data) return { labels: [], datasets: [] }
 
-  const rd            = r.analytics.result_data
-  const weeklySeries  = rd.weekly_series  ?? []
-  const forecastWeeks = rd.forecast_weekly ?? []
-  const histSlice     = weeklySeries.slice(-12)
-  const histLen       = histSlice.length
-  const fLen          = forecastWeeks.length
-  const lastHist      = histLen > 0 ? histSlice[histLen - 1] : 0
+  const rd             = r.analytics.result_data
+  const weeklySeries   = rd.weekly_series     ?? []
+  const forecastMonths = rd.forecast_monthly  ?? []
+  const lowerMonths    = rd.conf_lower_monthly ?? forecastMonths.map(() => 0)
+  const upperMonths    = rd.conf_upper_monthly ?? forecastMonths
 
-  const labels = []
-  for (let i = histLen - 1; i >= 0; i--) labels.push(i === 0 ? 'Now' : `−${i}w`)
-  for (let i = 1; i <= fLen; i++)        labels.push(`+${i}w`)
+  const histSlice = weeklySeries.slice(-1)   // only "Now" anchor point
+  const histLen   = histSlice.length
+  const fLen      = forecastMonths.length
+  const lastHist  = histLen > 0 ? histSlice[histLen - 1] : 0
 
-  const halfRange  = ((rd.conf_upper_30d ?? 0) - (rd.conf_lower_30d ?? 0)) / 2
-  const weeklyBase = halfRange / Math.max(1, Math.sqrt(fLen))
-  const upperCI    = forecastWeeks.map((v, i) => v + weeklyBase * Math.sqrt(i + 1))
-  const lowerCI    = forecastWeeks.map((v, i) => Math.max(0, v - weeklyBase * Math.sqrt(i + 1)))
-
-  const nullPad = Array(histLen - 1).fill(null)
+  const labels = ['Now', ...Array.from({ length: fLen }, (_, i) => `+${i + 1}m`)]
 
   return {
     labels,
     datasets: [
       {
-        label: 'Actual (weekly)',
-        data: [...histSlice, ...Array(fLen).fill(null)],
+        label: 'Current',
+        data: [lastHist, ...Array(fLen).fill(null)],
         borderColor: '#3b82f6',
         backgroundColor: 'rgba(59,130,246,0.07)',
         borderWidth: 2.5,
-        pointRadius: histSlice.map((_, i) => i === histLen - 1 ? 6 : 3),
+        pointRadius: [6, ...Array(fLen).fill(0)],
         pointBackgroundColor: '#3b82f6',
         pointHoverRadius: 5,
         tension: 0.35,
@@ -909,12 +942,12 @@ const forecastLineData = computed(() => {
         order: 3,
       },
       {
-        label: 'ARIMA Forecast',
-        data: [...nullPad, lastHist, ...forecastWeeks],
+        label: 'Monthly Forecast',
+        data: [lastHist, ...forecastMonths],
         borderColor: '#f97316',
         borderWidth: 2.5,
         borderDash: [7, 4],
-        pointRadius: [...Array(histLen - 1).fill(0), 0, ...Array(fLen).fill(5)],
+        pointRadius: [0, ...Array(fLen).fill(5)],
         pointBackgroundColor: '#f97316',
         pointBorderColor: '#fff',
         pointBorderWidth: 2,
@@ -925,7 +958,7 @@ const forecastLineData = computed(() => {
       },
       {
         label: '95% CI Upper',
-        data: [...nullPad, lastHist, ...upperCI],
+        data: [lastHist, ...upperMonths],
         borderColor: 'rgba(249,115,22,0.25)',
         borderWidth: 1,
         borderDash: [3, 3],
@@ -937,7 +970,7 @@ const forecastLineData = computed(() => {
       },
       {
         label: '95% CI Lower',
-        data: [...nullPad, lastHist, ...lowerCI],
+        data: [lastHist, ...lowerMonths],
         borderColor: 'rgba(249,115,22,0.25)',
         borderWidth: 1,
         borderDash: [3, 3],
@@ -967,7 +1000,7 @@ const forecastLineOptions = {
   scales: {
     x: { ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' } },
     y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' },
-         title: { display: true, text: 'Units / week', font: { size: 10 }, color: '#9ca3af' } },
+         title: { display: true, text: 'Units / month', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
 
@@ -1293,6 +1326,18 @@ onMounted(loadSummary)
 .results-title  { font-weight: 700; color: #111827; }
 .results-count  { font-size: 11px; font-weight: 600; color: #6366f1; background: #eef2ff; border-radius: 20px; padding: 2px 9px; }
 .results-computed { font-size: 11px; color: #9ca3af; }
+.results-header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.fsn-sort-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+  background: #fff; font-size: 12px; font-weight: 700; font-family: inherit;
+  color: #374151; cursor: pointer; transition: all .2s; white-space: nowrap;
+}
+.fsn-sort-btn:hover { background: #eff6ff; border-color: #3b82f6; color: #2563eb; }
+.sort-arrow-icon { font-size: 14px; font-weight: 900; color: #2563eb; line-height: 1; flex-shrink: 0; }
+.th-sortable { cursor: pointer; user-select: none; }
+.th-sortable:hover { color: #2563eb; }
+.col-sort-arrow { font-size: 13px; font-weight: 900; color: #2563eb; margin-left: 5px; vertical-align: middle; }
 .table-wrap     { overflow-x: visible; }
 
 .res-pagination {
