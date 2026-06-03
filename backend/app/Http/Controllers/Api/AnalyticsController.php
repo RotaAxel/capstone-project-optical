@@ -680,29 +680,31 @@ class AnalyticsController extends Controller
      * high-volume periods are weighted more — a better fit for
      * slow/intermittent optical inventory.
      */
-    private function computeWMAPE(array $series, string $method): float
+    private function computeWMAPE(array $weeklySeries, string $method): float
     {
-        // WMAPE is only meaningful for fast-moving / regular-demand products.
-        // Slow (Croston) and non-moving (SES) items have intermittent demand where
-        // high percentage errors are statistically expected and do not indicate a
-        // model failure — showing a number would be misleading.
+        // WMAPE only applies to fast-moving items (HW / ARIMA).
         if (!in_array($method, ['holt_winters', 'auto_arima'])) return -1.0;
 
-        $n       = count($series);
-        $holdOut = 52; // full year — stable estimate covering all seasonal peaks
+        // Aggregate weekly → monthly (4 weeks = 1 month).
+        // Monthly totals smooth out individual zero-weeks, reducing noise in the error metric.
+        $monthly = $this->toMonthlySeries($weeklySeries);
+        $n       = count($monthly);
+        $holdOut = 12; // 1-year hold-out in months
 
-        // Need at least 2 full seasonal cycles (104 weeks) for training + the hold-out
-        if ($n < $holdOut + 104) return -1.0;
+        // Need ≥ 2 full annual cycles for training (24 months) plus the 12-month hold-out
+        if ($n < $holdOut + 24) return -1.0;
 
-        $train   = array_slice($series, 0, $n - $holdOut);
-        $actuals = array_slice($series, $n - $holdOut);
+        $train     = array_slice($monthly, 0, $n - $holdOut);
+        $actuals   = array_slice($monthly, $n - $holdOut);
 
-        $result    = $this->forecast($train, $method, $holdOut);
+        // For HW use monthly seasonal period (12); ARIMA is non-seasonal so no change needed
+        $result    = $method === 'holt_winters'
+            ? $this->holtWinters($train, $holdOut, 12)
+            : $this->autoARIMA($train, $holdOut);
         $forecasts = $result['forecast'];
 
         $totalAbsError = 0.0;
         $totalActual   = 0.0;
-
         for ($i = 0; $i < $holdOut; $i++) {
             $totalAbsError += abs($actuals[$i] - $forecasts[$i]);
             $totalActual   += $actuals[$i];
@@ -711,6 +713,20 @@ class AnalyticsController extends Controller
         if ($totalActual <= 0.0) return -1.0;
 
         return round(min(($totalAbsError / $totalActual) * 100.0, 999.9), 2);
+    }
+
+    /**
+     * Collapse a weekly series into monthly totals (4 weeks per month).
+     * Trailing weeks that don't fill a full month are discarded.
+     */
+    private function toMonthlySeries(array $weeklySeries): array
+    {
+        $monthly = [];
+        $n       = count($weeklySeries);
+        for ($i = 0; $i + 4 <= $n; $i += 4) {
+            $monthly[] = array_sum(array_slice($weeklySeries, $i, 4));
+        }
+        return $monthly;
     }
 
     // ─── ARIMA(p, d, q) ───────────────────────────────────────────────────
