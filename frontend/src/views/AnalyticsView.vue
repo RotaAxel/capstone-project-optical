@@ -267,7 +267,7 @@
           <div class="ch-dot gray"></div>
           <div>
             <p class="ch-title">Days Until Stock Runs Out</p>
-            <p class="ch-sub">Estimated days of stock remaining based on predicted daily demand</p>
+            <p class="ch-sub">Top 15 most urgent products — sorted by fewest days remaining</p>
           </div>
           <div class="ch-legend">
             <span class="leg-item"><span class="leg-dot red-dot"></span>&lt; 14 days</span>
@@ -275,8 +275,8 @@
             <span class="leg-item"><span class="leg-dot green-dot"></span>&gt; 30 days</span>
           </div>
         </div>
-        <div class="chart-body" :style="{ height: eoqChartHeight }">
-          <Bar :data="stockRunwayData" :options="{ ...eoqRopOptions, plugins: { ...eoqRopOptions.plugins, legend: { display: false } } }" />
+        <div class="chart-body" style="height: 400px">
+          <Bar :data="stockRunwayData" :options="stockRunwayOptions" />
         </div>
       </div>
 
@@ -904,6 +904,14 @@ const productLabels = computed(() => results.value.map(r => r.product.sku ?? r.p
 
 const eoqChartHeight = computed(() => Math.max(260, results.value.length * 36) + 'px')
 
+// Top 15 most urgent products sorted by days remaining ascending
+const stockRunwayItems = computed(() => {
+  return [...results.value]
+    .map(r => ({ r, days: daysLeft(r) }))
+    .sort((a, b) => a.days - b.days)
+    .slice(0, 15)
+})
+
 const selectedForecastRow = computed(() =>
   results.value.find(r => r.product.id === selectedForecastProduct.value) ?? null
 )
@@ -1018,26 +1026,25 @@ function daysLeft(r) {
   return daily > 0 ? Math.min(365, Math.round(stock / daily)) : 365
 }
 
-const stockRunwayData = computed(() => ({
-  labels: productLabels.value,
-  datasets: [{
-    label: 'Days of Stock Remaining',
-    data: results.value.map(r => daysLeft(r)),
-    backgroundColor: results.value.map(r => {
-      const days = daysLeft(r)
-      if (days < 14) return 'rgba(239,68,68,0.75)'
-      if (days < 30) return 'rgba(234,179,8,0.75)'
-      return 'rgba(34,197,94,0.75)'
-    }),
-    borderColor: results.value.map(r => {
-      const days = daysLeft(r)
-      if (days < 14) return '#ef4444'
-      if (days < 30) return '#ca8a04'
-      return '#16a34a'
-    }),
-    borderWidth: 1, borderRadius: 4,
-  }],
-}))
+const stockRunwayData = computed(() => {
+  const items = stockRunwayItems.value
+  return {
+    labels: items.map(({ r }) => r.product.sku ?? r.product.name),
+    datasets: [{
+      label: 'Days of Stock Remaining',
+      data: items.map(({ days }) => days),
+      backgroundColor: items.map(({ days }) =>
+        days < 14 ? 'rgba(239,68,68,0.82)' : days < 30 ? 'rgba(234,179,8,0.82)' : 'rgba(34,197,94,0.82)'
+      ),
+      borderColor: items.map(({ days }) =>
+        days < 14 ? '#ef4444' : days < 30 ? '#ca8a04' : '#16a34a'
+      ),
+      borderWidth: 1,
+      borderRadius: 6,
+      barThickness: 20,
+    }],
+  }
+})
 
 const eoqCurveData = computed(() => {
   const r = selectedForecastRow.value
@@ -1182,6 +1189,45 @@ const eoqRopOptions = {
     x: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' } },
   },
 }
+
+const stockRunwayOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  indexAxis: 'y',
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        title: ctx => {
+          const item = stockRunwayItems.value[ctx[0]?.dataIndex]
+          return item ? item.r.product.name : ''
+        },
+        label: ctx => {
+          const days = ctx.parsed.x
+          const urgency = days < 14 ? '⚠ Critical' : days < 30 ? '● Warning' : '✓ Safe'
+          return `  ${urgency} — ${days} days remaining`
+        },
+      },
+    },
+  },
+  scales: {
+    y: {
+      ticks: { font: { size: 12 }, color: '#374151' },
+      grid: { display: false },
+    },
+    x: {
+      beginAtZero: true,
+      max: 370,
+      ticks: {
+        font: { size: 11 },
+        color: '#9ca3af',
+        callback: v => v === 370 ? '365+' : v + 'd',
+      },
+      grid: { color: '#f3f4f6' },
+      title: { display: true, text: 'Days of stock remaining', font: { size: 11 }, color: '#9ca3af' },
+    },
+  },
+}))
 
 async function runAnalytics() {
   running.value = true
