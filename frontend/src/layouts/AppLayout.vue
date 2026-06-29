@@ -15,9 +15,9 @@
       <header class="page-header">
         <div class="title-row">
           <!-- Curved teal accent line -->
-          <svg class="title-accent" viewBox="0 0 300 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- <svg class="title-accent" viewBox="0 0 300 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0 15 C60 5, 120 18, 180 10 S250 2, 300 12" stroke="#5BC8C0" stroke-width="1.8" fill="none" opacity="0.7"/>
-          </svg>
+          </svg> -->
           <h1 class="page-title">{{ currentPageTitle }}</h1>
           
           <!-- Header Right Section -->
@@ -387,7 +387,7 @@ async function handleLogout() {
 /* Header */
 .page-header {
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.92);
+  background: transparent;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(226, 232, 240, 0.5);
