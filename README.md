@@ -302,9 +302,7 @@ Open your browser and go to: **`http://localhost:5173`**
 | Admin | admin@acebedo.com | password |
 | Receptionist | reception@acebedo.com | password |
 | Optometrist | optometrist@acebedo.com | password |
-| Inventory Staff | *(create via Accounts page as Admin)* | — |
-
-> To create an Inventory Staff account: log in as Admin → go to **Accounts** → click **Add User** → set role to **Inventory Staff**.
+| Inventory Staff | inventory@acebedo.com | password |
 
 ---
 

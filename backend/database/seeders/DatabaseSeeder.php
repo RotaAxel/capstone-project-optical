@@ -17,9 +17,10 @@ class DatabaseSeeder extends Seeder
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
         // ── Users ──────────────────────────────────────────────────────────────
-        $admin = User::create(['name' => 'Admin',        'email' => 'admin@acebedo.com',       'password' => Hash::make('password'), 'role' => 'admin',        'phone' => '09171000001']);
-        $recep = User::create(['name' => 'Receptionist', 'email' => 'reception@acebedo.com',   'password' => Hash::make('password'), 'role' => 'receptionist', 'phone' => '09171000002']);
-        $opto  = User::create(['name' => 'Dr. Santos',   'email' => 'optometrist@acebedo.com', 'password' => Hash::make('password'), 'role' => 'optometrist',  'phone' => '09171000003']);
+        $admin = User::create(['name' => 'Admin',           'email' => 'admin@acebedo.com',       'password' => Hash::make('password'), 'role' => 'admin',           'phone' => '09171000001']);
+        $recep = User::create(['name' => 'Receptionist',  'email' => 'reception@acebedo.com',   'password' => Hash::make('password'), 'role' => 'receptionist',  'phone' => '09171000002']);
+        $opto  = User::create(['name' => 'Dr. Santos',    'email' => 'optometrist@acebedo.com', 'password' => Hash::make('password'), 'role' => 'optometrist',   'phone' => '09171000003']);
+                 User::create(['name' => 'Inventory Staff','email' => 'inventory@acebedo.com',  'password' => Hash::make('password'), 'role' => 'inventory_staff','phone' => '09171000004']);
 
         // ── Product Categories ─────────────────────────────────────────────────
         ProductCategory::insert([
