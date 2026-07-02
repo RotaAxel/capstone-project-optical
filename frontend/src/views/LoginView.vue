@@ -235,8 +235,8 @@ async function handleLogin() {
 }
 
 .brand-logo-wrap {
-  width: 88px;
-  height: 88px;
+  width: 90px;
+  height: 90px;
   border-radius: 22px;
   background: rgba(255,255,255,0.12);
   border: 2px solid rgba(255,255,255,0.2);
@@ -248,8 +248,8 @@ async function handleLogin() {
 }
 
 .brand-logo {
-  width: 56px;
-  height: 56px;
+  width:18rem;
+  height: 18rem;
   object-fit: contain;
   border-radius: 8px;
 }

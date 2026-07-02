@@ -2,7 +2,7 @@
   <div class="patient-detail fade-up">
 
     <!-- Back nav -->
-    <div class="mb-6">
+    <div class="mb-7" style="margin-bottom: .8rem;">
       <RouterLink to="/patients" class="btn-back">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         Back to Patients
@@ -68,7 +68,7 @@
       </div>
 
       <!-- ── Info Grid ──────────────────────────────────────────── -->
-      <div class="info-grid mb-5">
+      <div class="info-grid mb-5" >
 
         <!-- Patient Demographics -->
         <div class="card info-card">
@@ -349,7 +349,7 @@ onMounted(async () => {
 .btn-back:hover { border-color: #3b82f6; color: #2563eb; background: #eff6ff; }
 
 /* Header card */
-.header-card { padding: 28px 32px; }
+.header-card { padding: 28px 32px; margin-bottom: .8rem; }
 
 .avatar {
   width: 68px; height: 68px; border-radius: 18px;
@@ -385,15 +385,21 @@ onMounted(async () => {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 18px;
   align-items: start;
+  margin-bottom: .8rem;
 }
-.info-card { padding: 22px; }
+.info-card {
+  background: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 24px;
+}
 
 .info-title {
   font-size: 13px; font-weight: 700; color: #111827;
   margin-bottom: 14px; padding-bottom: 10px;
   border-bottom: 1.5px solid #f3f4f6;
 }
-.info-rows { display: flex; flex-direction: column; }
+.info-rows { display: flex; flex-direction: column; gap:12px; }
 .info-row {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 12px; padding: 8px 0; border-bottom: 1px solid #f9fafb;

@@ -114,7 +114,7 @@ class HistoricalTransactionSeeder extends Seeder
             $totalMult = $yearMult * $seasonal;
 
             // ── Fast-moving sales ─────────────────────────────────────────────
-            $dailyFast = (int) round(mt_rand(7, 10) * $totalMult);
+            $dailyFast = (int) round(mt_rand(4, 7) * $totalMult);
 
             for ($s = 0; $s < $dailyFast; $s++) {
                 $saleDate  = $date->copy()->setHour(mt_rand(8, 18))->setMinute(mt_rand(0, 59));
@@ -155,7 +155,7 @@ class HistoricalTransactionSeeder extends Seeder
                 $itemCount++;
 
                 // 35% chance of a second item in the same sale (frame + lens bundle)
-                if (mt_rand(1, 100) <= 35) {
+                if (mt_rand(1, 100) <= 25) {
                     $product2 = $this->weightedPick($fastPool, $fastCum, $totalFast);
                     if ($product2->id !== $product->id) {
                         $sub2 = $product2->selling_price;
