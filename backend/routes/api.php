@@ -17,7 +17,8 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AlertController;
 
 // ── Public ───────────────────────────────────────────────────────────────────
-Route::post('/login', [AuthController::class, 'login']);
+// Throttle login to 10 attempts per minute per IP to prevent brute-force attacks
+Route::middleware('throttle:10,1')->post('/login', [AuthController::class, 'login']);
 
 // ── Authenticated ─────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {

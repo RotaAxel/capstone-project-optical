@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
@@ -66,9 +67,18 @@ class AppointmentController extends Controller
 
     public function update(Request $request, Appointment $appointment)
     {
+        // Only enforce future-date rule when the date is actually being changed.
+        // Marking a past appointment as completed/no_show must not be blocked.
+        $dateIsChanging = $request->has('appointment_date')
+            && $request->appointment_date !== $appointment->appointment_date->toDateString();
+
         $validated = $request->validate([
             'optometrist_id'   => 'sometimes|exists:users,id',
-            'appointment_date' => 'sometimes|date|after_or_equal:today',
+            'appointment_date' => array_filter([
+                'sometimes',
+                'date',
+                $dateIsChanging ? 'after_or_equal:today' : null,
+            ]),
             'type'             => 'sometimes|in:eye_exam,follow_up,fitting,other',
             'status'           => 'sometimes|in:scheduled,completed,cancelled,no_show',
             'reason'           => 'nullable|string',

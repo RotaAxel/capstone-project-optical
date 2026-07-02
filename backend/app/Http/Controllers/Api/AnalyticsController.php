@@ -104,8 +104,10 @@ class AnalyticsController extends Controller
             $log = AnalyticsLog::updateOrCreate(
                 [
                     'product_id'  => $product->id,
-                    'method'      => 'arima',
                     'computed_at' => now()->toDateString(),
+                ],
+                [
+                    'method' => $method,
                 ],
                 [
                     'result_data' => [
