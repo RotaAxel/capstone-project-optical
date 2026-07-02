@@ -105,10 +105,12 @@ class AppointmentController extends Controller
         return response()->json(['message' => 'Appointment deleted.']);
     }
 
-    public function stats()
+    public function stats(Request $request)
     {
         $stats = DB::table('appointments')
             ->whereNull('deleted_at')
+            ->when($request->date,   fn($q) => $q->whereDate('appointment_date', $request->date))
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->selectRaw("
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'scheduled'  THEN 1 ELSE 0 END) as scheduled,

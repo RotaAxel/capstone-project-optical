@@ -33,7 +33,7 @@
           </svg>
         </div>
         <div>
-          <p class="stat-num">{{ pagination.total ?? 0 }}</p>
+          <p class="stat-num">{{ saleStats.total ?? 0 }}</p>
           <p class="stat-lbl">Total Sales</p>
         </div>
       </div>
@@ -94,11 +94,11 @@
       </div>
       <div class="date-group">
         <label class="date-lbl">From</label>
-        <input v-model="dateFrom" @change="fetchPage(1)" type="date" class="date-input" />
+        <input v-model="dateFrom" @change="applyFilters" type="date" class="date-input" />
       </div>
       <div class="date-group">
         <label class="date-lbl">To</label>
-        <input v-model="dateTo" @change="fetchPage(1)" type="date" class="date-input" />
+        <input v-model="dateTo" @change="applyFilters" type="date" class="date-input" />
       </div>
       <button v-if="search || dateFrom || dateTo" @click="clearFilters" class="clear-btn">
         <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -440,7 +440,15 @@ const totals   = ref({ subtotal: 0, total: 0, change: 0 })
 const saleStats = ref({})
 
 async function fetchStats() {
-  try { const { data } = await api.get('/sales/stats'); saleStats.value = data } catch { /* */ }
+  try {
+    const { data } = await api.get('/sales/stats', {
+      params: {
+        date_from: dateFrom.value || undefined,
+        date_to:   dateTo.value   || undefined,
+      },
+    })
+    saleStats.value = data
+  } catch { /* */ }
 }
 
 const visiblePages = computed(() => {
@@ -484,7 +492,8 @@ function closeSaleModal() {
 
 function viewSale(sale) { viewingSale.value = sale }
 
-function clearFilters() { search.value = ''; dateFrom.value = ''; dateTo.value = ''; fetchPage(1) }
+function applyFilters() { fetchPage(1); fetchStats() }
+function clearFilters() { search.value = ''; dateFrom.value = ''; dateTo.value = ''; applyFilters() }
 
 async function submitSale() {
   saleError.value = ''
@@ -506,7 +515,7 @@ async function submitSale() {
 }
 
 let debounceTimer
-function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => fetchPage(1), 400) }
+function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => applyFilters(), 400) }
 
 async function fetchPage(page = 1) {
   loading.value = true

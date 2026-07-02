@@ -25,7 +25,7 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
         </div>
         <div>
-          <p class="stat-num">{{ pagination.total ?? prescriptions.length }}</p>
+          <p class="stat-num">{{ rxStats.total ?? 0 }}</p>
           <p class="stat-lbl">Total Records</p>
         </div>
       </div>
@@ -66,7 +66,7 @@
       </div>
       <div class="filter-field">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        <input v-model="filterDate" type="date" class="filter-input" @change="fetchPage(1)" />
+        <input v-model="filterDate" type="date" class="filter-input" @change="applyFilters" />
       </div>
       <button v-if="search || filterDate" @click="clearFilters" class="clear-btn">Clear filters</button>
     </div>
@@ -375,12 +375,18 @@ const expiredCount   = computed(() => rxStats.value.expired    ?? 0)
 const thisMonthCount = computed(() => rxStats.value.this_month ?? 0)
 
 async function fetchStats() {
-  try { const { data } = await api.get('/prescriptions/stats'); rxStats.value = data } catch { /* */ }
+  try {
+    const { data } = await api.get('/prescriptions/stats', {
+      params: { date: filterDate.value || undefined },
+    })
+    rxStats.value = data
+  } catch { /* */ }
 }
 
+function applyFilters() { fetchPage(1); fetchStats() }
 let debounceTimer
-function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => fetchPage(1), 400) }
-function clearFilters() { search.value = ''; filterDate.value = ''; fetchPage(1) }
+function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => applyFilters(), 400) }
+function clearFilters() { search.value = ''; filterDate.value = ''; applyFilters() }
 
 async function fetchPage(page = 1) {
   loading.value = true

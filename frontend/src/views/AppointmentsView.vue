@@ -62,11 +62,11 @@
     <div class="filter-bar">
       <div class="filter-field">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        <input v-model="filterDate" type="date" class="filter-input" @change="fetchPage(1)" />
+        <input v-model="filterDate" type="date" class="filter-input" @change="applyFilters" />
       </div>
       <div class="filter-field">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-        <select v-model="filterStatus" class="filter-input" @change="fetchPage(1)">
+        <select v-model="filterStatus" class="filter-input" @change="applyFilters">
           <option value="">All Status</option>
           <option value="scheduled">Scheduled</option>
           <option value="completed">Completed</option>
@@ -250,10 +250,16 @@ const emptyForm = () => ({ patient_id: '', optometrist_id: '', appointment_date:
 const form = ref(emptyForm())
 
 async function fetchStats() {
-  try { const { data } = await api.get('/appointments/stats'); apptStats.value = data } catch { /* */ }
+  try {
+    const { data } = await api.get('/appointments/stats', {
+      params: { date: filterDate.value || undefined, status: filterStatus.value || undefined },
+    })
+    apptStats.value = data
+  } catch { /* */ }
 }
 
-function clearFilters() { filterDate.value = ''; filterStatus.value = ''; fetchPage(1) }
+function applyFilters() { fetchPage(1); fetchStats() }
+function clearFilters() { filterDate.value = ''; filterStatus.value = ''; applyFilters() }
 
 async function fetchPage(page = 1) {
   loading.value = true

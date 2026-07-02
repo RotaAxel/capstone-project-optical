@@ -105,12 +105,13 @@ class PrescriptionController extends Controller
         return response()->json(['message' => 'Prescription deleted.']);
     }
 
-    public function stats()
+    public function stats(Request $request)
     {
         $today      = now()->toDateString();
         $monthStart = now()->startOfMonth()->toDateString();
         $stats = DB::table('prescriptions')
             ->whereNull('deleted_at')
+            ->when($request->date, fn($q) => $q->whereDate('exam_date', $request->date))
             ->selectRaw("
                 COUNT(*) as total,
                 SUM(CASE WHEN valid_until IS NOT NULL AND valid_until >= ? THEN 1 ELSE 0 END) as active,

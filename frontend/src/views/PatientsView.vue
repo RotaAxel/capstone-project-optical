@@ -24,7 +24,7 @@
         <div class="sp-icon blue">
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
         </div>
-        <div><p class="sp-val">{{ pagination.total ?? 0 }}</p><p class="sp-lbl">Total</p></div>
+        <div><p class="sp-val">{{ globalStats.total ?? 0 }}</p><p class="sp-lbl">Total</p></div>
       </div>
       <div class="stat-pill">
         <div class="sp-icon indigo">

@@ -22,9 +22,14 @@ class StockMovementController extends Controller
         return response()->json($query->latest()->paginate($perPage));
     }
 
-    public function summary()
+    public function summary(Request $request)
     {
-        $counts = StockMovement::selectRaw('type, COUNT(*) as count')
+        $counts = StockMovement::when($request->type, fn($q) => $q->where('type', $request->type))
+            ->when($request->search, fn($q) => $q->whereHas('product', fn($pq) =>
+                $pq->where('name', 'like', "%{$request->search}%")
+                   ->orWhere('sku', 'like', "%{$request->search}%")
+            ))
+            ->selectRaw('type, COUNT(*) as count')
             ->groupBy('type')
             ->pluck('count', 'type');
 

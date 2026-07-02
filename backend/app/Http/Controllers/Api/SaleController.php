@@ -146,11 +146,13 @@ class SaleController extends Controller
         return response()->json(null, 204);
     }
 
-    public function stats()
+    public function stats(Request $request)
     {
         $stats = DB::table('sales')
             ->whereNull('deleted_at')
             ->where('status', 'completed')
+            ->when($request->date_from, fn($q) => $q->whereDate('created_at', '>=', $request->date_from))
+            ->when($request->date_to,   fn($q) => $q->whereDate('created_at', '<=', $request->date_to))
             ->selectRaw("
                 COUNT(*) as total,
                 COALESCE(SUM(total_amount), 0) as total_revenue,
