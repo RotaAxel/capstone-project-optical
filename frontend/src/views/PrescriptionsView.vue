@@ -132,6 +132,10 @@
               <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               View
             </button>
+            <button @click="printPrescription(rx)" class="act-btn act-blue">
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              Print
+            </button>
             <button v-if="auth.can('admin','optometrist')" @click="openModal(rx)" class="act-btn act-gray">
               <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               Edit
@@ -330,6 +334,10 @@
 
           <div class="modal-footer">
             <button @click="viewing = null" class="btn-cancel">Close</button>
+            <button @click="printPrescription(viewing)" class="btn-print">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              Print Prescription
+            </button>
             <button v-if="auth.can('admin','optometrist')" @click="openModal(viewing); viewing = null" class="btn-save">Edit Prescription</button>
           </div>
         </div>
@@ -442,6 +450,97 @@ async function deletePrescription(rx) {
 function fmt(v) { return v != null && v !== '' ? Number(v).toFixed(2) : '—' }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 function isExpired(d) { return d && new Date(d) < new Date() }
+
+function printPrescription(rx) {
+  const patient = rx.patient
+    ? `${rx.patient.first_name} ${rx.patient.last_name} · ${rx.patient.patient_code ?? ''}`
+    : '—'
+
+  const validityClass = rx.valid_until ? (isExpired(rx.valid_until) ? 'expired' : 'valid') : ''
+  const validityLabel = rx.valid_until ? fmtDate(rx.valid_until) : 'Not specified'
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Prescription — ${patient}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,sans-serif;font-size:12px;color:#111;padding:32px 40px;max-width:700px;margin:0 auto}
+  .header{display:flex;align-items:center;justify-content:space-between;border-bottom:2.5px solid #1e3a5f;padding-bottom:14px;margin-bottom:22px}
+  .clinic{font-size:22px;font-weight:900;color:#1e3a5f;letter-spacing:1px}
+  .clinic-sub{font-size:11px;color:#666;margin-top:3px}
+  .rx-sym{font-size:48px;font-weight:900;color:#1e3a5f;opacity:.12;line-height:1}
+  .sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#1e3a5f;border-bottom:1px solid #dce6f0;padding-bottom:5px;margin:18px 0 10px}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 24px;margin-bottom:4px}
+  .ir{display:flex;gap:6px;align-items:baseline}
+  .ik{font-size:10px;color:#888;font-weight:600;min-width:84px;flex-shrink:0}
+  .iv{font-size:12px;font-weight:600;color:#111}
+  table{width:100%;border-collapse:collapse;margin:10px 0 18px}
+  th{background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;padding:8px 10px;text-align:center}
+  th:first-child{text-align:left}
+  td{padding:9px 10px;text-align:center;border-bottom:1px solid #e5e7eb;font-size:12px;font-weight:600}
+  td:first-child{text-align:left}
+  .od{color:#1e3a5f;font-weight:800;font-size:13px}
+  .os{color:#0f766e;font-weight:800;font-size:13px}
+  .valid{background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700}
+  .expired{background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700}
+  .notes{background:#f8fafc;border-left:3px solid #1e3a5f;padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:20px}
+  .nl{font-size:10px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:4px}
+  .nt{font-size:12px;color:#374151}
+  .sigs{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:40px}
+  .sig{border-top:1px solid #374151;padding-top:6px;text-align:center;font-size:10px;color:#666}
+  .foot{margin-top:28px;border-top:1px solid #e5e7eb;padding-top:10px;font-size:10px;color:#aaa;text-align:center}
+  @media print{body{padding:20px 24px}}
+</style></head><body>
+<div class="header">
+  <div>
+    <div class="clinic">ACEBEDO OPTICAL</div>
+    <div class="clinic-sub">Your Vision, Our Mission · Cebu City, Philippines</div>
+  </div>
+  <div class="rx-sym">Rx</div>
+</div>
+
+<div class="sec">Patient Information</div>
+<div class="info-grid">
+  <div class="ir"><span class="ik">Patient</span><span class="iv">${patient}</span></div>
+  <div class="ir"><span class="ik">Exam Date</span><span class="iv">${fmtDate(rx.exam_date)}</span></div>
+  <div class="ir"><span class="ik">Optometrist</span><span class="iv">Dr. ${rx.optometrist?.name ?? '—'}</span></div>
+  <div class="ir"><span class="ik">Valid Until</span><span class="iv"><span class="${validityClass}">${validityLabel}</span></span></div>
+</div>
+
+<div class="sec">Prescription</div>
+<table>
+  <thead>
+    <tr><th>Eye</th><th>Sphere</th><th>Cylinder</th><th>Axis</th><th>Add</th><th>PD</th><th>VA</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="od">OD (Right)</td>
+      <td>${rx.od_sphere ?? '—'}</td><td>${rx.od_cylinder ?? '—'}</td><td>${rx.od_axis ?? '—'}</td>
+      <td>${rx.od_add ?? '—'}</td><td>${rx.od_pd ?? '—'}</td><td>${rx.visual_acuity_od ?? '—'}</td>
+    </tr>
+    <tr>
+      <td class="os">OS (Left)</td>
+      <td>${rx.os_sphere ?? '—'}</td><td>${rx.os_cylinder ?? '—'}</td><td>${rx.os_axis ?? '—'}</td>
+      <td>${rx.os_add ?? '—'}</td><td>${rx.os_pd ?? '—'}</td><td>${rx.visual_acuity_os ?? '—'}</td>
+    </tr>
+  </tbody>
+</table>
+
+${rx.notes ? `<div class="notes"><div class="nl">Notes / Remarks</div><div class="nt">${rx.notes}</div></div>` : ''}
+
+<div class="sigs">
+  <div class="sig">Patient Signature &nbsp;/&nbsp; Date</div>
+  <div class="sig">Dr. ${rx.optometrist?.name ?? '—'}<br>Licensed Optometrist</div>
+</div>
+
+<div class="foot">This prescription is valid for one (1) year from the date of examination unless otherwise stated. · Acebedo Optical Clinic · Cebu City, Philippines</div>
+</body></html>`
+
+  const w = window.open('', '_blank', 'width=760,height=700')
+  w.document.write(html)
+  w.document.close()
+  w.focus()
+  setTimeout(() => { w.print(); w.close() }, 400)
+}
 
 async function activateHighlight(id) {
   highlightId.value = id
@@ -637,6 +736,10 @@ onMounted(async () => {
 .act-gray:hover   { background: #e5e7eb; }
 .act-red    { background: #fee2e2; color: #991b1b; }
 .act-red:hover    { background: #fecaca; }
+.act-blue   { background: #eff6ff; color: #2563eb; }
+.act-blue:hover   { background: #dbeafe; }
+.btn-print  { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border: none; border-radius: 9px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; }
+.btn-print:hover { opacity: .9; transform: translateY(-1px); }
 
 /* ── Empty State ─────────────────────────────────────── */
 .empty-state {

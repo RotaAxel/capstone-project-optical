@@ -172,6 +172,12 @@
               </svg>
               View
             </button>
+            <button @click="printReceipt(s)" class="print-btn" title="Print Receipt">
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+              </svg>
+              Print
+            </button>
           </div>
         </div>
       </div>
@@ -412,6 +418,16 @@
             </div>
           </div>
         </div>
+
+        <div class="modal-footer">
+          <button @click="viewingSale = null" class="btn-cancel">Close</button>
+          <button @click="printReceipt(viewingSale)" class="btn-print-receipt">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            Print Receipt
+          </button>
+        </div>
       </div>
     </div>
   </Teleport>
@@ -545,6 +561,77 @@ function methodPill(m) {
   return { cash: 'pill-green', card: 'pill-blue', gcash: 'pill-sky', maya: 'pill-purple', other: 'pill-gray' }[m] ?? 'pill-gray'
 }
 
+function printReceipt(sale) {
+  const patientName = sale.patient
+    ? `${sale.patient.first_name} ${sale.patient.last_name}`
+    : 'Walk-in Customer'
+
+  const itemRows = (sale.items ?? []).map(item => `
+    <tr>
+      <td>${item.product?.name ?? '—'}</td>
+      <td class="tc">${item.quantity}</td>
+      <td class="tr">₱${fmt(item.unit_price)}</td>
+      <td class="tr">₱${fmt(item.subtotal)}</td>
+    </tr>`).join('')
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${sale.receipt_number}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Courier New',monospace;font-size:13px;color:#111;max-width:340px;margin:0 auto;padding:24px 12px}
+  .c{text-align:center}.b{font-weight:700}
+  .clinic{font-size:17px;font-weight:900;letter-spacing:1px}
+  .sub{font-size:11px;color:#666;margin-top:2px}
+  .dash{border-top:1px dashed #aaa;margin:10px 0}
+  .rnum{font-size:13px;font-weight:900;margin:6px 0}
+  .meta{display:flex;justify-content:space-between;font-size:11px;color:#555;margin:3px 0}
+  table{width:100%;border-collapse:collapse;margin:8px 0}
+  th{font-size:10px;font-weight:700;text-transform:uppercase;border-bottom:1px dashed #aaa;padding:4px 2px}
+  td{padding:5px 2px;font-size:12px;vertical-align:top}
+  .tc{text-align:center}.tr{text-align:right}.tl{text-align:left}
+  .tot{width:100%}.tot td{padding:3px 0;font-size:12px}
+  .tot .lbl{color:#666}
+  .bigrow td{font-size:15px;font-weight:900;border-top:1px dashed #aaa;padding-top:6px}
+  .foot{margin-top:16px;font-size:11px;color:#888}
+  @media print{body{padding:0}}
+</style></head><body>
+<div class="c"><div class="clinic">ACEBEDO OPTICAL</div>
+<div class="sub">Your Vision, Our Mission</div>
+<div class="sub">Cebu City, Philippines</div></div>
+<div class="dash"></div>
+<div class="c rnum">${sale.receipt_number}</div>
+<div class="meta"><span>Date</span><span>${fmtDate(sale.created_at)}</span></div>
+<div class="meta"><span>Patient</span><span>${patientName}</span></div>
+<div class="meta"><span>Cashier</span><span>${sale.cashier?.name ?? '—'}</span></div>
+<div class="meta"><span>Payment</span><span style="text-transform:capitalize">${sale.payment_method}</span></div>
+<div class="dash"></div>
+<table>
+  <thead><tr><th class="tl">Item</th><th class="tc">Qty</th><th class="tr">Price</th><th class="tr">Total</th></tr></thead>
+  <tbody>${itemRows}</tbody>
+</table>
+<div class="dash"></div>
+<table class="tot">
+  <tr><td class="lbl">Subtotal</td><td class="tr">₱${fmt(sale.subtotal)}</td></tr>
+  ${Number(sale.discount_amount) > 0 ? `<tr><td class="lbl">Discount</td><td class="tr">−₱${fmt(sale.discount_amount)}</td></tr>` : ''}
+  <tr class="bigrow"><td>TOTAL</td><td class="tr">₱${fmt(sale.total_amount)}</td></tr>
+  ${Number(sale.amount_paid) > 0 ? `<tr><td class="lbl">Paid</td><td class="tr">₱${fmt(sale.amount_paid)}</td></tr>` : ''}
+  ${Number(sale.change_amount) > 0 ? `<tr><td class="lbl">Change</td><td class="tr">₱${fmt(sale.change_amount)}</td></tr>` : ''}
+</table>
+<div class="dash"></div>
+<div class="c foot">
+  <p>Thank you for visiting Acebedo Optical!</p>
+  <p style="margin-top:4px">Items sold are non-refundable.</p>
+  <p style="margin-top:4px">This is your official receipt.</p>
+</div>
+</body></html>`
+
+  const w = window.open('', '_blank', 'width=420,height=640')
+  w.document.write(html)
+  w.document.close()
+  w.focus()
+  setTimeout(() => { w.print(); w.close() }, 350)
+}
+
 onMounted(async () => {
   try {
     const [pts, prods] = await Promise.all([
@@ -639,9 +726,13 @@ onMounted(async () => {
 .sale-amount  { font-size: 1.15rem; font-weight: 800; color: #059669; }
 .sale-date    { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 
-.sale-action  { padding: 18px 20px; flex-shrink: 0; }
-.view-btn     { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1.5px solid #d1fae5; border-radius: 9px; background: #ecfdf5; color: #059669; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; }
+.sale-action  { padding: 18px 16px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+.view-btn     { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px solid #d1fae5; border-radius: 9px; background: #ecfdf5; color: #059669; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; }
 .view-btn:hover { background: #d1fae5; border-color: #10b981; }
+.print-btn    { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px solid #dbeafe; border-radius: 9px; background: #eff6ff; color: #2563eb; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; }
+.print-btn:hover { background: #dbeafe; border-color: #3b82f6; }
+.btn-print-receipt { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border: none; border-radius: 9px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; }
+.btn-print-receipt:hover { opacity: .9; transform: translateY(-1px); }
 
 /* Pagination */
 .pagination  { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; flex-wrap: wrap; gap: 12px; }

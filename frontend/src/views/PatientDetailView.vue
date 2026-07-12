@@ -177,7 +177,13 @@
                   <p class="text-sm font-semibold text-gray-900">Exam: {{ formatDate(rx.exam_date) }}</p>
                   <p class="text-xs text-gray-400 mt-0.5">Dr. {{ rx.optometrist?.name ?? '—' }} &nbsp;·&nbsp; Valid until {{ rx.valid_until ? formatDate(rx.valid_until) : 'Not set' }}</p>
                 </div>
-                <span v-if="rx === latestRx" class="latest-badge">Latest</span>
+                <div class="flex items-center gap-2">
+                  <span v-if="rx === latestRx" class="latest-badge">Latest</span>
+                  <button @click="printPrescription(rx)" class="pd-print-btn">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    Print
+                  </button>
+                </div>
               </div>
               <div class="overflow-x-auto">
                 <table class="rx-table">
@@ -217,7 +223,13 @@
                     by {{ s.cashier?.name ?? '—' }}
                   </p>
                 </div>
-                <p class="text-base font-bold text-green-700">₱{{ formatAmount(s.total_amount) }}</p>
+                <div class="flex items-center gap-3">
+                  <p class="text-base font-bold text-green-700">₱{{ formatAmount(s.total_amount) }}</p>
+                  <button @click="printReceipt(s)" class="pd-print-btn">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    Print
+                  </button>
+                </div>
               </div>
               <div v-if="s.items?.length" class="divide-y divide-gray-50">
                 <div v-for="item in s.items" :key="item.id" class="purchase-item">
@@ -322,6 +334,110 @@ function formatDate(d)     { return d ? new Date(d).toLocaleDateString('en-PH', 
 function formatTime(d)     { return d ? new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '' }
 function formatDateTime(d) { return d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' }
 function formatAmount(v)   { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }
+
+function printReceipt(sale) {
+  const p = patient.value
+  const items = (sale.items ?? []).map(i => `
+    <tr>
+      <td>${i.product?.product_name ?? 'Item'}</td>
+      <td style="text-align:center">${i.quantity}</td>
+      <td style="text-align:right">₱${formatAmount(i.unit_price)}</td>
+      <td style="text-align:right">₱${formatAmount(i.subtotal)}</td>
+    </tr>`).join('')
+  const html = `<!DOCTYPE html><html><head><title>Receipt #${sale.receipt_number ?? sale.id}</title>
+  <style>
+    body{font-family:'Courier New',monospace;font-size:12px;margin:0;padding:20px;max-width:380px}
+    h2{text-align:center;font-size:15px;margin:0 0 2px}
+    .sub{text-align:center;font-size:11px;color:#555;margin:0 0 12px}
+    hr{border:none;border-top:1px dashed #aaa;margin:10px 0}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;font-size:11px;border-bottom:1px solid #ccc;padding:3px 0}
+    td{padding:3px 0;vertical-align:top}
+    .totals{margin-top:10px;text-align:right}
+    .totals div{display:flex;justify-content:space-between;padding:2px 0}
+    .totals .grand{font-weight:bold;font-size:14px;border-top:1px solid #333;margin-top:4px;padding-top:4px}
+    .footer{text-align:center;margin-top:14px;font-size:11px;color:#777}
+    @media print{body{padding:0}}
+  </style></head><body>
+  <h2>ACEBEDO OPTICAL</h2>
+  <p class="sub">Patient Receipt</p>
+  <hr>
+  <div><strong>Receipt #:</strong> ${sale.receipt_number ?? sale.id}</div>
+  <div><strong>Patient:</strong> ${p?.first_name ?? ''} ${p?.last_name ?? ''}</div>
+  <div><strong>Cashier:</strong> ${sale.cashier?.name ?? '—'}</div>
+  <div><strong>Date:</strong> ${formatDateTime(sale.created_at)}</div>
+  <div><strong>Payment:</strong> ${(sale.payment_method ?? '').replace('_',' ').toUpperCase()}</div>
+  <hr>
+  <table>
+    <thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Total</th></tr></thead>
+    <tbody>${items}</tbody>
+  </table>
+  <div class="totals">
+    <div><span>Subtotal</span><span>₱${formatAmount(sale.subtotal ?? sale.total_amount)}</span></div>
+    ${sale.discount_amount > 0 ? `<div><span>Discount</span><span>-₱${formatAmount(sale.discount_amount)}</span></div>` : ''}
+    <div class="grand"><span>TOTAL</span><span>₱${formatAmount(sale.total_amount)}</span></div>
+  </div>
+  <hr>
+  <div class="footer">Thank you for choosing Acebedo Optical!<br>See you on your next visit.</div>
+  </body></html>`
+  const w = window.open('', '_blank', 'width=420,height=640')
+  w.document.write(html)
+  w.document.close()
+  setTimeout(() => w.print(), 350)
+}
+
+function printPrescription(rx) {
+  const p = patient.value
+  const html = `<!DOCTYPE html><html><head><title>Prescription — ${p?.first_name ?? ''} ${p?.last_name ?? ''}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:13px;margin:0;padding:30px 40px;color:#1a1a2e;position:relative}
+    h2{margin:0 0 2px;font-size:18px;color:#1e3a8a}
+    .sub{margin:0 0 16px;font-size:11px;color:#64748b}
+    .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-20deg);font-size:120px;color:rgba(59,130,246,.06);font-weight:900;pointer-events:none;z-index:0}
+    hr{border:none;border-top:1px solid #e2e8f0;margin:14px 0}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:14px}
+    .info-item{display:flex;gap:6px}
+    .lbl{font-weight:600;color:#64748b;min-width:90px}
+    table{width:100%;border-collapse:collapse;margin-bottom:14px}
+    th{background:#1e3a8a;color:white;padding:8px 10px;text-align:center;font-size:12px}
+    td{padding:7px 10px;text-align:center;border-bottom:1px solid #e2e8f0;font-size:12px}
+    .eye-od{background:#eff6ff;font-weight:700;color:#1e40af}
+    .eye-os{background:#f0fdfa;font-weight:700;color:#0f766e}
+    .notes{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:14px;font-size:12px}
+    .sigs{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:24px}
+    .sig-line{border-top:1px solid #334155;padding-top:4px;font-size:11px;color:#64748b;text-align:center}
+    .footer{text-align:center;margin-top:20px;font-size:10px;color:#94a3b8}
+    @media print{body{padding:20px 30px}}
+  </style></head><body>
+  <div class="watermark">Rx</div>
+  <h2>ACEBEDO OPTICAL</h2>
+  <p class="sub">Optical Prescription</p>
+  <hr>
+  <div class="info-grid">
+    <div class="info-item"><span class="lbl">Patient:</span><span>${p?.first_name ?? ''} ${p?.last_name ?? ''}</span></div>
+    <div class="info-item"><span class="lbl">Exam Date:</span><span>${formatDate(rx.exam_date)}</span></div>
+    <div class="info-item"><span class="lbl">Optometrist:</span><span>Dr. ${rx.optometrist?.name ?? '—'}</span></div>
+    <div class="info-item"><span class="lbl">Valid Until:</span><span>${rx.valid_until ? formatDate(rx.valid_until) : 'Not set'}</span></div>
+  </div>
+  <table>
+    <thead><tr><th>Eye</th><th>Sphere</th><th>Cylinder</th><th>Axis</th><th>PD</th></tr></thead>
+    <tbody>
+      <tr><td class="eye-od">OD (Right)</td><td>${rx.od_sphere ?? '—'}</td><td>${rx.od_cylinder ?? '—'}</td><td>${rx.od_axis ?? '—'}</td><td>${rx.od_pd ?? '—'}</td></tr>
+      <tr><td class="eye-os">OS (Left)</td><td>${rx.os_sphere ?? '—'}</td><td>${rx.os_cylinder ?? '—'}</td><td>${rx.os_axis ?? '—'}</td><td>${rx.os_pd ?? '—'}</td></tr>
+    </tbody>
+  </table>
+  ${rx.notes ? `<div class="notes"><strong>Notes:</strong> ${rx.notes}</div>` : ''}
+  <div class="sigs">
+    <div class="sig-line">Optometrist Signature</div>
+    <div class="sig-line">Patient Signature</div>
+  </div>
+  <div class="footer">Acebedo Optical &nbsp;·&nbsp; This prescription is valid for one year from exam date.</div>
+  </body></html>`
+  const w = window.open('', '_blank', 'width=760,height=700')
+  w.document.write(html)
+  w.document.close()
+  setTimeout(() => w.print(), 400)
+}
 
 onMounted(async () => {
   try {
@@ -459,6 +575,14 @@ onMounted(async () => {
   font-size: 11px; font-weight: 700; background: #dbeafe; color: #1d4ed8;
   padding: 4px 12px; border-radius: 99px; white-space: nowrap;
 }
+
+.pd-print-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; font-size: 11px; font-weight: 600;
+  background: #3b82f6; color: white; border: none; border-radius: 6px;
+  cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.pd-print-btn:hover { background: #2563eb; }
 
 /* Rx table */
 .rx-table { width: 100%; border-collapse: collapse; font-size: 13px; }

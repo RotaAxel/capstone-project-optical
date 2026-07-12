@@ -13,6 +13,17 @@ class PatientController extends Controller
     public function index(Request $request)
     {
         $query = Patient::with('createdBy')
+            ->withCount(['appointments', 'prescriptions', 'sales'])
+            ->addSelect([
+                'last_visit' => \App\Models\Appointment::select('appointment_date')
+                    ->whereColumn('patient_id', 'patients.id')
+                    ->orderByDesc('appointment_date')
+                    ->limit(1),
+                'latest_rx_date' => \App\Models\Prescription::select('exam_date')
+                    ->whereColumn('patient_id', 'patients.id')
+                    ->orderByDesc('exam_date')
+                    ->limit(1),
+            ])
             ->when($request->search, fn($q) => $q->where(function ($q) use ($request) {
                 $q->where('first_name', 'like', "%{$request->search}%")
                   ->orWhere('last_name', 'like', "%{$request->search}%")

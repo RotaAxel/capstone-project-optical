@@ -60,6 +60,12 @@
           </svg>
           Generate
         </button>
+        <button v-if="dailyData" @click="exportDailyPdf" class="pdf-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export PDF
+        </button>
       </div>
 
       <template v-if="dailyData">
@@ -165,6 +171,12 @@
           </svg>
           Generate
         </button>
+        <button v-if="monthlyData" @click="exportMonthlyPdf" class="pdf-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export PDF
+        </button>
       </div>
 
       <template v-if="monthlyData">
@@ -253,6 +265,12 @@
             <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
           </svg>
           Refresh
+        </button>
+        <button v-if="inventoryData" @click="exportInventoryPdf" class="pdf-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export PDF
         </button>
       </div>
 
@@ -374,6 +392,12 @@
             <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
           </svg>
           Generate
+        </button>
+        <button v-if="topData" @click="exportTopPdf" class="pdf-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export PDF
         </button>
       </div>
 
@@ -518,6 +542,147 @@ function rankBadge(i) {
 function payPill(m) {
   return { cash: 'pill-green', card: 'pill-blue', gcash: 'pill-sky', maya: 'pill-purple', other: 'pill-gray' }[m] ?? 'pill-gray'
 }
+
+// ── PDF Export ────────────────────────────────────────────────────────────
+function pdfShell(title, subtitle, body) {
+  const now = new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${title}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111827; padding: 32px 36px; }
+  .rh { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid #4f46e5; margin-bottom: 22px; }
+  .rh-left .clinic { font-size: 18px; font-weight: 800; color: #4f46e5; letter-spacing: -.3px; }
+  .rh-left .addr   { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .rh-right { text-align: right; }
+  .rh-right .rtype { font-size: 14px; font-weight: 700; color: #111827; }
+  .rh-right .rsub  { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .rh-right .rgen  { font-size: 10px; color: #9ca3af; margin-top: 6px; }
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-box  { border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; }
+  .stat-val  { font-size: 20px; font-weight: 800; color: #111827; line-height: 1.1; }
+  .stat-val.green  { color: #059669; font-size: 16px; }
+  .stat-val.red    { color: #dc2626; font-size: 16px; }
+  .stat-val.amber  { color: #d97706; }
+  .stat-lbl  { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+  .section   { font-size: 12px; font-weight: 700; color: #374151; margin: 18px 0 8px; display: flex; align-items: center; gap: 6px; }
+  table      { width: 100%; border-collapse: collapse; }
+  thead tr   { background: #f9fafb; }
+  th         { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
+  td         { padding: 9px 12px; font-size: 12px; color: #374151; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr.warn td { background: #fffbeb; }
+  .mono      { font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #4f46e5; background: #eef2ff; padding: 2px 7px; border-radius: 4px; }
+  .amt       { font-weight: 700; color: #059669; }
+  .badge     { display: inline-block; padding: 2px 8px; border-radius: 20px; background: #f3f4f6; color: #4b5563; font-size: 10px; font-weight: 600; }
+  .pill      { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+  .pill.g    { background: #dcfce7; color: #15803d; }
+  .pill.a    { background: #fef3c7; color: #92400e; }
+  .pill.r    { background: #fee2e2; color: #b91c1c; }
+  .dot       { width: 5px; height: 5px; border-radius: 50%; background: currentColor; display: inline-block; }
+  .rank      { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: 11px; font-weight: 800; }
+  .r1 { background:#fef9c3; color:#92400e; border:2px solid #fbbf24; }
+  .r2 { background:#f1f5f9; color:#475569; border:2px solid #94a3b8; }
+  .r3 { background:#fff7ed; color:#9a3412; border:2px solid #fb923c; }
+  .rn { background:#f3f4f6; color:#6b7280; border:2px solid #e5e7eb; }
+  .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; text-align: center; }
+  @media print { @page { margin: 15mm 12mm; size: A4; } body { padding: 0; } }
+</style>
+</head><body>
+<div class="rh">
+  <div class="rh-left">
+    <div class="clinic">Acebedo Optical</div>
+    <div class="addr">Optical clinic management system</div>
+  </div>
+  <div class="rh-right">
+    <div class="rtype">${title}</div>
+    <div class="rsub">${subtitle}</div>
+    <div class="rgen">Generated: ${now}</div>
+  </div>
+</div>
+${body}
+<div class="footer">Acebedo Optical &mdash; Confidential &mdash; ${now}</div>
+</body></html>`
+}
+
+function openPdf(html) {
+  const w = window.open('', '_blank', 'width=900,height=700')
+  w.document.write(html)
+  w.document.close()
+  w.onload = () => { w.focus(); w.print() }
+}
+
+function exportDailyPdf() {
+  const d = dailyData.value
+  const stats = `<div class="stats-row">
+    <div class="stat-box"><div class="stat-val">${d.total_transactions}</div><div class="stat-lbl">Transactions</div></div>
+    <div class="stat-box"><div class="stat-val green">₱${fmt(d.total_revenue)}</div><div class="stat-lbl">Total Revenue</div></div>
+    <div class="stat-box"><div class="stat-val red">₱${fmt(d.total_discount)}</div><div class="stat-lbl">Discounts Given</div></div>
+  </div>`
+  const rows = (d.sales ?? []).map(s => {
+    const patient = s.patient ? `${s.patient.first_name} ${s.patient.last_name}` : 'Walk-in'
+    const items   = `${s.items?.length ?? 0} item${s.items?.length !== 1 ? 's' : ''}`
+    const pmLabels = { cash: 'Cash', card: 'Card', gcash: 'GCash', maya: 'Maya', other: 'Other' }
+    return `<tr><td><span class="mono">${s.receipt_number}</span></td><td>${patient}</td><td>${items}</td><td><span class="amt">₱${fmt(s.total_amount)}</span></td><td>${pmLabels[s.payment_method] ?? s.payment_method}</td></tr>`
+  }).join('')
+  const table = `<div class="section">Sales Transactions</div>
+  <table><thead><tr><th>Receipt #</th><th>Patient</th><th>Items</th><th>Total</th><th>Payment</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:#9ca3af;">No transactions for this date.</td></tr>'}</tbody></table>`
+  openPdf(pdfShell('Daily Sales Report', fmtDate(dailyDate.value), stats + table))
+}
+
+function exportMonthlyPdf() {
+  const d = monthlyData.value
+  const mName = months[monthlyMonth.value - 1]
+  const stats = `<div class="stats-row">
+    <div class="stat-box"><div class="stat-val">${d.total_transactions}</div><div class="stat-lbl">Total Transactions</div></div>
+    <div class="stat-box"><div class="stat-val green">₱${fmt(d.total_revenue)}</div><div class="stat-lbl">Total Revenue</div></div>
+  </div>`
+  const rows = (d.daily_breakdown ?? []).map(day => {
+    const share = revenueShare(day.revenue, d.total_revenue)
+    return `<tr><td>${fmtDate(day.date)}</td><td>${day.transactions}</td><td><span class="amt">₱${fmt(day.revenue)}</span></td><td>${share}%</td></tr>`
+  }).join('')
+  const table = `<div class="section">Daily Breakdown</div>
+  <table><thead><tr><th>Date</th><th>Transactions</th><th>Revenue</th><th>Share</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="4" style="text-align:center;padding:32px;color:#9ca3af;">No data for this month.</td></tr>'}</tbody></table>`
+  openPdf(pdfShell('Monthly Sales Report', `${mName} ${monthlyYear.value}`, stats + table))
+}
+
+function exportInventoryPdf() {
+  const d = inventoryData.value
+  const stats = `<div class="stats-row">
+    <div class="stat-box"><div class="stat-val">${d.total_products}</div><div class="stat-lbl">Total Products</div></div>
+    <div class="stat-box"><div class="stat-val amber">${d.low_stock_count}</div><div class="stat-lbl">Low Stock</div></div>
+    <div class="stat-box"><div class="stat-val red">${d.out_of_stock_count}</div><div class="stat-lbl">Out of Stock</div></div>
+    <div class="stat-box"><div class="stat-val green">₱${fmt(d.total_stock_value)}</div><div class="stat-lbl">Stock Value</div></div>
+  </div>`
+  const rows = (d.products ?? []).map(p => {
+    const status   = p.is_out_of_stock ? '<span class="pill r"><span class="dot"></span>Out of Stock</span>'
+                   : p.is_low_stock    ? '<span class="pill a"><span class="dot"></span>Low Stock</span>'
+                                       : '<span class="pill g"><span class="dot"></span>In Stock</span>'
+    const stockCls = (p.is_out_of_stock || p.is_low_stock) ? 'style="color:#dc2626;font-weight:700"' : 'style="color:#059669;font-weight:700"'
+    const warnCls  = (p.is_out_of_stock || p.is_low_stock) ? 'class="warn"' : ''
+    return `<tr ${warnCls}><td><span class="mono">${p.sku}</span></td><td style="font-weight:600">${p.name}</td><td><span class="badge">${p.category}</span></td><td ${stockCls}>${p.stock_quantity}</td><td style="color:#9ca3af">${p.reorder_point}</td><td>${status}</td><td><span class="amt">₱${fmt(p.stock_value)}</span></td></tr>`
+  }).join('')
+  const table = `<div class="section">Product Inventory</div>
+  <table><thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Stock Value</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af;">No products.</td></tr>'}</tbody></table>`
+  const genDate = new Date().toLocaleDateString('en-PH', { dateStyle: 'long' })
+  openPdf(pdfShell('Inventory Report', `As of ${genDate}`, stats + table))
+}
+
+function exportTopPdf() {
+  const d = topData.value
+  const rankCls = i => ['r1','r2','r3'][i] ?? 'rn'
+  const rows = (d.products ?? []).map((p, i) => {
+    const share = perfShare(p.total_qty, d.products)
+    return `<tr><td><span class="rank ${rankCls(i)}">${i + 1}</span></td><td style="font-weight:600">${p.product?.name ?? '—'}</td><td><span class="badge">${p.product?.category?.name ?? '—'}</span></td><td style="font-weight:700">${p.total_qty}</td><td><span class="amt">₱${fmt(p.total_revenue)}</span></td><td>${share}%</td></tr>`
+  }).join('')
+  const table = `<div class="section">Best-Selling Products</div>
+  <table><thead><tr><th>Rank</th><th>Product</th><th>Category</th><th>Qty Sold</th><th>Revenue</th><th>Performance</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:32px;color:#9ca3af;">No data for this period.</td></tr>'}</tbody></table>`
+  openPdf(pdfShell('Top Products Report', `${fmtDate(topFrom.value)} — ${fmtDate(topTo.value)}`, table))
+}
 </script>
 
 <style scoped>
@@ -561,6 +726,8 @@ function payPill(m) {
 .ctrl-year   { min-width: 90px; }
 .gen-btn     { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border: none; border-radius: 10px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,.3); transition: all .2s; white-space: nowrap; align-self: flex-end; }
 .gen-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99,102,241,.4); }
+.pdf-btn     { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border: 1.5px solid #dc2626; border-radius: 10px; background: #fff; color: #dc2626; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; white-space: nowrap; align-self: flex-end; }
+.pdf-btn:hover { background: #fef2f2; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220,38,38,.15); }
 
 /* Stats */
 .stats-row   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }

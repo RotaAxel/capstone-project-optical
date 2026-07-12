@@ -95,6 +95,30 @@
               {{ p.address }}
             </span>
           </div>
+
+          <!-- Clinical summary row -->
+          <div class="p-clinical">
+            <span class="cl-tag cl-visit">
+              <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              {{ p.appointments_count ?? 0 }} {{ (p.appointments_count ?? 0) === 1 ? 'visit' : 'visits' }}
+            </span>
+            <span class="cl-tag cl-rx">
+              <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              {{ p.prescriptions_count ?? 0 }} {{ (p.prescriptions_count ?? 0) === 1 ? 'prescription' : 'prescriptions' }}
+            </span>
+            <span v-if="p.last_visit" class="cl-tag cl-last">
+              <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Last visit: {{ formatDate(p.last_visit) }}
+            </span>
+            <span v-if="p.emergency_contact_name" class="cl-tag cl-emg" :title="p.emergency_contact_name + ' · ' + (p.emergency_contact_phone ?? '')">
+              <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+              Emergency contact
+            </span>
+            <span v-if="p.medical_history" class="cl-tag cl-med" :title="p.medical_history">
+              <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              Medical history
+            </span>
+          </div>
         </div>
 
         <!-- Age & Date -->
@@ -473,6 +497,19 @@ onMounted(() => { fetchPage(); fetchStats() })
   font-size: 12px; color: #6b7280;
   max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+
+/* Clinical summary chips */
+.p-clinical { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.cl-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; border-radius: 6px;
+  padding: 3px 8px; white-space: nowrap;
+}
+.cl-visit { background: #eff6ff; color: #2563eb; }
+.cl-rx    { background: #f0fdf4; color: #15803d; }
+.cl-last  { background: #fefce8; color: #854d0e; }
+.cl-emg   { background: #fff1f2; color: #be123c; cursor: default; }
+.cl-med   { background: #f5f3ff; color: #6d28d9; cursor: default; }
 
 /* Age + Registration */
 .p-meta { text-align: right; flex-shrink: 0; }

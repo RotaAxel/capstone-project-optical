@@ -202,7 +202,7 @@ This runs four seeders in order:
 
 #### DatabaseSeeder
 Creates the foundation data required by all other seeders:
-- **3 user accounts** (Admin, Receptionist, Optometrist — all password: `password`)
+- **4 user accounts** (Admin, Receptionist, Optometrist, Inventory Staff — all password: `password`)
 - **6 product categories**: Eyeglass Frames, Single Vision Lens, Progressive Lens, Contact Lens, Sunglasses, Accessories
 - **2 suppliers**: OpticalPro Supply Co. (Manila) and LensWorld Philippines (Cebu)
 - **16 base products** with real SKUs (FR-001–005, LN-001–004, CL-001–002, SG-001–002, AC-001–003)
@@ -218,26 +218,25 @@ Generates **516 additional products** across all categories:
 **Total: 532 products** after both seeders.
 
 #### PatientHistorySeeder
-Creates **30 named Filipino patients** from Cebu with realistic clinic history:
+Creates **30 named Filipino patients** from Cebu with realistic full clinic history:
 - Each patient has 1–2 prescriptions with real clinical values (sphere, cylinder, axis, add, PD)
 - Each patient has 1–3 past appointments (mostly completed)
 - Older patients have up to 5 linked historical sales
 
 #### HistoricalTransactionSeeder
-Generates **~4.5 years of realistic sales history** (2021-01-01 to today):
-- Uses **Pareto-weighted demand** — top 9 core products get ~55% of all transactions
-- **COVID impact**: 2021 volume at 45%, recovering to 125% by 2026
-- **Seasonal peaks**: December/January ×1.5, June/July ×1.3, March/April ×1.15
-- **Saturday boost**: ×1.25 additional sales on Saturdays
-- **35% bundle rate**: frame + lens sold together in same transaction
-- Slow-moving items (contacts, sunglasses) sell every 3–5 days
-- Accessories sell weekly
+Creates **~10,000 patients** and assigns each patient **1 or 2 transactions** for realistic data:
+- Adds bulk Filipino patients (female + male first names × last names, shuffled) to reach 10,000 total
+- Registration dates spread evenly across the full 4-year window (2021 → today)
+- Each patient receives `rand(1, 2)` sales, always dated after their registration
+- Uses **Pareto-weighted product selection** — top 9 core products get ~55% of transactions
+- 70% fast-moving (frames/lenses), 25% slow-moving (contacts/sunglasses), 5% accessories
+- 20% of frame/lens sales include a second bundled line item
 
-Expected output: **~17,000–25,000 sales records**, **~22,000–32,000 line items**
+Expected output: **~10,000 patients**, **~15,000 sales**, **~17,000 line items**
 
 > **Warning:** This seeder truncates `sales` and `sale_items` before running. Any existing transaction data will be replaced.
 
-> **Time:** The historical seeder processes ~2,000 days of data. It may take **2–5 minutes** to complete. Do not cancel it.
+> **Time:** Creating 10,000 patients and their transactions may take **3–8 minutes**. Do not cancel it.
 
 ---
 
@@ -494,7 +493,7 @@ php artisan migrate:fresh --seed
 php artisan db:seed --class=HistoricalTransactionSeeder
 ```
 
-> This truncates `sales` and `sale_items` then regenerates ~4.5 years of transactions.
+> This truncates `sales` and `sale_items`, then creates 10,000 patients and assigns each 1–2 transactions.
 
 ### Re-run only the product inventory
 

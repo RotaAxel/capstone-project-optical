@@ -80,8 +80,8 @@ class DatabaseSeeder extends Seeder
         // The order below is critical to maintain foreign key integrity
         $this->call([
             ProductInventorySeeder::class,      // Adds the 500+ generated products
-            PatientHistorySeeder::class,        // Generates patients and initial appointments
-            HistoricalTransactionSeeder::class, // Runs the 1460-day 4-year loop
+            PatientHistorySeeder::class,        // Generates 30 named patients with appointments
+            HistoricalTransactionSeeder::class, // Creates 10,000 patients, 1-2 sales each
         ]);
     }
 }
