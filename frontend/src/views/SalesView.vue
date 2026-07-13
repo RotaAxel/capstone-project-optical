@@ -772,10 +772,9 @@ onMounted(async () => {
 .no-items     { text-align: center; padding: 20px; color: #9ca3af; font-size: 13px; background: #f9fafb; border-radius: 10px; border: 1.5px dashed #e5e7eb; }
 .item-row     { display: grid; grid-template-columns: 1fr 70px 110px 100px 90px 36px; gap: 10px; align-items: end; background: #f9fafb; border-radius: 10px; padding: 12px; }
 .item-product { grid-column: 1; }
-.item-qty, .item-price, .item-disc { }
-.item-sub     { }
+
 .item-subtotal-val { font-size: 14px; font-weight: 700; color: #059669; padding-top: 6px; }
-.item-remove  { }
+
 .remove-btn   { width: 32px; height: 32px; border-radius: 7px; border: 1.5px solid #fecaca; background: #fef2f2; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; }
 .remove-btn:hover { background: #fee2e2; }
 
