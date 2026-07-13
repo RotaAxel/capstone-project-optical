@@ -2,7 +2,7 @@
   <div class="rep-page fade-up">
 
     <!-- ── Header ─────────────────────────────────────────────── -->
-    <div class="page-header">
+    <!-- <div class="page-header">
       <div class="flex items-center gap-3">
         <div class="header-icon">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -15,7 +15,7 @@
           <p class="page-sub">Sales, inventory, and performance summaries</p>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- ── Error Banner ───────────────────────────────────────── -->
     <div v-if="error" class="error-banner">

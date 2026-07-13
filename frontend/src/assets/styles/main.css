@@ -140,12 +140,15 @@ html, body, #app {
 /* Stat card — summary metric tiles shared across all list pages */
 .stat-card {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px 20px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
   background: #ffffff;
   border-radius: 14px;
   border: 1.5px solid #f3f4f6;
+  border-top-width: 4px;
+  border-top-style: solid;
+  border-top-color: transparent;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
@@ -159,6 +162,22 @@ html, body, #app {
   justify-content: center;
   flex-shrink: 0;
 }
+
+/* Colored top accent for stat cards based on the icon's colour class (uses :has for convenience) */
+.stat-card:has(.stat-icon.blue)    { border-top-color: #3b82f6; }
+.stat-card:has(.stat-icon.green)   { border-top-color: #10b981; }
+.stat-card:has(.stat-icon.purple)  { border-top-color: #a855f7; }
+.stat-card:has(.stat-icon.red)     { border-top-color: #ef4444; }
+.stat-card:has(.stat-icon.amber),
+.stat-card:has(.stat-icon.yellow)  { border-top-color: #f59e0b; }
+.stat-card:has(.stat-icon.orange)  { border-top-color: #f97316; }
+.stat-card:has(.stat-icon.teal)    { border-top-color: #0d9488; }
+.stat-card:has(.stat-icon.emerald) { border-top-color: #059669; }
+.stat-card:has(.stat-icon.indigo)  { border-top-color: #4f46e5; }
+
+/* Subtle hover elevation for all stat cards */
+.stat-card { transition: transform .15s ease, box-shadow .15s ease; }
+.stat-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
 
 /* Table / data card — wraps paginated tables in Reports & StockMovements */
 .table-card {

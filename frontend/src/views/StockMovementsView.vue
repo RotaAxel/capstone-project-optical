@@ -2,7 +2,7 @@
   <div class="sm-page fade-up">
 
     <!-- ── Header ─────────────────────────────────────────────── -->
-    <div class="page-header">
+    <!-- <div class="page-header">
       <div class="flex items-center gap-3">
         <div class="header-icon">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -15,7 +15,7 @@
           <p class="page-sub">History of all stock-ins, sales, and adjustments</p>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- ── Stats Row ──────────────────────────────────────────── -->
     <div class="stats-row">

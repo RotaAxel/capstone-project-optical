@@ -4,13 +4,13 @@
     <!-- ── Header ─────────────────────────────────────────────── -->
     <div class="page-header">
       <div class="flex items-center gap-3">
-        <div class="header-icon">
+        <!-- <div class="header-icon">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         </div>
         <div>
           <h2 class="page-title">Appointments</h2>
           <p class="page-sub">Schedule &amp; track patient consultations</p>
-        </div>
+        </div> -->
       </div>
       <button v-if="auth.can('admin','receptionist')" @click="openModal()" class="btn-book">
         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>

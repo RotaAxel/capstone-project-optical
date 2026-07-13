@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="page-header">
       <div class="flex items-center gap-3">
-        <div class="header-icon">
+        <!-- <div class="header-icon">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M17 20h5v-2a4 4 0 00-5.477-3.713M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a4 4 0 015.477-3.713M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -12,7 +12,7 @@
         <div>
           <h2 class="page-title">User Accounts</h2>
           <p class="page-sub">{{ users.length ?? 0 }} total users</p>
-        </div>
+        </div> -->
       </div>
       <button @click="openModal()" class="btn-add">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
