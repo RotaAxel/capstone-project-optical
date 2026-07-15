@@ -20,25 +20,25 @@
 
     <!-- Stats Row -->
     <div class="stats-row">
-      <div class="stat-pill">
+      <div class="stat-pill" style="--pill-color: #3b82f6">
         <div class="sp-icon blue">
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
         </div>
         <div><p class="sp-val">{{ globalStats.total ?? 0 }}</p><p class="sp-lbl">Total</p></div>
       </div>
-      <div class="stat-pill">
-        <div class="sp-icon indigo">
+      <div class="stat-pill" style="--pill-color: #3b82f6">
+        <div class="sp-icon indigo" >
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         </div>
         <div><p class="sp-val">{{ maleCount }}</p><p class="sp-lbl">Male</p></div>
       </div>
-      <div class="stat-pill">
+      <div class="stat-pill" style="--pill-color: #ec4899">
         <div class="sp-icon pink">
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         </div>
         <div><p class="sp-val">{{ femaleCount }}</p><p class="sp-lbl">Female</p></div>
       </div>
-      <div class="stat-pill">
+      <div class="stat-pill" style="--pill-color: #10b981">
         <div class="sp-icon green">
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </div>
@@ -395,10 +395,17 @@ onMounted(() => { fetchPage(); fetchStats() })
   display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
 }
 .stat-pill {
-  display: flex; align-items: center; gap: 12px;
-  background: rgba(255,255,255,0.9); backdrop-filter: blur(6px);
-  border: 1.5px solid #f3f4f6; border-radius: 12px;
-  padding: 12px 18px; flex: 1; min-width: 130px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1.5px solid #f3f4f6;
+  border-radius: 16px;
+  border-top: 4px solid var(--pill-color, #f3f4f6);
+  padding: 16px 20px;
+  flex: 1;
+  min-width: 130px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .sp-icon {
   width: 36px; height: 36px; border-radius: 10px;

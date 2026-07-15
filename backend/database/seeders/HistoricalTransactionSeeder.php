@@ -192,7 +192,7 @@ class HistoricalTransactionSeeder extends Seeder
 
         // ── Add bulk patients to reach 10,000 total ───────────────────────────
         $existingCount = Patient::count();
-        $needed        = max(0, 10000 - $existingCount);
+        $needed        = max(0, 7234 - $existingCount);
         $prevMaxId     = (int)(DB::table('patients')->max('id') ?? 0);
 
         if ($needed > 0) {

@@ -357,13 +357,13 @@ onMounted(() => { fetchPage(); fetchSummary() })
 .mv-ref     { font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace; }
 
 /* Type pill */
-.type-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: capitalize; white-space: nowrap; }
+/* .type-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: capitalize; white-space: nowrap; }
 .type-dot  { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .pill-green { background: #f0fdf4; color: #15803d; }
 .pill-blue  { background: #eff6ff; color: #1d4ed8; }
 .pill-amber { background: #fffbeb; color: #b45309; }
 .pill-red   { background: #fee2e2; color: #b91c1c; }
-.pill-gray  { background: #f9fafb; color: #4b5563; }
+.pill-gray  { background: #f9fafb; color: #4b5563; } */
 
 /* Qty change */
 .qty-val { font-size: 14px; font-weight: 800; }

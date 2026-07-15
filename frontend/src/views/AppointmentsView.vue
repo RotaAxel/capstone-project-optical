@@ -12,7 +12,7 @@
           <p class="page-sub">Schedule &amp; track patient consultations</p>
         </div> -->
       </div>
-      <button v-if="auth.can('admin','receptionist')" @click="openModal()" class="btn-book">
+      <button v-if="auth.can('admin','receptionist','optometrist')" @click="openModal()" class="btn-book">
         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
         Book Appointment
       </button>
