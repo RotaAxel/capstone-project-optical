@@ -129,7 +129,7 @@
           <div class="card">
             <div class="section-header">
               <h2 class="section-title">Recent Sales</h2>
-              <RouterLink to="/sales" class="view-link">View all →</RouterLink>
+              <RouterLink to="/transactions" class="view-link">View all →</RouterLink>
             </div>
             <div class="sale-list">
               <div v-for="sale in data.recent_sales?.slice(0, 5)" :key="sale.id" class="sale-item">

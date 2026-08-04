@@ -79,9 +79,10 @@ class DatabaseSeeder extends Seeder
         // ── Call External Seeders ──────────────────────────────────────────────
         // The order below is critical to maintain foreign key integrity
         $this->call([
-            ProductInventorySeeder::class,      // Adds the 500+ generated products
-            PatientHistorySeeder::class,        // Generates 30 named patients with appointments
-            HistoricalTransactionSeeder::class, // Creates 10,000 patients, 1-2 sales each
+            ProductInventorySeeder::class,          // Adds the 500+ generated products
+            StockMovementHistorySeeder::class,       // Historical stock movements 2022–now
+            PatientHistorySeeder::class,             // Generates 30 named patients with appointments
+            HistoricalTransactionSeeder::class,      // Creates 10,000 patients, 1-2 sales each
         ]);
     }
 }

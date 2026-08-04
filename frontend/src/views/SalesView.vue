@@ -383,14 +383,16 @@
 
           <!-- Items -->
           <div class="receipt-items-header">Items Purchased</div>
-          <div class="receipt-items">
+          <div v-if="loadingSale" class="receipt-loading">Loading items…</div>
+          <div v-else class="receipt-items">
             <div v-for="item in viewingSale.items" :key="item.id" class="receipt-item">
               <div>
-                <p class="item-name">{{ item.product?.name }}</p>
+                <p class="item-name">{{ item.product?.name ?? item.product_id }}</p>
                 <p class="item-detail">{{ item.quantity }} × ₱{{ fmt(item.unit_price) }}</p>
               </div>
               <p class="item-line-total">₱{{ fmt(item.subtotal) }}</p>
             </div>
+            <div v-if="!viewingSale.items?.length" class="receipt-no-items">No items recorded.</div>
           </div>
 
           <!-- Totals -->
@@ -447,6 +449,7 @@ const dateFrom   = ref('')
 const dateTo     = ref('')
 const showSaleModal = ref(false)
 const viewingSale   = ref(null)
+const loadingSale   = ref(false)
 const saving     = ref(false)
 const saleError  = ref('')
 
@@ -506,7 +509,15 @@ function closeSaleModal() {
   saleError.value = ''
 }
 
-function viewSale(sale) { viewingSale.value = sale }
+async function viewSale(sale) {
+  viewingSale.value = sale   // show modal immediately with what we have
+  loadingSale.value = true
+  try {
+    const { data } = await api.get(`/sales/${sale.id}`)
+    viewingSale.value = data  // replace with fully-loaded record (items + product)
+  } catch { /* keep the list version */ }
+  finally { loadingSale.value = false }
+}
 
 function applyFilters() { fetchPage(1); fetchStats() }
 function clearFilters() { search.value = ''; dateFrom.value = ''; dateTo.value = ''; applyFilters() }
@@ -808,6 +819,8 @@ onMounted(async () => {
 .meta-lbl       { color: #9ca3af; font-size: 12px; }
 .meta-val       { font-weight: 600; color: #374151; }
 .receipt-items-header { font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 10px; }
+.receipt-loading  { text-align: center; padding: 16px; font-size: 13px; color: #9ca3af; }
+.receipt-no-items { text-align: center; padding: 12px; font-size: 13px; color: #9ca3af; background: #f9fafb; border-radius: 8px; }
 .receipt-items  { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .receipt-item   { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #f9fafb; border-radius: 9px; }
 .item-name      { font-size: 13px; font-weight: 600; color: #111827; }
