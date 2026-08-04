@@ -4,13 +4,13 @@
     <!-- ── Header ─────────────────────────────────────────────── -->
     <div class="page-header">
       <div class="flex items-center gap-3">
-        <div class="header-icon">
+        <!-- <div class="header-icon">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
         </div>
         <div>
           <h2 class="page-title">Inventory</h2>
           <p class="page-sub">{{ pagination.total ?? 0 }} total products</p>
-        </div>
+        </div> -->
       </div>
       <button @click="openModal()" class="btn-add">
         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>

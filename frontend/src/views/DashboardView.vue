@@ -8,7 +8,7 @@
     <template v-else>
 
       <!-- ── Page Header ─────────────────────────────────────── -->
-      <div class="page-header">
+      <!-- <div class="page-header">
         <div class="flex items-center gap-3">
           <div class="header-icon">
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="3" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="14" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="14" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -18,7 +18,7 @@
             <p class="page-sub">{{ dashSubtitle }}</p>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- ══════════════════════════════════════════════════════ ADMIN -->
       <template v-if="role === 'admin'">
@@ -586,9 +586,20 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   padding: 18px 20px;
   background: rgba(255,255,255,0.92);
   backdrop-filter: blur(6px);
-  border: 1px solid rgba(226,232,240,0.5);
-  border-radius: 12px;
+  border: 1.5px solid rgba(226,232,240,0.5);
+  border-top-width: 4px;
+  border-top-style: solid;
+  border-top-color: transparent;
+  border-radius: 14px;
 }
+
+/* Accent top border matching admin icon colours */
+.admin-stat-card:has(.asc-icon.blue)   { border-top-color: #3b82f6; }
+.admin-stat-card:has(.asc-icon.green)  { border-top-color: #10b981; }
+.admin-stat-card:has(.asc-icon.purple) { border-top-color: #a855f7; }
+.admin-stat-card:has(.asc-icon.orange) { border-top-color: #f97316; }
+.admin-stat-card:has(.asc-icon.teal)   { border-top-color: #0d9488; }
+.admin-stat-card:has(.asc-icon.yellow) { border-top-color: #f59e0b; }
 
 .asc-icon {
   width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
@@ -820,8 +831,12 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   padding: 16px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(6px);
-  border-radius: 12px;
-  border: 1px solid rgba(226, 232, 240, 0.5);
+  border-radius: 14px;
+  border: 1.5px solid rgba(226, 232, 240, 0.5);
+  border-top-width: 4px;
+  border-top-style: solid;
+  border-top-color: transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .stat-icon {

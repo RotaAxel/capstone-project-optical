@@ -4,13 +4,13 @@
     <!-- ── Header ─────────────────────────────────────────────── -->
     <div class="page-header">
       <div class="flex items-center gap-3">
-        <div class="header-icon">
+        <!-- <div class="header-icon">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
         </div>
         <div>
           <h2 class="page-title">Prescriptions</h2>
           <p class="page-sub">{{ pagination.total ?? 0 }} total records</p>
-        </div>
+        </div> -->
       </div>
       <button v-if="auth.can('admin','optometrist')" @click="openModal()" class="btn-new">
         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>

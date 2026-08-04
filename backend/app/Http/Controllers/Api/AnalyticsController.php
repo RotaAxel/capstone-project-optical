@@ -108,8 +108,6 @@ class AnalyticsController extends Controller
                 ],
                 [
                     'method' => $method,
-                ],
-                [
                     'result_data' => [
                         // Method metadata
                         'method_used'     => $method,

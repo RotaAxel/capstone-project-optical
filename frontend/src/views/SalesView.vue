@@ -4,7 +4,7 @@
     <!-- ── Header ─────────────────────────────────────────────── -->
     <div class="page-header">
       <div class="flex items-center gap-3">
-        <div class="header-icon">
+        <!-- <div class="header-icon">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 2.5 2 2.5-2 2.5 2 2.5-2 3.5 2z"/>
@@ -13,7 +13,7 @@
         <div>
           <h2 class="page-title">Transactions</h2>
           <p class="page-sub">{{ pagination.total ?? 0 }} total transactions</p>
-        </div>
+        </div> -->
       </div>
       <button @click="openSaleModal" class="btn-add">
         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -783,10 +783,9 @@ onMounted(async () => {
 .no-items     { text-align: center; padding: 20px; color: #9ca3af; font-size: 13px; background: #f9fafb; border-radius: 10px; border: 1.5px dashed #e5e7eb; }
 .item-row     { display: grid; grid-template-columns: 1fr 70px 110px 100px 90px 36px; gap: 10px; align-items: end; background: #f9fafb; border-radius: 10px; padding: 12px; }
 .item-product { grid-column: 1; }
-.item-qty, .item-price, .item-disc { }
-.item-sub     { }
+
 .item-subtotal-val { font-size: 14px; font-weight: 700; color: #059669; padding-top: 6px; }
-.item-remove  { }
+
 .remove-btn   { width: 32px; height: 32px; border-radius: 7px; border: 1.5px solid #fecaca; background: #fef2f2; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; }
 .remove-btn:hover { background: #fee2e2; }
 
