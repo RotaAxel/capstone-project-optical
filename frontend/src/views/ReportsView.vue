@@ -456,6 +456,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
+const companyLogo = '/onlylogo.png'
+
 const auth = useAuthStore()
 
 const tabIcons = {
@@ -552,7 +554,8 @@ function pdfShell(title, periodLabel, body) {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111827; padding: 32px 36px; }
   .report-header { text-align: center; margin-bottom: 28px; }
-  .company { font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -.4px; }
+  .company { display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -.4px; }
+  .company-logo { width: 46px; height: 46px; object-fit: contain; border-radius: 12px; }
   .address { margin-top: 6px; font-size: 12px; color: #6b7280; }
   .report-title { margin-top: 22px; font-size: 18px; font-weight: 700; color: #111827; }
   .report-period { margin-top: 6px; font-size: 12px; color: #4b5563; }
@@ -574,8 +577,11 @@ function pdfShell(title, periodLabel, body) {
 </style>
 </head><body>
 <div class="report-header">
-  <div class="company">Acebedo Optical</div>
-  <div class="address">Optical clinic management system</div>
+  <div class="company">
+    <img class="company-logo" src="${companyLogo}" alt="Acebedo Optical logo" />
+    <span>Acebedo Optical</span>
+  </div>
+  <div class="address">Alcasid Camus Building, Brgy. Uno, <br />Crossing Highway, Calamba City, Laguna</div>
   <div class="report-title">${title}</div>
   <div class="report-period">${periodLabel}</div>
 </div>
