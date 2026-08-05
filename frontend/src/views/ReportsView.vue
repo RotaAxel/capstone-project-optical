@@ -35,6 +35,8 @@
       </button>
     </div>
 
+    
+
     <!-- ── Loading ────────────────────────────────────────────── -->
     <div v-if="loading" class="flex items-center justify-center py-20">
       <div class="animate-spin w-9 h-9 border-4 border-indigo-400 border-t-transparent rounded-full"></div>
@@ -483,7 +485,7 @@ watch(activeTab, (tab) => {
   if (tab === 'top_products' && !topData.value)        loadTop()
 })
 
-onMounted(() => { activeTab.value = tabs.value[0]?.id ?? 'inventory' })
+onMounted(() => { activeTab.value = tabs.value[0]?.id ?? 'inventory'; loadControlNumber() })
 
 const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -498,6 +500,23 @@ const topTo         = ref(new Date().toISOString().split('T')[0])
 const topData       = ref(null)
 const error         = ref('')
 const loading       = ref(false)
+const controlNumber = ref(0)
+
+function loadControlNumber() {
+  const n = parseInt(localStorage.getItem('report_control_number') || '0', 10)
+  controlNumber.value = Number.isFinite(n) ? n : 0
+}
+
+function incrementControlNumber() {
+  controlNumber.value = Number(controlNumber.value || 0) + 1
+  localStorage.setItem('report_control_number', String(controlNumber.value))
+}
+
+function resetControlNumber() {
+  if (!confirm('Reset control number to 0?')) return
+  controlNumber.value = 0
+  localStorage.setItem('report_control_number', '0')
+}
 
 async function loadDaily() {
   error.value = ''; loading.value = true
@@ -546,8 +565,9 @@ function payPill(m) {
 }
 
 // ── PDF Export ────────────────────────────────────────────────────────────
-function pdfShell(title, periodLabel, body) {
+function pdfShell(title, periodLabel, body, controlNumber = '') {
   const now = new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })
+  const controlText = (controlNumber !== '' && controlNumber !== null && typeof controlNumber !== 'undefined') ? ` • Control No.: ${controlNumber}` : ''
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${title}</title>
 <style>
@@ -586,7 +606,7 @@ function pdfShell(title, periodLabel, body) {
   <div class="report-period">${periodLabel}</div>
 </div>
 ${body}
-<div class="footer">Printed: ${now}</div>
+<div class="footer">Printed: ${now}${controlText}</div>
 </body></html>`
 }
 
@@ -613,7 +633,8 @@ function exportDailyPdf() {
     <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(d.total_revenue)}</div></div>
     <div class="summary-box"><div class="summary-label">Discounts Given</div><div class="summary-value">₱${fmt(d.total_discount)}</div></div>
   </div>`
-  openPdf(pdfShell('Daily Sales Report', fmtDate(dailyDate.value), table + summary))
+  incrementControlNumber()
+  openPdf(pdfShell('Daily Sales Report', fmtDate(dailyDate.value), table + summary, controlNumber.value))
 }
 
 function exportMonthlyPdf() {
@@ -630,7 +651,8 @@ function exportMonthlyPdf() {
     <div class="summary-box"><div class="summary-label">Total Transactions</div><div class="summary-value">${d.total_transactions}</div></div>
     <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(d.total_revenue)}</div></div>
   </div>`
-  openPdf(pdfShell('Monthly Sales Report', `${mName} ${monthlyYear.value}`, table + summary))
+  incrementControlNumber()
+  openPdf(pdfShell('Monthly Sales Report', `${mName} ${monthlyYear.value}`, table + summary, controlNumber.value))
 }
 
 function exportInventoryPdf() {
@@ -650,7 +672,8 @@ function exportInventoryPdf() {
     <div class="summary-box"><div class="summary-label">Out of Stock</div><div class="summary-value">${d.out_of_stock_count}</div></div>
     <div class="summary-box"><div class="summary-label">Total Stock Value</div><div class="summary-value">₱${fmt(d.total_stock_value)}</div></div>
   </div>`
-  openPdf(pdfShell('Inventory Report', `As of ${new Date().toLocaleDateString('en-PH', { dateStyle: 'long' })}`, table + summary))
+  incrementControlNumber()
+  openPdf(pdfShell('Inventory Report', `As of ${new Date().toLocaleDateString('en-PH', { dateStyle: 'long' })}`, table + summary, controlNumber.value))
 }
 
 function exportTopPdf() {
@@ -669,7 +692,8 @@ function exportTopPdf() {
     <div class="summary-box"><div class="summary-label">Total Qty Sold</div><div class="summary-value">${totalQty}</div></div>
     <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(totalRevenue)}</div></div>
   </div>`
-  openPdf(pdfShell('Top Products Report', `${fmtDate(topFrom.value)} — ${fmtDate(topTo.value)}`, table + summary))
+  incrementControlNumber()
+  openPdf(pdfShell('Top Products Report', `${fmtDate(topFrom.value)} — ${fmtDate(topTo.value)}`, table + summary, controlNumber.value))
 }
 </script>
 
