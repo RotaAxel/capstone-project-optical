@@ -275,7 +275,7 @@
             <span class="leg-item"><span class="leg-dot green-dot"></span>&gt; 30 days</span>
           </div>
         </div>
-        <div class="chart-body" style="height: 400px">
+        <div class="chart-body" :style="{ height: stockRunwayHeight }">
           <Bar :data="stockRunwayData" :options="stockRunwayOptions" />
         </div>
       </div>
@@ -909,6 +909,9 @@ const stockRunwayItems = computed(() => {
     .slice(0, 15)
 })
 
+// Compact height that grows with the number of bars instead of a fixed tall block.
+const stockRunwayHeight = computed(() => Math.max(140, stockRunwayItems.value.length * 26) + 'px')
+
 const selectedForecastRow = computed(() =>
   results.value.find(r => r.product.id === selectedForecastProduct.value) ?? null
 )
@@ -1027,7 +1030,8 @@ const stockRunwayData = computed(() => {
     labels: items.map(({ r }) => r.product.sku ?? r.product.name),
     datasets: [{
       label: 'Days of Stock Remaining',
-      data: items.map(({ days }) => days),
+      // Bars are capped at 30d — the axis only needs to distinguish "how soon", not the full 365d range.
+      data: items.map(({ days }) => Math.min(days, 30)),
       backgroundColor: items.map(({ days }) =>
         days < 14 ? 'rgba(239,68,68,0.82)' : days < 30 ? 'rgba(234,179,8,0.82)' : 'rgba(34,197,94,0.82)'
       ),
@@ -1035,8 +1039,8 @@ const stockRunwayData = computed(() => {
         days < 14 ? '#ef4444' : days < 30 ? '#ca8a04' : '#16a34a'
       ),
       borderWidth: 1,
-      borderRadius: 6,
-      barThickness: 20,
+      borderRadius: 5,
+      barThickness: 16,
     }],
   }
 })
@@ -1198,9 +1202,11 @@ const stockRunwayOptions = computed(() => ({
           return item ? item.r.product.name : ''
         },
         label: ctx => {
-          const days = ctx.parsed.x
+          // Use the true (uncapped) day count for the tooltip — the bar itself is capped at 30d.
+          const days = stockRunwayItems.value[ctx.dataIndex]?.days ?? ctx.parsed.x
           const urgency = days < 14 ? '⚠ Critical' : days < 30 ? '● Warning' : '✓ Safe'
-          return `  ${urgency} — ${days} days remaining`
+          const daysLabel = days >= 30 ? '30+ days' : `${days} days`
+          return `  ${urgency} — ${daysLabel} remaining`
         },
       },
     },
@@ -1212,11 +1218,12 @@ const stockRunwayOptions = computed(() => ({
     },
     x: {
       beginAtZero: true,
-      max: 370,
+      max: 30,
       ticks: {
         font: { size: 11 },
         color: '#9ca3af',
-        callback: v => v === 370 ? '365+' : v + 'd',
+        stepSize: 5,
+        callback: v => v === 30 ? '30+' : v + 'd',
       },
       grid: { color: '#f3f4f6' },
       title: { display: true, text: 'Days of stock remaining', font: { size: 11 }, color: '#9ca3af' },
