@@ -90,7 +90,10 @@
         <svg class="search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        <input v-model="search" @input="debouncedFetch" placeholder="Search receipt number..." class="search-input" />
+        <input v-model="search" @input="onSearchInput" placeholder="Search receipt number or customer name..." class="search-input"
+          @keydown="e => suggest.onKeydown(e, pickSuggestion)" @focus="suggest.reopen" @blur="onSearchBlur" />
+        <SuggestDropdown :items="suggest.suggestions.value" :active-index="suggest.activeIndex.value"
+          :visible="suggest.open.value" @pick="pickSuggestion" @hover="i => suggest.activeIndex.value = i" />
       </div>
       <div class="date-group">
         <label class="date-lbl">From</label>
@@ -438,6 +441,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
+import { useSearchSuggest } from '@/composables/useSearchSuggest'
+import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const sales      = ref([])
 const patients   = ref([])
@@ -543,6 +548,37 @@ async function submitSale() {
 
 let debounceTimer
 function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => applyFilters(), 400) }
+
+// ── Search suggestions ────────────────────────────────────────────────
+const suggest = useSearchSuggest(async (q) => {
+  const { data } = await api.get('/sales', { params: { search: q, per_page: 6 } })
+  const query = q.toLowerCase()
+  return data.data.map(s => {
+    const customerName   = s.patient ? `${s.patient.first_name} ${s.patient.last_name}` : 'Walk-in Customer'
+    const matchesName    = s.patient && customerName.toLowerCase().includes(query)
+    const matchesReceipt = s.receipt_number?.toLowerCase().includes(query)
+    const nameLeads      = matchesName && !matchesReceipt // show whichever field the query actually matched
+    return {
+      id: s.id,
+      label: nameLeads ? customerName : s.receipt_number,
+      sub: nameLeads ? s.receipt_number : customerName,
+    }
+  })
+})
+
+function onSearchInput() {
+  debouncedFetch()
+  suggest.query(search.value)
+}
+
+function onSearchBlur() {
+  setTimeout(() => suggest.close(), 150)
+}
+
+function pickSuggestion(item) {
+  suggest.close()
+  viewSale(item)
+}
 
 async function fetchPage(page = 1) {
   loading.value = true

@@ -14,7 +14,13 @@ class PrescriptionController extends Controller
     public function index(Request $request)
     {
         $query = Prescription::with(['patient', 'optometrist'])
-            ->when($request->patient_id, fn($q) => $q->where('patient_id', $request->patient_id));
+            ->when($request->patient_id, fn($q) => $q->where('patient_id', $request->patient_id))
+            ->when($request->search, fn($q) => $q->whereHas('patient', fn($pq) =>
+                $pq->where('first_name', 'like', "%{$request->search}%")
+                   ->orWhere('last_name', 'like', "%{$request->search}%")
+                   ->orWhere('patient_code', 'like', "%{$request->search}%")
+            ))
+            ->when($request->date, fn($q) => $q->whereDate('exam_date', $request->date));
 
         if ($request->highlight_id) {
             $target = Prescription::find($request->highlight_id);

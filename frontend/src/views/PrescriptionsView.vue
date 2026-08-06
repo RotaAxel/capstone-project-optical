@@ -60,9 +60,12 @@
 
     <!-- ── Filters ────────────────────────────────────────────── -->
     <div class="filter-bar">
-      <div class="filter-field flex-1" style="max-width: 320px;">
+      <div class="filter-field flex-1" style="max-width: 320px; position: relative;">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-        <input v-model="search" @input="debouncedFetch" placeholder="Search by patient name…" class="filter-input" />
+        <input v-model="search" @input="onSearchInput" placeholder="Search by patient name…" class="filter-input"
+          @keydown="e => suggest.onKeydown(e, pickSuggestion)" @focus="suggest.reopen" @blur="onSearchBlur" />
+        <SuggestDropdown :items="suggest.suggestions.value" :active-index="suggest.activeIndex.value"
+          :visible="suggest.open.value" @pick="pickSuggestion" @hover="i => suggest.activeIndex.value = i" />
       </div>
       <div class="filter-field">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -351,6 +354,8 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { useSearchSuggest } from '@/composables/useSearchSuggest'
+import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const auth   = useAuthStore()
 const route  = useRoute()
@@ -394,6 +399,30 @@ async function fetchStats() {
 function applyFilters() { fetchPage(1); fetchStats() }
 let debounceTimer
 function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => applyFilters(), 400) }
+
+// ── Search suggestions ────────────────────────────────────────────────
+const suggest = useSearchSuggest(async (q) => {
+  const { data } = await api.get('/prescriptions', { params: { search: q } })
+  return data.data.slice(0, 6).map(rx => ({
+    id: rx.id,
+    label: `${rx.patient?.first_name ?? ''} ${rx.patient?.last_name ?? ''}`.trim() || '—',
+    sub: rx.patient?.patient_code,
+  }))
+})
+
+function onSearchInput() {
+  debouncedFetch()
+  suggest.query(search.value)
+}
+
+function onSearchBlur() {
+  setTimeout(() => suggest.close(), 150)
+}
+
+function pickSuggestion(item) {
+  suggest.close()
+  activateHighlight(item.id)
+}
 function clearFilters() { search.value = ''; filterDate.value = ''; applyFilters() }
 
 async function fetchPage(page = 1) {

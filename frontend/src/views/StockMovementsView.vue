@@ -106,7 +106,10 @@
         <svg class="search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        <input v-model="filterProduct" @input="debouncedFetch" placeholder="Search product name or SKU..." class="search-input" />
+        <input v-model="filterProduct" @input="onSearchInput" placeholder="Search product name or SKU..." class="search-input"
+          @keydown="e => suggest.onKeydown(e, pickSuggestion)" @focus="suggest.reopen" @blur="onSearchBlur" />
+        <SuggestDropdown :items="suggest.suggestions.value" :active-index="suggest.activeIndex.value"
+          :visible="suggest.open.value" @pick="pickSuggestion" @hover="i => suggest.activeIndex.value = i" />
       </div>
       <button v-if="filterType || filterProduct" @click="clearFilters" class="clear-btn">
         <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,6 +217,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
+import { useSearchSuggest } from '@/composables/useSearchSuggest'
+import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const movements   = ref([])
 const pagination  = ref({})
@@ -225,6 +230,28 @@ const filterProduct = ref('')
 function applyFilters() { fetchPage(1); fetchSummary() }
 let debounceTimer
 function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => applyFilters(), 400) }
+
+// ── Search suggestions ────────────────────────────────────────────────
+// Suggested against the product catalog (what the search filters by), not the movement rows.
+const suggest = useSearchSuggest(async (q) => {
+  const { data } = await api.get('/products', { params: { search: q, per_page: 6 } })
+  return data.data.map(p => ({ id: p.id, label: p.name, sub: p.sku }))
+})
+
+function onSearchInput() {
+  debouncedFetch()
+  suggest.query(filterProduct.value)
+}
+
+function onSearchBlur() {
+  setTimeout(() => suggest.close(), 150)
+}
+
+function pickSuggestion(item) {
+  suggest.close()
+  filterProduct.value = item.label
+  applyFilters()
+}
 
 function clearFilters() { filterType.value = ''; filterProduct.value = ''; applyFilters() }
 

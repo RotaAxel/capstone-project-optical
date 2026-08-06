@@ -50,11 +50,14 @@
     <div class="search-bar">
       <div class="search-wrap">
         <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input v-model="search" @input="debouncedFetch" type="text"
-          placeholder="Search by name, patient code, or phone..." class="search-input" />
-        <button v-if="search" @click="search = ''; debouncedFetch()" class="search-clear">
+        <input v-model="search" @input="onSearchInput" type="text"
+          placeholder="Search by name, patient code, or phone..." class="search-input"
+          @keydown="e => suggest.onKeydown(e, pickSuggestion)" @focus="suggest.reopen" @blur="onSearchBlur" />
+        <button v-if="search" @click="search = ''; debouncedFetch(); suggest.close()" class="search-clear">
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
+        <SuggestDropdown :items="suggest.suggestions.value" :active-index="suggest.activeIndex.value"
+          :visible="suggest.open.value" @pick="pickSuggestion" @hover="i => suggest.activeIndex.value = i" />
       </div>
       <p class="results-note" v-if="search">Showing results for "{{ search }}"</p>
     </div>
@@ -251,10 +254,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { useSearchSuggest } from '@/composables/useSearchSuggest'
+import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
-const auth = useAuthStore()
+const auth   = useAuthStore()
+const router = useRouter()
 
 const patients   = ref([])
 const pagination = ref({})
@@ -274,6 +281,30 @@ let debounceTimer
 function debouncedFetch() {
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => fetchPage(1), 400)
+}
+
+// ── Search suggestions ────────────────────────────────────────────────
+const suggest = useSearchSuggest(async (q) => {
+  const { data } = await api.get('/patients', { params: { search: q, per_page: 6 } })
+  return data.data.map(p => ({
+    id: p.id,
+    label: `${p.first_name} ${p.last_name}`,
+    sub: [p.patient_code, p.phone].filter(Boolean).join(' · '),
+  }))
+})
+
+function onSearchInput() {
+  debouncedFetch()
+  suggest.query(search.value)
+}
+
+function onSearchBlur() {
+  setTimeout(() => suggest.close(), 150) // let a click on a suggestion register first
+}
+
+function pickSuggestion(item) {
+  suggest.close()
+  router.push(`/patients/${item.id}`)
 }
 
 async function fetchStats() {

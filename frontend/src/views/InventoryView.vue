@@ -80,9 +80,12 @@
 
     <!-- ── Filters ────────────────────────────────────────────── -->
     <div class="filter-bar">
-      <div class="filter-field" style="flex: 1; max-width: 320px;">
+      <div class="filter-field" style="flex: 1; max-width: 320px; position: relative;">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-        <input v-model="search" @input="debouncedFetch" placeholder="Search products…" class="filter-input" />
+        <input v-model="search" @input="onSearchInput" placeholder="Search products…" class="filter-input"
+          @keydown="e => suggest.onKeydown(e, pickSuggestion)" @focus="suggest.reopen" @blur="onSearchBlur" />
+        <SuggestDropdown :items="suggest.suggestions.value" :active-index="suggest.activeIndex.value"
+          :visible="suggest.open.value" @pick="pickSuggestion" @hover="i => suggest.activeIndex.value = i" />
       </div>
       <div class="filter-field">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
@@ -411,6 +414,8 @@ import { ref, computed, onMounted, nextTick, watch, useTemplateRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAlerts } from '@/composables/useAlerts'
+import { useSearchSuggest } from '@/composables/useSearchSuggest'
+import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -508,6 +513,26 @@ function clearFilters() { search.value = ''; filterCategory.value = ''; filterLo
 
 let debounceTimer
 function debouncedFetch() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => fetchPage(1), 400) }
+
+// ── Search suggestions ────────────────────────────────────────────────
+const suggest = useSearchSuggest(async (q) => {
+  const { data } = await api.get('/products', { params: { search: q, per_page: 6 } })
+  return data.data.map(p => ({ id: p.id, label: p.name, sub: p.sku }))
+})
+
+function onSearchInput() {
+  debouncedFetch()
+  suggest.query(search.value)
+}
+
+function onSearchBlur() {
+  setTimeout(() => suggest.close(), 150)
+}
+
+function pickSuggestion(item) {
+  suggest.close()
+  activateHighlight(item.id)
+}
 
 async function fetchPage(page = 1) {
   loading.value = true

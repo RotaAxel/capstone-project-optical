@@ -17,7 +17,13 @@ class SaleController extends Controller
     public function index(Request $request)
     {
         $query = Sale::with(['patient', 'cashier', 'items.product'])
-            ->when($request->search, fn($q) => $q->where('receipt_number', 'like', "%{$request->search}%"))
+            ->when($request->search, fn($q) => $q->where(function ($q) use ($request) {
+                $q->where('receipt_number', 'like', "%{$request->search}%")
+                  ->orWhereHas('patient', fn($pq) =>
+                      $pq->where('first_name', 'like', "%{$request->search}%")
+                         ->orWhere('last_name', 'like', "%{$request->search}%")
+                  );
+            }))
             ->when($request->date_from, fn($q) => $q->whereDate('created_at', '>=', $request->date_from))
             ->when($request->date_to, fn($q) => $q->whereDate('created_at', '<=', $request->date_to))
             ->when($request->status, fn($q) => $q->where('status', $request->status));

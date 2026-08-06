@@ -22,7 +22,12 @@
 
     <!-- Search -->
     <div class="card p-4" style="margin: 0.2rem;">
-      <input v-model="search" @input="debouncedFetch" type="text" placeholder="🔍 Search by name, email, or role..." class="fi max-w-md" />
+      <div style="position: relative; max-width: 28rem;">
+        <input v-model="search" @input="onSearchInput" type="text" placeholder="🔍 Search by name, email, or role..." class="fi"
+          style="width: 100%;" @keydown="e => suggest.onKeydown(e, pickSuggestion)" @focus="suggest.reopen" @blur="onSearchBlur" />
+        <SuggestDropdown :items="suggest.suggestions.value" :active-index="suggest.activeIndex.value"
+          :visible="suggest.open.value" @pick="pickSuggestion" @hover="i => suggest.activeIndex.value = i" />
+      </div>
     </div>
 
     <!-- User List -->
@@ -138,6 +143,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
+import { useSearchSuggest } from '@/composables/useSearchSuggest'
+import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const users      = ref([])
 const loading    = ref(true)
@@ -166,6 +173,32 @@ const filteredUsers = computed(() => {
     u.role?.toLowerCase().includes(q)
   )
 })
+
+// ── Search suggestions ── purely client-side; the full user list is already loaded ──
+const suggest = useSearchSuggest(async (q) => {
+  const query = q.toLowerCase()
+  return users.value
+    .filter(u =>
+      u.name?.toLowerCase().includes(query) ||
+      u.email?.toLowerCase().includes(query) ||
+      u.role?.toLowerCase().includes(query)
+    )
+    .slice(0, 6)
+    .map(u => ({ id: u.id, label: u.name, sub: u.email }))
+}, { delay: 0 })
+
+function onSearchInput() {
+  suggest.query(search.value)
+}
+
+function onSearchBlur() {
+  setTimeout(() => suggest.close(), 150)
+}
+
+function pickSuggestion(item) {
+  suggest.close()
+  search.value = item.label
+}
 
 function getRoleBadgeClass(role) {
   const classes = {
