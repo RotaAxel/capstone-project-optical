@@ -252,6 +252,120 @@
     </div>
 
     <!-- ════════════════════════════════════════════════════════ -->
+    <!-- Yearly Sales                                             -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div v-if="!loading && activeTab === 'yearly'" class="tab-content">
+      <div class="control-bar">
+        <div class="ctrl-icon">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-lbl">From</label>
+          <input v-model="yearlyFrom" type="date" class="ctrl-input" />
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-lbl">To</label>
+          <input v-model="yearlyTo" type="date" class="ctrl-input" />
+        </div>
+        <button @click="loadYearly" class="gen-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+          </svg>
+          Generate
+        </button>
+        <button v-if="yearlyData" @click="exportYearlyPdf" class="pdf-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export PDF
+        </button>
+      </div>
+
+      <template v-if="yearlyData">
+        <div class="stats-row stats-3">
+          <div class="stat-card">
+            <div class="stat-icon indigo">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="stat-num">{{ yearlyData.total_transactions }}</p>
+              <p class="stat-lbl">Total Transactions</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="stat-num green">₱{{ fmt(yearlyData.total_revenue) }}</p>
+              <p class="stat-lbl">Total Revenue</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon amber">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="stat-num amber">₱{{ fmt(yearlyData.total_discount) }}</p>
+              <p class="stat-lbl">Discounts Given</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-heading">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            Yearly Breakdown
+          </div>
+          <div class="table-wrap">
+            <table class="rep-table">
+              <thead><tr><th>Year</th><th>Transactions</th><th>Revenue</th><th>Discounts</th><th>Share</th></tr></thead>
+              <tbody>
+                <tr v-for="y in yearlyData.yearly_breakdown" :key="y.year">
+                  <td class="day-cell">{{ y.year }}</td>
+                  <td>
+                    <span class="tx-count">{{ y.transactions }}</span>
+                  </td>
+                  <td><span class="amount-val">₱{{ fmt(y.revenue) }}</span></td>
+                  <td><span class="amount-val">₱{{ fmt(y.discount) }}</span></td>
+                  <td>
+                    <div class="share-bar-wrap">
+                      <div class="share-bar" :style="{ width: revenueShare(y.revenue, yearlyData.total_revenue) + '%' }"></div>
+                      <span class="share-pct">{{ revenueShare(y.revenue, yearlyData.total_revenue) }}%</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="!yearlyData.yearly_breakdown?.length">
+                  <td colspan="5" class="empty-row">No data for this period.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <div v-else class="empty-state">
+        <div class="empty-icon indigo">
+          <svg width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <p class="empty-title">Select a date range and click Generate</p>
+        <p class="empty-sub">Sales totals per year in that range will appear here — great for a Jan 2023–Dec 2024 style yearly comparison</p>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════ -->
     <!-- Inventory Report                                        -->
     <!-- ════════════════════════════════════════════════════════ -->
     <div v-if="!loading && activeTab === 'inventory'" class="tab-content">
@@ -322,6 +436,17 @@
               <p class="stat-lbl">Total Stock Value</p>
             </div>
           </div>
+          <div class="stat-card">
+            <div class="stat-icon indigo">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h10a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h6a1 1 0 010 2H4a1 1 0 01-1-1z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="stat-num indigo">{{ inventoryData.dead_stock_count }}</p>
+              <p class="stat-lbl">Dead Stock (Non-moving)</p>
+            </div>
+          </div>
         </div>
 
         <div class="table-card">
@@ -333,7 +458,7 @@
           </div>
           <div class="table-wrap">
             <table class="rep-table">
-              <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Stock Value</th></tr></thead>
+              <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Sales Speed</th><th>Turnover</th><th>Stock Value</th></tr></thead>
               <tbody>
                 <tr v-for="p in inventoryData.products" :key="p.id" :class="{ 'row-warn': p.is_low_stock || p.is_out_of_stock }">
                   <td><span class="mono-badge">{{ p.sku }}</span></td>
@@ -349,10 +474,17 @@
                       {{ p.is_out_of_stock ? 'Out of Stock' : (p.is_low_stock ? 'Low Stock' : 'In Stock') }}
                     </span>
                   </td>
+                  <td>
+                    <span :class="fsnPillClass(p.fsn_classification)">
+                      <span class="status-dot"></span>
+                      {{ fsnLabel(p.fsn_classification) }}
+                    </span>
+                  </td>
+                  <td><span class="rop-val">{{ turnoverLabel(p.turnover_ratio) }}</span></td>
                   <td><span class="amount-val">₱{{ fmt(p.stock_value) }}</span></td>
                 </tr>
                 <tr v-if="!inventoryData.products?.length">
-                  <td colspan="7" class="empty-row">No products found.</td>
+                  <td colspan="9" class="empty-row">No products found.</td>
                 </tr>
               </tbody>
             </table>
@@ -465,6 +597,7 @@ const auth = useAuthStore()
 const tabIcons = {
   daily:        '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   monthly:      '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>',
+  yearly:       '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01M16 17h.01"/></svg>',
   inventory:    '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
   top_products: '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>',
 }
@@ -472,6 +605,7 @@ const tabIcons = {
 const allTabs = [
   { id: 'daily',        label: 'Daily Sales',    roles: ['admin'],                          icon: tabIcons.daily },
   { id: 'monthly',      label: 'Monthly Sales',  roles: ['admin'],                          icon: tabIcons.monthly },
+  { id: 'yearly',       label: 'Yearly Sales',   roles: ['admin'],                          icon: tabIcons.yearly },
   { id: 'inventory',    label: 'Inventory',      roles: ['admin', 'inventory_staff'],       icon: tabIcons.inventory },
   { id: 'top_products', label: 'Top Products',   roles: ['admin', 'inventory_staff'],       icon: tabIcons.top_products },
 ]
@@ -481,6 +615,7 @@ const activeTab = ref('')
 watch(activeTab, (tab) => {
   if (tab === 'daily'        && !dailyData.value)      loadDaily()
   if (tab === 'monthly'      && !monthlyData.value)    loadMonthly()
+  if (tab === 'yearly'       && !yearlyData.value)     loadYearly()
   if (tab === 'inventory'    && !inventoryData.value)  loadInventory()
   if (tab === 'top_products' && !topData.value)        loadTop()
 })
@@ -494,6 +629,9 @@ const dailyData     = ref(null)
 const monthlyMonth  = ref(new Date().getMonth() + 1)
 const monthlyYear   = ref(new Date().getFullYear())
 const monthlyData   = ref(null)
+const yearlyFrom    = ref(`${new Date().getFullYear() - 1}-01-01`)
+const yearlyTo      = ref(new Date().toISOString().split('T')[0])
+const yearlyData    = ref(null)
 const inventoryData = ref(null)
 const topFrom       = ref(new Date(new Date().setDate(1)).toISOString().split('T')[0])
 const topTo         = ref(new Date().toISOString().split('T')[0])
@@ -530,6 +668,12 @@ async function loadMonthly() {
   catch (e) { error.value = e.response?.data?.message || 'Could not load report. Make sure the backend is running.' }
   finally { loading.value = false }
 }
+async function loadYearly() {
+  error.value = ''; loading.value = true
+  try { yearlyData.value = (await api.get('/reports/sales/yearly', { params: { date_from: yearlyFrom.value, date_to: yearlyTo.value } })).data }
+  catch (e) { error.value = e.response?.data?.message || 'Could not load report. Make sure the backend is running.' }
+  finally { loading.value = false }
+}
 async function loadInventory() {
   error.value = ''; loading.value = true
   try { inventoryData.value = (await api.get('/reports/inventory')).data }
@@ -545,6 +689,18 @@ async function loadTop() {
 
 function fmt(v)     { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+
+// FSN classification + turnover ratio — from the last Analytics run (see AnalyticsController).
+function fsnLabel(cls) {
+  return { fast: 'Fast Moving', slow: 'Slow Moving', non_moving: 'Non-Moving' }[cls] ?? 'Not Run'
+}
+function fsnPillClass(cls) {
+  return 'status-pill ' + ({ fast: 'green', slow: 'amber', non_moving: 'red' }[cls] ?? 'gray')
+}
+function turnoverLabel(ratio) {
+  if (ratio === null || ratio === undefined) return '—'
+  return `${Number(ratio).toFixed(1)}x/yr`
+}
 
 function revenueShare(revenue, total) {
   if (!total) return 0
@@ -655,21 +811,48 @@ function exportMonthlyPdf() {
   openPdf(pdfShell('Monthly Sales Report', `${mName} ${monthlyYear.value}`, table + summary, controlNumber.value))
 }
 
+function exportYearlyPdf() {
+  const d = yearlyData.value
+  const rows = (d.yearly_breakdown ?? []).map(y => {
+    const share = revenueShare(y.revenue, d.total_revenue)
+    return `<tr><td style="font-weight:600;">${y.year}</td><td>${y.transactions}</td><td><span class="amt">₱${fmt(y.revenue)}</span></td><td><span class="amt">₱${fmt(y.discount)}</span></td><td>${share}%</td></tr>`
+  }).join('')
+  const table = `<div class="section">Yearly Breakdown</div>
+  <table><thead><tr><th>Year</th><th>Transactions</th><th>Revenue</th><th>Discounts</th><th>Share</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this period.</td></tr>'}</tbody></table>`
+  const summary = `<div class="summary-grid">
+    <div class="summary-box"><div class="summary-label">Total Transactions</div><div class="summary-value">${d.total_transactions}</div></div>
+    <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(d.total_revenue)}</div></div>
+    <div class="summary-box"><div class="summary-label">Discounts Given</div><div class="summary-value">₱${fmt(d.total_discount)}</div></div>
+  </div>`
+  incrementControlNumber()
+  openPdf(pdfShell('Yearly Sales Report', `${fmtDate(d.date_from)} — ${fmtDate(d.date_to)}`, table + summary, controlNumber.value))
+}
+
 function exportInventoryPdf() {
   const d = inventoryData.value
+  const fsnBadge = cls => {
+    const styles = {
+      fast:       'background:#dcfce7;color:#15803d',
+      slow:       'background:#fef3c7;color:#92400e',
+      non_moving: 'background:#fee2e2;color:#b91c1c',
+    }
+    return `<span class="badge" style="${styles[cls] ?? 'background:#f3f4f6;color:#6b7280'}">${fsnLabel(cls)}</span>`
+  }
   const rows = (d.products ?? []).map(p => {
     const status = p.is_out_of_stock ? '<span class="badge" style="background:#fee2e2;color:#991b1b">Out of Stock</span>'
       : p.is_low_stock ? '<span class="badge" style="background:#fef3c7;color:#92400e">Low Stock</span>'
       : '<span class="badge" style="background:#dcfce7;color:#15803d">In Stock</span>'
-    return `<tr><td><span class="mono">${p.sku}</span></td><td style="font-weight:600;">${p.name}</td><td><span class="badge">${p.category}</span></td><td>${p.stock_quantity}</td><td>${p.reorder_point}</td><td>${status}</td><td><span class="amt">₱${fmt(p.stock_value)}</span></td></tr>`
+    return `<tr><td><span class="mono">${p.sku}</span></td><td style="font-weight:600;">${p.name}</td><td><span class="badge">${p.category}</span></td><td>${p.stock_quantity}</td><td>${p.reorder_point}</td><td>${status}</td><td>${fsnBadge(p.fsn_classification)}</td><td>${turnoverLabel(p.turnover_ratio)}</td><td><span class="amt">₱${fmt(p.stock_value)}</span></td></tr>`
   }).join('')
   const table = `<div class="section">Product Inventory</div>
-  <table><thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Value</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:24px 0;color:#9ca3af;">No products.</td></tr>'}</tbody></table>`
+  <table><thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Sales Speed</th><th>Turnover</th><th>Value</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="9" style="text-align:center;padding:24px 0;color:#9ca3af;">No products.</td></tr>'}</tbody></table>`
   const summary = `<div class="summary-grid">
     <div class="summary-box"><div class="summary-label">Total Products</div><div class="summary-value">${d.total_products}</div></div>
     <div class="summary-box"><div class="summary-label">Low Stock</div><div class="summary-value">${d.low_stock_count}</div></div>
     <div class="summary-box"><div class="summary-label">Out of Stock</div><div class="summary-value">${d.out_of_stock_count}</div></div>
+    <div class="summary-box"><div class="summary-label">Dead Stock (Non-moving)</div><div class="summary-value">${d.dead_stock_count}</div></div>
     <div class="summary-box"><div class="summary-label">Total Stock Value</div><div class="summary-value">₱${fmt(d.total_stock_value)}</div></div>
   </div>`
   incrementControlNumber()
@@ -754,6 +937,7 @@ function exportTopPdf() {
 .stat-num.green  { color: #16a34a; font-size: 1.2rem; }
 .stat-num.red    { color: #dc2626; font-size: 1.2rem; }
 .stat-num.amber  { color: #d97706; }
+.stat-num.indigo { color: #4f46e5; font-size: 1.2rem; }
 .stat-lbl    { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
 
 /* Table */
@@ -786,6 +970,7 @@ function exportTopPdf() {
 .status-pill.green { background: #dcfce7; color: #15803d; }
 .status-pill.amber { background: #fef3c7; color: #92400e; }
 .status-pill.red   { background: #fee2e2; color: #b91c1c; }
+.status-pill.gray  { background: #f3f4f6; color: #6b7280; }
 
 /* Payment pill */
 .pay-pill    { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: capitalize; }

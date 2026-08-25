@@ -109,6 +109,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->prefix('reports')->group(function () {
         Route::get('/sales/daily',   [ReportController::class, 'salesDaily']);
         Route::get('/sales/monthly', [ReportController::class, 'salesMonthly']);
+        Route::get('/sales/yearly',  [ReportController::class, 'salesYearly']);
     });
     Route::middleware('role:admin,inventory_staff')->prefix('reports')->group(function () {
         Route::get('/inventory',     [ReportController::class, 'inventoryReport']);

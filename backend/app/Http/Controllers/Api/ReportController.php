@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Product;
+use App\Models\AnalyticsLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -62,6 +63,41 @@ class ReportController extends Controller
         ]);
     }
 
+    public function salesYearly(Request $request)
+    {
+        $request->validate([
+            'date_from' => 'required|date',
+            'date_to'   => 'required|date|after_or_equal:date_from',
+        ]);
+
+        $from = $request->date_from;
+        $to   = $request->date_to;
+
+        $stats = Sale::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->where('status', 'completed')
+            ->selectRaw('COUNT(*) as total_transactions, COALESCE(SUM(total_amount), 0) as total_revenue, COALESCE(SUM(discount_amount), 0) as total_discount')
+            ->first();
+
+        // One row per calendar year touched by the range — e.g. Jan 2023–Dec 2024 returns 2023 and 2024.
+        $yearly = Sale::selectRaw('YEAR(created_at) as year, COUNT(*) as transactions, SUM(total_amount) as revenue, SUM(discount_amount) as discount')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->where('status', 'completed')
+            ->groupBy('year')
+            ->orderBy('year')
+            ->get();
+
+        return response()->json([
+            'date_from'          => $from,
+            'date_to'            => $to,
+            'total_transactions' => (int) $stats->total_transactions,
+            'total_revenue'      => (float) $stats->total_revenue,
+            'total_discount'     => (float) $stats->total_discount,
+            'yearly_breakdown'   => $yearly,
+        ]);
+    }
+
     public function inventoryReport()
     {
         $stats = DB::table('products')
@@ -69,28 +105,43 @@ class ReportController extends Controller
             ->selectRaw('COUNT(*) as total_products, SUM(CASE WHEN stock_quantity = 0 THEN 1 ELSE 0 END) as out_of_stock_count, SUM(CASE WHEN stock_quantity > 0 AND stock_quantity <= reorder_point THEN 1 ELSE 0 END) as low_stock_count, COALESCE(SUM(stock_quantity * cost_price), 0) as total_stock_value')
             ->first();
 
+        // Most recent FSN classification + turnover ratio per product, from the last analytics run.
+        $latestAnalytics = AnalyticsLog::whereIn('id', function ($q) {
+                $q->selectRaw('MAX(id)')->from('analytics_logs')->groupBy('product_id');
+            })
+            ->get(['product_id', 'fsn_classification', 'turnover_ratio'])
+            ->keyBy('product_id');
+
+        $deadStockCount = $latestAnalytics->where('fsn_classification', 'non_moving')->count();
+
         $products = Product::select(['id', 'sku', 'name', 'category_id', 'supplier_id', 'stock_quantity', 'reorder_point', 'cost_price', 'selling_price'])
             ->with(['category:id,name', 'supplier:id,name'])
             ->get()
-            ->map(fn($p) => [
-                'id'              => $p->id,
-                'sku'             => $p->sku,
-                'name'            => $p->name,
-                'category'        => $p->category?->name,
-                'stock_quantity'  => $p->stock_quantity,
-                'reorder_point'   => $p->reorder_point,
-                'is_out_of_stock' => $p->stock_quantity === 0,
-                'is_low_stock'    => $p->stock_quantity > 0 && $p->stock_quantity <= $p->reorder_point,
-                'cost_price'      => $p->cost_price,
-                'selling_price'   => $p->selling_price,
-                'stock_value'     => $p->stock_quantity * $p->cost_price,
-            ]);
+            ->map(function ($p) use ($latestAnalytics) {
+                $analytics = $latestAnalytics->get($p->id);
+                return [
+                    'id'                 => $p->id,
+                    'sku'                => $p->sku,
+                    'name'               => $p->name,
+                    'category'           => $p->category?->name,
+                    'stock_quantity'     => $p->stock_quantity,
+                    'reorder_point'      => $p->reorder_point,
+                    'is_out_of_stock'    => $p->stock_quantity === 0,
+                    'is_low_stock'       => $p->stock_quantity > 0 && $p->stock_quantity <= $p->reorder_point,
+                    'cost_price'         => $p->cost_price,
+                    'selling_price'      => $p->selling_price,
+                    'stock_value'        => $p->stock_quantity * $p->cost_price,
+                    'fsn_classification' => $analytics?->fsn_classification,
+                    'turnover_ratio'     => $analytics?->turnover_ratio !== null ? (float) $analytics->turnover_ratio : null,
+                ];
+            });
 
         return response()->json([
             'total_products'    => (int) $stats->total_products,
             'out_of_stock_count'=> (int) $stats->out_of_stock_count,
             'low_stock_count'   => (int) $stats->low_stock_count,
             'total_stock_value' => (float) $stats->total_stock_value,
+            'dead_stock_count'  => $deadStockCount,
             'products'          => $products,
         ]);
     }
