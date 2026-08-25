@@ -350,6 +350,7 @@
                 }">
                   {{ r.analytics?.fsn_classification?.replace('_', ' ') ?? '—' }}
                 </span>
+                <span class="mape-sub">{{ turnoverLabel(r.analytics?.turnover_ratio) }} turns/yr</span>
               </td>
               <td>
                 <template v-if="wmapePct(r.analytics?.result_data) != null">
@@ -695,6 +696,28 @@
               </div>
             </div>
 
+            <!-- ── Turnover Ratio Section ───────────────────────────── -->
+            <div class="sop-section">
+              <div class="sop-sec-header green">
+                <div class="sop-sec-tag green">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4.5 9a8 8 0 0113.9-3.5L20 9M19.5 15a8 8 0 01-13.9 3.5L4 15"/>
+                  </svg>
+                  Turnover
+                </div>
+                <span class="sop-sec-formula">Annual Demand ÷ Current Stock</span>
+              </div>
+              <div class="sop-sec-body">
+                <div class="sop-kv"><span class="sop-k">Estimated annual sales</span><span class="sop-v">{{ Math.round(selected.analytics?.result_data?.annual_demand ?? 0) }} units/yr</span></div>
+                <div class="sop-kv"><span class="sop-k">Current stock on hand</span><span class="sop-v">{{ selected.product.stock_quantity }} units</span></div>
+                <div class="sop-result green">
+                  <span>Inventory turns per year</span>
+                  <span class="sop-result-val">{{ turnoverLabel(selected.analytics?.turnover_ratio) }}</span>
+                </div>
+                <p class="sop-fsn-note green">{{ turnoverDescription(selected.analytics?.turnover_ratio) }}</p>
+              </div>
+            </div>
+
           </div>
         </div>
       </transition>
@@ -841,6 +864,22 @@ function fsnDescription(cls) {
     slow:       'Active in 10–50% of the last 52 weeks. Monitor levels regularly and avoid over-ordering.',
     non_moving: 'Active in <10% of the last 52 weeks or no sale in ≥6 months. Review for dead stock — consider promotions or clearance.',
   }[cls] ?? ''
+}
+
+// Turnover ratio = annual units sold ÷ current stock on hand — how many times
+// stock fully rotates per year. Independent of returns/refunds (units-sold based).
+function turnoverLabel(ratio) {
+  if (ratio === null || ratio === undefined) return '—'
+  return `${Number(ratio).toFixed(1)}x`
+}
+
+function turnoverDescription(ratio) {
+  if (ratio === null || ratio === undefined) return 'No stock on hand to compute a ratio against — restock to enable this metric.'
+  const r = Number(ratio)
+  if (r >= 6)  return 'Stock rotates frequently — capital isn\'t tied up for long in this item.'
+  if (r >= 2)  return 'Moderate rotation — stock is sold and replenished a few times a year.'
+  if (r > 0)   return 'Stock rotates slowly — capital sits in this item for a long stretch before it sells through.'
+  return 'No sales recorded against current stock — a strong dead-stock signal alongside its FSN classification.'
 }
 
 function daysRemaining(r) {
@@ -2175,6 +2214,11 @@ onMounted(loadSummary)
 .sop-fsn-note.non {
   background: #fef2f2;
   color: #b91c1c;
+}
+
+.sop-fsn-note.green {
+  background: #f0fdf4;
+  color: #15803d;
 }
 
 .stale-badge {

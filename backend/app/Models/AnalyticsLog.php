@@ -8,7 +8,7 @@ class AnalyticsLog extends Model
 {
     protected $fillable = [
         'product_id', 'method', 'computed_at', 'result_data',
-        'predicted_demand', 'eoq_value', 'rop_value', 'fsn_classification',
+        'predicted_demand', 'eoq_value', 'rop_value', 'fsn_classification', 'turnover_ratio',
     ];
 
     protected $casts = [
@@ -17,6 +17,7 @@ class AnalyticsLog extends Model
         'predicted_demand' => 'decimal:2',
         'eoq_value' => 'decimal:2',
         'rop_value' => 'decimal:2',
+        'turnover_ratio' => 'decimal:2',
     ];
 
     public function product() { return $this->belongsTo(Product::class); }

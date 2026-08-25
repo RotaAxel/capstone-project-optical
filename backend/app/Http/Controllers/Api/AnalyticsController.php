@@ -101,6 +101,18 @@ class AnalyticsController extends Controller
             $fsn    = $this->classifyFSN($weeklyAgg->get($product->id, collect()), $avgDaily, $lastSaleMap->get($product->id));
             $params = $forecastResult['params'];
 
+            // ── Turnover Ratio: Annual Demand / Average Inventory ─────────
+            // How many times this product's stock fully sells through and gets
+            // replaced per year. No return/refund data is involved — it is purely
+            // units sold vs. units held, so the client's no-return policy has no
+            // bearing on this metric. Current stock_quantity is used as the proxy
+            // for average inventory (no historical stock-level snapshots exist).
+            // Null when there is no stock to divide by (can't compute a ratio for
+            // an out-of-stock item); 0 when neither sales nor stock exist.
+            $turnoverRatio = $product->stock_quantity > 0
+                ? round($annualDemand / $product->stock_quantity, 2)
+                : ($annualDemand > 0 ? null : 0.0);
+
             $log = AnalyticsLog::updateOrCreate(
                 [
                     'product_id'  => $product->id,
@@ -144,11 +156,14 @@ class AnalyticsController extends Controller
                         'activity_ratio'  => round($fsn['activity_ratio'], 4),
                         'last_sale_date'  => $fsn['last_sale_date'],
                         'months_no_sale'  => $fsn['months_no_sale'],
+                        // Turnover ratio components
+                        'turnover_avg_inventory' => $product->stock_quantity,
                     ],
                     'predicted_demand'   => round($predictedMonthly, 2),
                     'eoq_value'          => round($eoq, 2),
                     'rop_value'          => round($rop, 2),
                     'fsn_classification' => $fsn['classification'],
+                    'turnover_ratio'     => $turnoverRatio,
                 ]
             );
 
