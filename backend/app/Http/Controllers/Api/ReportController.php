@@ -40,23 +40,31 @@ class ReportController extends Controller
     public function salesMonthly(Request $request)
     {
         $request->validate([
-            'month' => 'nullable|integer|min:1|max:12',
-            'year'  => 'nullable|integer|min:2000|max:2100',
+            'month_from' => 'nullable|integer|min:1|max:12',
+            'month_to'   => 'nullable|integer|min:1|max:12',
+            'year'       => 'nullable|integer|min:2000|max:2100',
         ]);
-        $month = $request->month ?? now()->month;
-        $year  = $request->year  ?? now()->year;
+        $year      = $request->year ?? now()->year;
+        $monthFrom = $request->month_from ?? now()->month;
+        $monthTo   = $request->month_to ?? $monthFrom;
+        if ($monthTo < $monthFrom) {
+            [$monthFrom, $monthTo] = [$monthTo, $monthFrom];
+        }
+
+        $start = \Illuminate\Support\Carbon::create($year, $monthFrom, 1)->startOfMonth();
+        $end   = \Illuminate\Support\Carbon::create($year, $monthTo, 1)->endOfMonth();
 
         $daily = Sale::selectRaw('DATE(created_at) as date, COUNT(*) as transactions, SUM(total_amount) as revenue')
-            ->whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
+            ->whereBetween('created_at', [$start, $end])
             ->where('status', 'completed')
             ->groupBy('date')
             ->orderBy('date')
             ->get();
 
         return response()->json([
-            'month'             => $month,
             'year'              => $year,
+            'month_from'        => $monthFrom,
+            'month_to'          => $monthTo,
             'total_transactions'=> $daily->sum('transactions'),
             'total_revenue'     => $daily->sum('revenue'),
             'daily_breakdown'   => $daily,
@@ -66,31 +74,26 @@ class ReportController extends Controller
     public function salesYearly(Request $request)
     {
         $request->validate([
-            'date_from' => 'required|date',
-            'date_to'   => 'required|date|after_or_equal:date_from',
+            'year' => 'required|integer|min:2000|max:2100',
         ]);
 
-        $from = $request->date_from;
-        $to   = $request->date_to;
+        $year = (int) $request->year;
 
-        $stats = Sale::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
+        $stats = Sale::whereYear('created_at', $year)
             ->where('status', 'completed')
             ->selectRaw('COUNT(*) as total_transactions, COALESCE(SUM(total_amount), 0) as total_revenue, COALESCE(SUM(discount_amount), 0) as total_discount')
             ->first();
 
-        // One row per calendar year touched by the range — e.g. Jan 2023–Dec 2024 returns 2023 and 2024.
+        // Single summary row for the selected year.
         $yearly = Sale::selectRaw('YEAR(created_at) as year, COUNT(*) as transactions, SUM(total_amount) as revenue, SUM(discount_amount) as discount')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
+            ->whereYear('created_at', $year)
             ->where('status', 'completed')
             ->groupBy('year')
             ->orderBy('year')
             ->get();
 
         return response()->json([
-            'date_from'          => $from,
-            'date_to'            => $to,
+            'year'               => $year,
             'total_transactions' => (int) $stats->total_transactions,
             'total_revenue'      => (float) $stats->total_revenue,
             'total_discount'     => (float) $stats->total_discount,

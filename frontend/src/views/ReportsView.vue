@@ -158,14 +158,22 @@
           </svg>
         </div>
         <div class="ctrl-group">
-          <label class="ctrl-lbl">Month</label>
-          <select v-model="monthlyMonth" class="ctrl-select">
+          <label class="ctrl-lbl">Year</label>
+          <select v-model="monthlyYear" class="ctrl-select">
+            <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-lbl">From Month</label>
+          <select v-model="monthlyMonthFrom" class="ctrl-select">
             <option v-for="(m, i) in months" :key="i" :value="i + 1">{{ m }}</option>
           </select>
         </div>
         <div class="ctrl-group">
-          <label class="ctrl-lbl">Year</label>
-          <input v-model="monthlyYear" type="number" class="ctrl-input ctrl-year" min="2020" />
+          <label class="ctrl-lbl">To Month</label>
+          <select v-model="monthlyMonthTo" class="ctrl-select">
+            <option v-for="(m, i) in months" :key="i" :value="i + 1">{{ m }}</option>
+          </select>
         </div>
         <button @click="loadMonthly" class="gen-btn">
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,8 +254,8 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
           </svg>
         </div>
-        <p class="empty-title">Select a month and year, then click Generate</p>
-        <p class="empty-sub">Monthly breakdown will appear here</p>
+        <p class="empty-title">Select a year and month range, then click Generate</p>
+        <p class="empty-sub">Daily breakdown for that span will appear here</p>
       </div>
     </div>
 
@@ -262,12 +270,10 @@
           </svg>
         </div>
         <div class="ctrl-group">
-          <label class="ctrl-lbl">From</label>
-          <input v-model="yearlyFrom" type="date" class="ctrl-input" />
-        </div>
-        <div class="ctrl-group">
-          <label class="ctrl-lbl">To</label>
-          <input v-model="yearlyTo" type="date" class="ctrl-input" />
+          <label class="ctrl-lbl">Year</label>
+          <select v-model="yearlyYear" class="ctrl-select">
+            <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
+          </select>
         </div>
         <button @click="loadYearly" class="gen-btn">
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,8 +366,8 @@
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
         </div>
-        <p class="empty-title">Select a date range and click Generate</p>
-        <p class="empty-sub">Sales totals per year in that range will appear here — great for a Jan 2023–Dec 2024 style yearly comparison</p>
+        <p class="empty-title">Select a year and click Generate</p>
+        <p class="empty-sub">Sales totals for that year will appear here</p>
       </div>
     </div>
 
@@ -623,14 +629,19 @@ watch(activeTab, (tab) => {
 onMounted(() => { activeTab.value = tabs.value[0]?.id ?? 'inventory'; loadControlNumber() })
 
 const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+// Current year down to 2020, for the report year pickers.
+const years = computed(() => {
+  const now = new Date().getFullYear()
+  return Array.from({ length: now - 2019 }, (_, i) => now - i)
+})
 
 const dailyDate     = ref(new Date().toISOString().split('T')[0])
 const dailyData     = ref(null)
-const monthlyMonth  = ref(new Date().getMonth() + 1)
+const monthlyMonthFrom = ref(new Date().getMonth() + 1)
+const monthlyMonthTo   = ref(new Date().getMonth() + 1)
 const monthlyYear   = ref(new Date().getFullYear())
 const monthlyData   = ref(null)
-const yearlyFrom    = ref(`${new Date().getFullYear() - 1}-01-01`)
-const yearlyTo      = ref(new Date().toISOString().split('T')[0])
+const yearlyYear    = ref(new Date().getFullYear())
 const yearlyData    = ref(null)
 const inventoryData = ref(null)
 const topFrom       = ref(new Date(new Date().setDate(1)).toISOString().split('T')[0])
@@ -664,13 +675,13 @@ async function loadDaily() {
 }
 async function loadMonthly() {
   error.value = ''; loading.value = true
-  try { monthlyData.value = (await api.get('/reports/sales/monthly', { params: { month: monthlyMonth.value, year: monthlyYear.value } })).data }
+  try { monthlyData.value = (await api.get('/reports/sales/monthly', { params: { month_from: monthlyMonthFrom.value, month_to: monthlyMonthTo.value, year: monthlyYear.value } })).data }
   catch (e) { error.value = e.response?.data?.message || 'Could not load report. Make sure the backend is running.' }
   finally { loading.value = false }
 }
 async function loadYearly() {
   error.value = ''; loading.value = true
-  try { yearlyData.value = (await api.get('/reports/sales/yearly', { params: { date_from: yearlyFrom.value, date_to: yearlyTo.value } })).data }
+  try { yearlyData.value = (await api.get('/reports/sales/yearly', { params: { year: yearlyYear.value } })).data }
   catch (e) { error.value = e.response?.data?.message || 'Could not load report. Make sure the backend is running.' }
   finally { loading.value = false }
 }
@@ -795,7 +806,11 @@ function exportDailyPdf() {
 
 function exportMonthlyPdf() {
   const d = monthlyData.value
-  const mName = months[monthlyMonth.value - 1]
+  const mFrom = months[monthlyMonthFrom.value - 1]
+  const mTo   = months[monthlyMonthTo.value - 1]
+  const periodLabel = mFrom === mTo
+    ? `${mFrom} ${monthlyYear.value}`
+    : `${mFrom} – ${mTo} ${monthlyYear.value}`
   const rows = (d.daily_breakdown ?? []).map(day => {
     const share = revenueShare(day.revenue, d.total_revenue)
     return `<tr><td>${fmtDate(day.date)}</td><td>${day.transactions}</td><td><span class="amt">₱${fmt(day.revenue)}</span></td><td>${share}%</td></tr>`
@@ -808,7 +823,7 @@ function exportMonthlyPdf() {
     <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(d.total_revenue)}</div></div>
   </div>`
   incrementControlNumber()
-  openPdf(pdfShell('Monthly Sales Report', `${mName} ${monthlyYear.value}`, table + summary, controlNumber.value))
+  openPdf(pdfShell('Monthly Sales Report', periodLabel, table + summary, controlNumber.value))
 }
 
 function exportYearlyPdf() {
@@ -826,7 +841,7 @@ function exportYearlyPdf() {
     <div class="summary-box"><div class="summary-label">Discounts Given</div><div class="summary-value">₱${fmt(d.total_discount)}</div></div>
   </div>`
   incrementControlNumber()
-  openPdf(pdfShell('Yearly Sales Report', `${fmtDate(d.date_from)} — ${fmtDate(d.date_to)}`, table + summary, controlNumber.value))
+  openPdf(pdfShell('Yearly Sales Report', String(d.year ?? yearlyYear.value), table + summary, controlNumber.value))
 }
 
 function exportInventoryPdf() {
