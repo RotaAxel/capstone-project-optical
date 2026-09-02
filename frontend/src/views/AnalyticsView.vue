@@ -350,7 +350,7 @@
                 }">
                   {{ r.analytics?.fsn_classification?.replace('_', ' ') ?? '—' }}
                 </span>
-                <span class="mape-sub">{{ turnoverLabel(r.analytics?.turnover_ratio) }} turns/yr</span>
+                <span class="mape-sub">{{ turnoverLabel(r.analytics?.turnover_ratio) }} · {{ turnoverPercent(r.analytics?.turnover_ratio) }} /yr</span>
               </td>
               <td>
                 <template v-if="wmapePct(r.analytics?.result_data) != null">
@@ -714,7 +714,7 @@
                   <span>Inventory turns per year</span>
                   <span class="sop-result-val">{{ turnoverLabel(selected.analytics?.turnover_ratio) }}</span>
                 </div>
-                <p class="sop-fsn-note green">{{ turnoverDescription(selected.analytics?.turnover_ratio) }}</p>
+                <p class="sop-fsn-note green">{{ turnoverDescription(selected.analytics?.turnover_ratio) }} {{ turnoverPercent(selected.analytics?.turnover_ratio) }} annual turnover.</p>
               </div>
             </div>
 
@@ -871,6 +871,11 @@ function fsnDescription(cls) {
 function turnoverLabel(ratio) {
   if (ratio === null || ratio === undefined) return '—'
   return `${Number(ratio).toFixed(1)}x`
+}
+
+function turnoverPercent(ratio) {
+  if (ratio === null || ratio === undefined) return '—'
+  return `${(Number(ratio) * 100).toFixed(0)}%`
 }
 
 function turnoverDescription(ratio) {

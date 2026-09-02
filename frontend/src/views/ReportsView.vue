@@ -727,6 +727,7 @@ function rankBadge(i) {
   return ['rank-gold', 'rank-silver', 'rank-bronze'][i] ?? 'rank-default'
 }
 
+
 function payPill(m) {
   return { cash: 'pill-green', card: 'pill-blue', gcash: 'pill-sky', maya: 'pill-purple', other: 'pill-gray' }[m] ?? 'pill-gray'
 }
@@ -734,12 +735,12 @@ function payPill(m) {
 // ── PDF Export ────────────────────────────────────────────────────────────
 function pdfShell(title, periodLabel, body, controlNumber = '') {
   const now = new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })
-  const controlText = (controlNumber !== '' && controlNumber !== null && typeof controlNumber !== 'undefined') ? ` • Control No.: ${controlNumber}` : ''
+  const controlText = (controlNumber !== '' && controlNumber !== null && typeof controlNumber !== 'undefined') ? `Controller ID: ${controlNumber}` : ''
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${title}</title>
+<title></title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111827; padding: 32px 36px; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111827; padding: 32px 36px 72px; }
   .report-header { text-align: center; margin-bottom: 28px; }
   .company { display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -.4px; }
   .company-logo { width: 46px; height: 46px; object-fit: contain; border-radius: 12px; }
@@ -759,8 +760,23 @@ function pdfShell(title, periodLabel, body, controlNumber = '') {
   .summary-box { padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
   .summary-label { font-size: 10px; font-weight: 700; color: #6b7280; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
   .summary-value { font-size: 18px; font-weight: 800; color: #111827; }
-  .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; text-align: center; }
-  @media print { @page { margin: 15mm 12mm; size: A4; } body { padding: 0; } }
+  .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; line-height: 1.5; color: #9ca3af; text-align: left; }
+  .footer div { display: block; }
+  @media print {
+    @page { margin: 15mm 12mm; size: auto; }
+    body { padding: 0; }
+    table { page-break-inside: auto; break-inside: auto; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    .footer {
+      position: static;
+      width: 100%;
+      margin-top: 12mm;
+      padding-top: 3mm;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+  }
 </style>
 </head><body>
 <div class="report-header">
@@ -773,7 +789,7 @@ function pdfShell(title, periodLabel, body, controlNumber = '') {
   <div class="report-period">${periodLabel}</div>
 </div>
 ${body}
-<div class="footer">Printed: ${now}${controlText}</div>
+<div class="footer"><div>Printed: ${now}${controlText ? ` | ${controlText}` : ''}</div></div>
 </body></html>`
 }
 

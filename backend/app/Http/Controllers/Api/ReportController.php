@@ -54,12 +54,24 @@ class ReportController extends Controller
         $start = \Illuminate\Support\Carbon::create($year, $monthFrom, 1)->startOfMonth();
         $end   = \Illuminate\Support\Carbon::create($year, $monthTo, 1)->endOfMonth();
 
-        $daily = Sale::selectRaw('DATE(created_at) as date, COUNT(*) as transactions, SUM(total_amount) as revenue')
+        $dailyRows = Sale::selectRaw('DATE(created_at) as date, COUNT(*) as transactions, SUM(total_amount) as revenue')
             ->whereBetween('created_at', [$start, $end])
             ->where('status', 'completed')
             ->groupBy('date')
             ->orderBy('date')
             ->get();
+
+        $dailyByDate = $dailyRows->keyBy('date');
+        $daily = collect();
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $dateKey = $date->toDateString();
+            $row = $dailyByDate->get($dateKey);
+            $daily->push([
+                'date'         => $dateKey,
+                'transactions' => (int) ($row->transactions ?? 0),
+                'revenue'      => (float) ($row->revenue ?? 0),
+            ]);
+        }
 
         return response()->json([
             'year'              => $year,

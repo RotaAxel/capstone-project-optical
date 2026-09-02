@@ -496,7 +496,6 @@ function printPrescription(rx) {
   .header{display:flex;align-items:center;justify-content:space-between;border-bottom:2.5px solid #1e3a5f;padding-bottom:14px;margin-bottom:22px}
   .clinic{font-size:22px;font-weight:900;color:#1e3a5f;letter-spacing:1px}
   .clinic-sub{font-size:11px;color:#666;margin-top:3px}
-  .rx-sym{font-size:48px;font-weight:900;color:#1e3a5f;opacity:.12;line-height:1}
   .sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#1e3a5f;border-bottom:1px solid #dce6f0;padding-bottom:5px;margin:18px 0 10px}
   .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 24px;margin-bottom:4px}
   .ir{display:flex;gap:6px;align-items:baseline}
@@ -524,7 +523,6 @@ function printPrescription(rx) {
     <div class="clinic">ACEBEDO OPTICAL</div>
     <div class="clinic-sub">Your Vision, Our Mission · Cebu City, Philippines</div>
   </div>
-  <div class="rx-sym">Rx</div>
 </div>
 
 <div class="sec">Patient Information</div>
