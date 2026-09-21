@@ -756,10 +756,9 @@ function pdfShell(title, periodLabel, body, controlNumber = '') {
   .mono { font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #4f46e5; background: #eef2ff; padding: 2px 6px; border-radius: 4px; }
   .amt { font-weight: 700; color: #059669; }
   .badge { display: inline-block; padding: 3px 8px; border-radius: 16px; background: #f3f4f6; color: #4b5563; font-size: 10px; font-weight: 700; }
-  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 22px; }
-  .summary-box { padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
-  .summary-label { font-size: 10px; font-weight: 700; color: #6b7280; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
-  .summary-value { font-size: 18px; font-weight: 800; color: #111827; }
+  tfoot td { padding: 11px 12px; font-size: 11px; font-weight: 700; color: #374151; background: #f9fafb; border-top: 2px solid #e5e7eb; }
+  tfoot td.total-label { text-transform: uppercase; letter-spacing: .4px; color: #6b7280; }
+  .report-note { margin-top: 10px; font-size: 11px; color: #6b7280; text-align: right; }
   .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; line-height: 1.5; color: #9ca3af; text-align: left; }
   .footer div { display: block; }
   @media print {
@@ -810,14 +809,11 @@ function exportDailyPdf() {
   }).join('')
   const table = `<div class="section">Sales Transactions</div>
   <table><thead><tr><th>Receipt #</th><th>Patient</th><th>Items</th><th>Total</th><th>Payment</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:24px 0;color:#9ca3af;">No transactions for this date.</td></tr>'}</tbody></table>`
-  const summary = `<div class="summary-grid">
-    <div class="summary-box"><div class="summary-label">Transactions</div><div class="summary-value">${d.total_transactions}</div></div>
-    <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(d.total_revenue)}</div></div>
-    <div class="summary-box"><div class="summary-label">Discounts Given</div><div class="summary-value">₱${fmt(d.total_discount)}</div></div>
-  </div>`
+  <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:24px 0;color:#9ca3af;">No transactions for this date.</td></tr>'}</tbody>
+  <tfoot><tr><td colspan="2" class="total-label">Totals</td><td>${d.total_transactions}</td><td><span class="amt">₱${fmt(d.total_revenue)}</span></td><td></td></tr></tfoot></table>
+  <div class="report-note">Discounts given: <span class="amt">₱${fmt(d.total_discount)}</span></div>`
   incrementControlNumber()
-  openPdf(pdfShell('Daily Sales Report', fmtDate(dailyDate.value), table + summary, controlNumber.value))
+  openPdf(pdfShell('Daily Sales Report', fmtDate(dailyDate.value), table, controlNumber.value))
 }
 
 function exportMonthlyPdf() {
@@ -833,13 +829,10 @@ function exportMonthlyPdf() {
   }).join('')
   const table = `<div class="section">Daily Breakdown</div>
   <table><thead><tr><th>Date</th><th>Transactions</th><th>Revenue</th><th>Share</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="4" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this month.</td></tr>'}</tbody></table>`
-  const summary = `<div class="summary-grid">
-    <div class="summary-box"><div class="summary-label">Total Transactions</div><div class="summary-value">${d.total_transactions}</div></div>
-    <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(d.total_revenue)}</div></div>
-  </div>`
+  <tbody>${rows || '<tr><td colspan="4" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this month.</td></tr>'}</tbody>
+  <tfoot><tr><td class="total-label">Totals</td><td>${d.total_transactions}</td><td><span class="amt">₱${fmt(d.total_revenue)}</span></td><td>100%</td></tr></tfoot></table>`
   incrementControlNumber()
-  openPdf(pdfShell('Monthly Sales Report', periodLabel, table + summary, controlNumber.value))
+  openPdf(pdfShell('Monthly Sales Report', periodLabel, table, controlNumber.value))
 }
 
 function exportYearlyPdf() {
@@ -850,14 +843,10 @@ function exportYearlyPdf() {
   }).join('')
   const table = `<div class="section">Yearly Breakdown</div>
   <table><thead><tr><th>Year</th><th>Transactions</th><th>Revenue</th><th>Discounts</th><th>Share</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this period.</td></tr>'}</tbody></table>`
-  const summary = `<div class="summary-grid">
-    <div class="summary-box"><div class="summary-label">Total Transactions</div><div class="summary-value">${d.total_transactions}</div></div>
-    <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(d.total_revenue)}</div></div>
-    <div class="summary-box"><div class="summary-label">Discounts Given</div><div class="summary-value">₱${fmt(d.total_discount)}</div></div>
-  </div>`
+  <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this period.</td></tr>'}</tbody>
+  <tfoot><tr><td class="total-label">Totals</td><td>${d.total_transactions}</td><td><span class="amt">₱${fmt(d.total_revenue)}</span></td><td><span class="amt">₱${fmt(d.total_discount)}</span></td><td>100%</td></tr></tfoot></table>`
   incrementControlNumber()
-  openPdf(pdfShell('Yearly Sales Report', String(d.year ?? yearlyYear.value), table + summary, controlNumber.value))
+  openPdf(pdfShell('Yearly Sales Report', String(d.year ?? yearlyYear.value), table, controlNumber.value))
 }
 
 function exportInventoryPdf() {
@@ -878,16 +867,10 @@ function exportInventoryPdf() {
   }).join('')
   const table = `<div class="section">Product Inventory</div>
   <table><thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Sales Speed</th><th>Turnover</th><th>Value</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="9" style="text-align:center;padding:24px 0;color:#9ca3af;">No products.</td></tr>'}</tbody></table>`
-  const summary = `<div class="summary-grid">
-    <div class="summary-box"><div class="summary-label">Total Products</div><div class="summary-value">${d.total_products}</div></div>
-    <div class="summary-box"><div class="summary-label">Low Stock</div><div class="summary-value">${d.low_stock_count}</div></div>
-    <div class="summary-box"><div class="summary-label">Out of Stock</div><div class="summary-value">${d.out_of_stock_count}</div></div>
-    <div class="summary-box"><div class="summary-label">Dead Stock (Non-moving)</div><div class="summary-value">${d.dead_stock_count}</div></div>
-    <div class="summary-box"><div class="summary-label">Total Stock Value</div><div class="summary-value">₱${fmt(d.total_stock_value)}</div></div>
-  </div>`
+  <tbody>${rows || '<tr><td colspan="9" style="text-align:center;padding:24px 0;color:#9ca3af;">No products.</td></tr>'}</tbody>
+  <tfoot><tr><td class="total-label">Totals</td><td>${d.total_products} products</td><td></td><td></td><td></td><td>Low: ${d.low_stock_count} • Out: ${d.out_of_stock_count}</td><td>${d.dead_stock_count} non-moving</td><td></td><td><span class="amt">₱${fmt(d.total_stock_value)}</span></td></tr></tfoot></table>`
   incrementControlNumber()
-  openPdf(pdfShell('Inventory Report', `As of ${new Date().toLocaleDateString('en-PH', { dateStyle: 'long' })}`, table + summary, controlNumber.value))
+  openPdf(pdfShell('Inventory Report', `As of ${new Date().toLocaleDateString('en-PH', { dateStyle: 'long' })}`, table, controlNumber.value))
 }
 
 function exportTopPdf() {
@@ -900,14 +883,10 @@ function exportTopPdf() {
   }).join('')
   const table = `<div class="section">Best-Selling Products</div>
   <table><thead><tr><th>Rank</th><th>Product</th><th>Category</th><th>Qty Sold</th><th>Revenue</th><th>Performance</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this period.</td></tr>'}</tbody></table>`
-  const summary = `<div class="summary-grid">
-    <div class="summary-box"><div class="summary-label">Products Listed</div><div class="summary-value">${d.products?.length ?? 0}</div></div>
-    <div class="summary-box"><div class="summary-label">Total Qty Sold</div><div class="summary-value">${totalQty}</div></div>
-    <div class="summary-box"><div class="summary-label">Total Revenue</div><div class="summary-value">₱${fmt(totalRevenue)}</div></div>
-  </div>`
+  <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this period.</td></tr>'}</tbody>
+  <tfoot><tr><td class="total-label">Totals</td><td>${d.products?.length ?? 0} products</td><td></td><td>${totalQty}</td><td><span class="amt">₱${fmt(totalRevenue)}</span></td><td>100%</td></tr></tfoot></table>`
   incrementControlNumber()
-  openPdf(pdfShell('Top Products Report', `${fmtDate(topFrom.value)} — ${fmtDate(topTo.value)}`, table + summary, controlNumber.value))
+  openPdf(pdfShell('Top Products Report', `${fmtDate(topFrom.value)} — ${fmtDate(topTo.value)}`, table, controlNumber.value))
 }
 </script>
 
