@@ -911,14 +911,81 @@ onMounted(async () => {
 
 /* Responsive */
 @media (max-width: 1100px) {
-  .stats-row { grid-template-columns: repeat(2, 1fr); }
-  .rx-doctor { display: none; }
+  .stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rx-doctor {
+    display: none;
+  }
 }
-@media (max-width: 768px) {
-  .rx-page    { padding: 16px 16px 32px; }
-  .stats-row  { grid-template-columns: repeat(2, 1fr); }
-  .rx-values  { display: none; }
-  .form-row-3 { grid-template-columns: 1fr; }
-  .form-row-5 { grid-template-columns: repeat(3, 1fr); }
+
+@media (max-width: 900px) {
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-field {
+    width: 100%;
+  }
+
+  .rx-card {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .rx-card::before {
+    width: 100%;
+    min-height: 5px;
+    height: 5px;
+  }
+
+  .rx-patient,
+  .rx-dates,
+  .rx-values,
+  .rx-doctor,
+  .rx-actions {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .rx-actions {
+    margin-left: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .form-row-3,
+  .form-row-5,
+  .form-row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .rx-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .act-btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .btn-cancel,
+  .btn-save,
+  .btn-print {
+    width: 100%;
+  }
 }
 </style>
