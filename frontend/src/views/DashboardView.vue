@@ -59,7 +59,7 @@
           </div>
           <div class="admin-stat-card">
             <div class="asc-icon purple">
-              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-5.477-3.713M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             </div>
             <div class="asc-body">
               <p class="asc-label">Total Patients</p>
@@ -556,11 +556,11 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 
 <style scoped>
 .dashboard {
-  padding: 28px 32px 40px;
+  padding: 1.75rem 2rem 2.5rem;
 }
 
 .page-header {
-  display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;
 }
 .header-icon {
   width: 44px; height: 44px; border-radius: 12px;
@@ -820,18 +820,18 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .stat-card {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 16px;
+  gap: 0.75rem;
+  padding: 1rem;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(6px);
-  border-radius: 14px;
+  border-radius: 0.875rem;
   border: 1.5px solid rgba(226, 232, 240, 0.5);
   border-top-width: 4px;
   border-top-style: solid;
@@ -840,9 +840,9 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 }
 
 .stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -858,7 +858,7 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .stat-icon.orange { background: #F97316; }
 
 .stat-label { font-size: 11px; color: var(--muted); font-weight: 600; margin: 0; }
-.stat-value { font-size: 24px; font-weight: 800; color: var(--navy); margin: 4px 0 0; }
+.stat-value { font-size: 1.5rem; font-weight: 800; color: var(--navy); margin: 4px 0 0; }
 .stat-value.red { color: #EF4444; }
 .stat-value.green { color: #10B981; }
 .stat-value.yellow { color: #FBBF24; }
@@ -867,7 +867,7 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .content-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 18px;
+  gap: 1.125rem;
 }
 
 .schedule-item {
@@ -892,14 +892,14 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 }
 
 .schedule-details { flex: 1; min-width: 0; }
-.schedule-name { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
-.schedule-meta { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+.schedule-name { font-size: 0.75rem; font-weight: 600; color: var(--navy); margin: 0; }
+.schedule-meta { font-size: 0.6875rem; color: var(--muted); margin: 2px 0 0; }
 
 .status-badge {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -912,15 +912,15 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .patient-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
   background: var(--bg);
-  border-radius: 8px;
+  border-radius: 0.5rem;
 }
 
 .patient-avatar {
-  width: 28px;
-  height: 28px;
+  width: 2.5rem;
+  height: 1.75rem;
   border-radius: 50%;
   background: #A855F7;
   color: #fff;
@@ -928,26 +928,26 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 0.6875rem;
   flex-shrink: 0;
 }
 
-.patient-name { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
-.patient-code { font-size: 10px; color: var(--muted); margin: 2px 0 0; font-family: monospace; }
-.patient-date { font-size: 11px; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+.patient-name { font-size: 0.75rem; font-weight: 600; color: var(--navy); margin: 0; }
+.patient-code { font-size: 0.375rem; color: var(--muted); margin: 2px 0 0; font-family: monospace; }
+.patient-date { font-size: 0.6875rem; color: var(--muted); margin-left: auto; flex-shrink: 0; }
 
 .alert-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  gap: 0.625rem;
+  padding: 0.75rem;
   background: var(--bg);
-  border-radius: 8px;
+  border-radius: 0.5rem;
 }
 
 .alert-dot {
-  width: 6px;
-  height: 6px;
+    width: 0.375rem;
+  height: 0.375rem;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -955,13 +955,13 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .alert-dot.red { background: #EF4444; }
 .alert-dot.yellow { background: #FBBF24; }
 
-.alert-product { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
-.alert-meta { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+.alert-product { font-size: 0.75rem; font-weight: 600; color: var(--navy); margin: 0; }
+.alert-meta { font-size: 0.6875rem; color: var(--muted); margin: 2px 0 0; }
 
 .stock-badge {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
-  padding: 4px 8px;
+  padding: 0.25rem 0.5rem;
   border-radius: 4px;
   flex-shrink: 0;
 }
@@ -972,17 +972,17 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .movement-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
   background: var(--bg);
-  border-radius: 8px;
+  border-radius: 0.5rem;
 }
 
 .movement-type {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
   text-transform: capitalize;
   flex-shrink: 0;
 }
@@ -994,11 +994,11 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .movement-type.adjustment { background: #FEF3C7; color: #92400E; }
 
 .movement-details { flex: 1; min-width: 0; }
-.movement-product { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
-.movement-meta { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+.movement-product { font-size: 0.75rem; font-weight: 600; color: var(--navy); margin: 0; }
+.movement-meta { font-size: 0.6875rem; color: var(--muted); margin: 2px 0 0; }
 
 .movement-qty {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -1010,17 +1010,17 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 0.625rem 0.75rem;
   background: var(--bg);
-  border-radius: 8px;
+  border-radius: 0.5rem;
 }
 
-.prescription-patient { font-size: 12px; font-weight: 600; color: var(--navy); margin: 0; }
-.prescription-date { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+.prescription-patient { font-size: 0.75rem; font-weight: 600; color: var(--navy); margin: 0; }
+.prescription-date { font-size: 0.6875rem; color: var(--muted); margin: 2px 0 0; }
 
 .prescription-values {
   text-align: right;
-  font-size: 10px;
+  font-size: 0.625rem;
   color: var(--muted);
   font-family: monospace;
   line-height: 1.4;
@@ -1030,8 +1030,8 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 
 .empty-state {
   text-align: center;
-  padding: 24px 16px;
-  font-size: 13px;
+  padding: 1.5rem 1rem;
+  font-size: 0.8125rem;
   color: var(--muted);
   margin: 0;
 }
@@ -1058,15 +1058,91 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 
 @media (max-width: 768px) {
   .dashboard {
-    padding: 16px 16px 24px;
+    padding: 0.75rem;
   }
 
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .admin-stats-grid,
+  .stats-grid,
+  .content-grid,
+  .admin-chart-row,
+  .admin-bottom-row {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
   }
 
-  .content-grid {
-    grid-template-columns: 1fr;
+  .admin-stat-card,
+  .stat-card,
+  .card,
+  .chart-card,
+  .top-frames {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .alert-banner {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .alert-action {
+    width: 100%;
+    text-align: center;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .sale-item,
+  .schedule-item,
+  .appointment-item,
+  .movement-item,
+  .prescription-item,
+  .alert-item,
+  .patient-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .chart-wrap {
+    height: 200px;
+  }
+
+  .frame-row {
+    padding: 0.7rem 0.6rem;
+  }
+
+  .status-badge,
+  .sale-amount,
+  .movement-qty,
+  .patient-date {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard {
+    padding: 0.5rem;
+  }
+
+  .page-title {
+    font-size: 1.1rem;
+  }
+
+  .asc-value,
+  .stat-value {
+    font-size: 1.2rem;
   }
 }
 </style>
