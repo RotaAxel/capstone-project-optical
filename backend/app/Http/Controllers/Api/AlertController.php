@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Appointment;
 use App\Models\Prescription;
 use App\Models\AnalyticsLog;
+use App\Models\AppSetting;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -42,6 +43,11 @@ class AlertController extends Controller
     {
         $alerts = [];
 
+        // Admin-configurable early-warning multiplier over each product's own
+        // reorder_point — 100% reproduces the original exact-at-ROP behavior.
+        // Out-of-stock alerts below are never affected by this setting.
+        $sensitivity = AppSetting::current()->low_stock_sensitivity_percent / 100.0;
+
         $outOfStock = Product::where('stock_quantity', 0)->where('is_active', true)->get();
         foreach ($outOfStock as $p) {
             $alerts[] = [
@@ -59,7 +65,7 @@ class AlertController extends Controller
         }
 
         $lowStock = Product::where('stock_quantity', '>', 0)
-            ->whereColumn('stock_quantity', '<=', 'reorder_point')
+            ->whereRaw('stock_quantity <= reorder_point * ?', [$sensitivity])
             ->where('is_active', true)
             ->get();
         foreach ($lowStock as $p) {
@@ -83,11 +89,11 @@ class AlertController extends Controller
             })
             ->whereHas('product', fn($q) => $q->where('is_active', true))
             ->get()
-            ->filter(function ($log) {
+            ->filter(function ($log) use ($sensitivity) {
                 $avgDaily = $log->result_data['avg_daily'] ?? 0;
                 return $log->product
                     && $avgDaily > 0  // only products with real measured demand
-                    && $log->product->stock_quantity > $log->product->reorder_point  // above ROP (not already alerting)
+                    && $log->product->stock_quantity > ($log->product->reorder_point * $sensitivity)  // above the same effective threshold as "low stock" (not already alerting there)
                     && $log->rop_value > 0
                     && (($log->product->stock_quantity - $log->rop_value) / $avgDaily) <= 14;  // hits ROP within 14 days
             });

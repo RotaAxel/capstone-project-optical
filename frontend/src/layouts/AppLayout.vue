@@ -727,6 +727,7 @@ async function handleLogout() {
 .flash-banner.warning { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 .flash-banner.error   { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
 .flash-banner.info    { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+.flash-banner.success { background: #dcfce7; color: #15803d; border-color: #86efac; }
 .flash-close {
   background: none; border: none; font-size: 18px; cursor: pointer;
   color: inherit; opacity: .7; line-height: 1; padding: 0 4px;

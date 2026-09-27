@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\AnalyticsLog;
+use App\Models\AppSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +27,12 @@ class AnalyticsController extends Controller
 
         $products = Product::select(['id', 'name', 'sku', 'cost_price', 'selling_price', 'stock_quantity', 'reorder_point'])->get();
         $results  = [];
+
+        // Admin-configurable FSN thresholds — loaded once per run, not per
+        // product, and stamped into each product's result_data below so the
+        // frontend always shows the thresholds actually used for that run,
+        // even if the settings are changed again afterwards.
+        $fsnSettings = AppSetting::current();
 
         $weeklySince = now()->subWeeks($this->weekWindow)->startOfWeek();
         $dailySince  = now()->subDays($this->dayWindow - 1)->startOfDay();
@@ -98,7 +105,7 @@ class AnalyticsController extends Controller
             $rop         = ($avgDaily * $this->leadTime) + $safetyStock;
 
             // ── FSN classification ────────────────────────────────────────
-            $fsn    = $this->classifyFSN($weeklyAgg->get($product->id, collect()), $avgDaily, $lastSaleMap->get($product->id));
+            $fsn    = $this->classifyFSN($weeklyAgg->get($product->id, collect()), $avgDaily, $lastSaleMap->get($product->id), $fsnSettings);
             $params = $forecastResult['params'];
 
             // ── Turnover Ratio: Annual Demand / Average Inventory ─────────
@@ -156,6 +163,14 @@ class AnalyticsController extends Controller
                         'activity_ratio'  => round($fsn['activity_ratio'], 4),
                         'last_sale_date'  => $fsn['last_sale_date'],
                         'months_no_sale'  => $fsn['months_no_sale'],
+                        'weeks_no_sale'   => $fsn['weeks_no_sale'],
+                        // FSN thresholds actually applied for this run (admin-configurable —
+                        // see AppSetting / the Settings page). Stamped per-row so the UI
+                        // never has to guess what was in effect when this was computed.
+                        'fsn_fast_threshold_percent'      => $fsnSettings->fsn_fast_threshold_percent,
+                        'fsn_nonmoving_threshold_percent' => $fsnSettings->fsn_nonmoving_threshold_percent,
+                        'fsn_dead_stock_weeks'            => $fsnSettings->fsn_dead_stock_weeks,
+                        'fsn_fast_min_daily_avg'          => $fsnSettings->fsn_fast_min_daily_avg,
                         // Turnover ratio components
                         'turnover_avg_inventory' => $product->stock_quantity,
                     ],
@@ -1048,7 +1063,7 @@ class AnalyticsController extends Controller
      *   Fast       : active in ≥ 50% of weeks  OR  avg demand ≥ 1 unit/day
      *   Slow       : everything else (10–50% activity)
      */
-    private function classifyFSN(\Illuminate\Support\Collection $weeklyAggRows, float $avgDailyDemand, ?string $lastSaleAt): array
+    private function classifyFSN(\Illuminate\Support\Collection $weeklyAggRows, float $avgDailyDemand, ?string $lastSaleAt, AppSetting $settings): array
     {
         $weeksToCheck = $this->weekWindow;
         $weekSet      = [];
@@ -1057,16 +1072,25 @@ class AnalyticsController extends Controller
             $weekSet[$row->week_start] = true;
         }
 
+        // Admin-configurable thresholds (see AppSetting / the Settings page).
+        $fastRatio       = $settings->fsn_fast_threshold_percent / 100.0;
+        $nonMovingRatio  = $settings->fsn_nonmoving_threshold_percent / 100.0;
+        $deadStockWeeks  = $settings->fsn_dead_stock_weeks;
+        $fastMinDaily    = $settings->fsn_fast_min_daily_avg;
+
         $activeWeeks   = count($weekSet);
         $activityRatio = $activeWeeks / $weeksToCheck;
         $lastSaleDate  = $lastSaleAt ? Carbon::parse($lastSaleAt)->toDateString() : null;
+        $weeksNoSale   = $lastSaleAt
+            ? round(Carbon::parse($lastSaleAt)->diffInDays(now()) / 7, 1)
+            : 999.0;
         $monthsNoSale  = $lastSaleAt
             ? round(Carbon::parse($lastSaleAt)->diffInDays(now()) / 30.44, 1)
             : 999.0;
 
         $classification = match (true) {
-            $monthsNoSale >= 6.0 || $activityRatio < 0.10 => 'non_moving',
-            $activityRatio >= 0.50 || $avgDailyDemand >= 1.0 => 'fast',
+            $weeksNoSale >= $deadStockWeeks || $activityRatio < $nonMovingRatio => 'non_moving',
+            $activityRatio >= $fastRatio || $avgDailyDemand >= $fastMinDaily    => 'fast',
             default => 'slow',
         };
 
@@ -1076,6 +1100,7 @@ class AnalyticsController extends Controller
             'total_weeks'    => $weeksToCheck,
             'activity_ratio' => $activityRatio,
             'last_sale_date' => $lastSaleDate,
+            'weeks_no_sale'  => $weeksNoSale,
             'months_no_sale' => $monthsNoSale,
         ];
     }

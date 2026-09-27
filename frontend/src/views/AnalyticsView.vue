@@ -15,18 +15,96 @@
           <p class="page-sub">Sales Forecasting · Order Planning · Reorder Alerts · Product Activity</p>
         </div> -->
       </div>
-      <button @click="runAnalytics" class="btn-run" :disabled="running">
-        <svg v-if="running" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
-        <svg v-else width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        {{ running ? 'Computing…' : 'Run Analytics' }}
-      </button>
+      <div class="header-actions">
+        <button @click="showThresholds = !showThresholds" class="btn-thresholds" :class="{ active: showThresholds }">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+          Thresholds
+        </button>
+        <button @click="runAnalytics" class="btn-run" :disabled="running">
+          <svg v-if="running" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg v-else width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          {{ running ? 'Computing…' : 'Run Analytics' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Threshold Settings Panel ───────────────────────────── -->
+    <div v-if="showThresholds" class="thresholds-panel">
+      <div v-if="thresholdsBanner" class="th-banner" :class="thresholdsBanner.type">{{ thresholdsBanner.text }}</div>
+
+      <div v-if="thresholdsLoading" class="flex items-center justify-center py-10">
+        <div class="animate-spin w-7 h-7 border-4 border-indigo-400 border-t-transparent rounded-full"></div>
+      </div>
+
+      <form v-else @submit.prevent="saveThresholds" class="th-form">
+        <div class="th-group">
+          <h3 class="th-group-title">Low-Stock Alert Sensitivity</h3>
+          <p class="th-group-sub">How far ahead of a product's own Reorder Point the "Low Stock" alert fires. 100% = fires exactly at the reorder point.</p>
+          <div class="th-field">
+            <label class="th-label" for="th-lowstock">Sensitivity</label>
+            <div class="th-input-row">
+              <input id="th-lowstock" v-model.number="thresholds.low_stock_sensitivity_percent" type="number" min="50" max="500" step="5" class="th-input" />
+              <span class="th-unit">%</span>
+            </div>
+            <p class="th-hint">Example — Reorder Point of 20 units → alerts once stock ≤ {{ Math.round(20 * (thresholds.low_stock_sensitivity_percent || 100) / 100) }} units. Out-of-stock alerts always fire regardless of this setting.</p>
+          </div>
+        </div>
+
+        <div class="th-group">
+          <h3 class="th-group-title">FSN Classification (Fast / Slow / Non-Moving)</h3>
+          <p class="th-group-sub">Applies the next time "Run Analytics" is clicked — past results keep the thresholds they were computed with.</p>
+          <div class="th-grid">
+            <div class="th-field">
+              <label class="th-label" for="th-fast">Fast-moving threshold</label>
+              <div class="th-input-row">
+                <input id="th-fast" v-model.number="thresholds.fsn_fast_threshold_percent" type="number" min="1" max="100" class="th-input" />
+                <span class="th-unit">% of weeks active</span>
+              </div>
+            </div>
+            <div class="th-field">
+              <label class="th-label" for="th-nonmoving">Non-moving threshold</label>
+              <div class="th-input-row">
+                <input id="th-nonmoving" v-model.number="thresholds.fsn_nonmoving_threshold_percent" type="number" min="0" max="99" class="th-input" />
+                <span class="th-unit">% of weeks active</span>
+              </div>
+            </div>
+            <div class="th-field">
+              <label class="th-label" for="th-deadweeks">Dead-stock cutoff</label>
+              <div class="th-input-row">
+                <input id="th-deadweeks" v-model.number="thresholds.fsn_dead_stock_weeks" type="number" min="1" max="208" class="th-input" />
+                <span class="th-unit">weeks with no sale</span>
+              </div>
+              <p class="th-hint">≈ {{ (thresholds.fsn_dead_stock_weeks / 4.345).toFixed(1) }} months. A product unsold this long is always "Non-Moving."</p>
+            </div>
+            <div class="th-field">
+              <label class="th-label" for="th-fastdaily">"Always fast" override</label>
+              <div class="th-input-row">
+                <input id="th-fastdaily" v-model.number="thresholds.fsn_fast_min_daily_avg" type="number" min="0" max="1000" step="0.1" class="th-input" />
+                <span class="th-unit">units/day, avg</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="thresholds.fsn_nonmoving_threshold_percent >= thresholds.fsn_fast_threshold_percent" class="th-warn">
+            ⚠ Non-moving threshold must be lower than the Fast threshold, or every product collapses into one bucket.
+          </div>
+        </div>
+
+        <div class="th-actions">
+          <button type="button" class="th-btn-ghost" :disabled="thresholdsSaving" @click="resetThresholdDefaults">Reset to Defaults</button>
+          <button type="submit" class="th-btn-save" :disabled="thresholdsSaving || thresholds.fsn_nonmoving_threshold_percent >= thresholds.fsn_fast_threshold_percent">
+            {{ thresholdsSaving ? 'Saving…' : 'Save Thresholds' }}
+          </button>
+        </div>
+      </form>
     </div>
 
     <!-- ── Running Overlay ───────────────────────────────────── -->
@@ -122,7 +200,7 @@
         <div>
           <p class="algo-label">FSN</p>
           <p class="algo-name">Sales Speed</p>
-          <p class="algo-desc">Rates products by how fast they sell (last 52 weeks)</p>
+          <p class="algo-desc">Rates products by how fast they sell (last 208 weeks)</p>
         </div>
       </div>
 
@@ -194,7 +272,7 @@
             <div class="ch-dot emerald"></div>
             <div>
               <p class="ch-title">How Often Products Sell</p>
-              <p class="ch-sub">How frequently each product sold in the past 6 months</p>
+              <p class="ch-sub">How frequently each product sold over the last 4 years</p>
             </div>
           </div>
           <div class="chart-body" style="min-height:240px">
@@ -661,17 +739,17 @@
                       'slow':  selected.analytics?.fsn_classification === 'slow',
                       'non':   selected.analytics?.fsn_classification === 'non_moving',
                     }" :style="{ width: ((selected.analytics?.result_data?.activity_ratio ?? 0) * 100).toFixed(1) + '%' }"></div>
-                    <div class="sop-activity-marker" style="left: 50%" title="Fast threshold (50%)"></div>
-                    <div class="sop-activity-marker" style="left: 10%" title="Non-moving threshold (10%)"></div>
+                    <div class="sop-activity-marker" :style="{ left: fsnThresholds(selected.analytics?.result_data).fast + '%' }" :title="`Fast threshold (${fsnThresholds(selected.analytics?.result_data).fast}%)`"></div>
+                    <div class="sop-activity-marker" :style="{ left: fsnThresholds(selected.analytics?.result_data).nonMoving + '%' }" :title="`Non-moving threshold (${fsnThresholds(selected.analytics?.result_data).nonMoving}%)`"></div>
                   </div>
                   <div class="sop-activity-legend">
-                    <span>Non-moving &lt;10%</span>
-                    <span>Slow 10–50%</span>
-                    <span>Fast ≥50%</span>
+                    <span>Non-moving &lt;{{ fsnThresholds(selected.analytics?.result_data).nonMoving }}%</span>
+                    <span>Slow {{ fsnThresholds(selected.analytics?.result_data).nonMoving }}–{{ fsnThresholds(selected.analytics?.result_data).fast }}%</span>
+                    <span>Fast ≥{{ fsnThresholds(selected.analytics?.result_data).fast }}%</span>
                   </div>
                 </div>
                 <div class="sop-kv">
-                  <span class="sop-k">Weeks with sales (last 52)</span>
+                  <span class="sop-k">Weeks with sales</span>
                   <span class="sop-v">
                     {{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 52 }} weeks
                     <span v-if="selected.analytics?.result_data?.total_weeks != null && selected.analytics.result_data.total_weeks < 52" class="stale-badge">Stale — re-run analytics</span>
@@ -692,7 +770,7 @@
                   'fast':  selected.analytics?.fsn_classification === 'fast',
                   'slow':  selected.analytics?.fsn_classification === 'slow',
                   'non':   selected.analytics?.fsn_classification === 'non_moving',
-                }">{{ fsnDescription(selected.analytics?.fsn_classification) }}</p>
+                }">{{ fsnDescription(selected.analytics?.fsn_classification, selected.analytics?.result_data) }}</p>
               </div>
             </div>
 
@@ -736,6 +814,9 @@ import {
   Title, Tooltip, Legend
 } from 'chart.js'
 import api from '@/services/api'
+import { useFlashStore } from '@/stores/flash'
+
+const flashStore = useFlashStore()
 
 ChartJS.register(
   CategoryScale, LinearScale, BarElement,
@@ -778,6 +859,72 @@ function toggleFsnSort() {
   fsnSortDir.value = fsnSortDir.value === 'asc' ? 'desc' : 'asc'
   tablePage.value  = 1
 }
+
+// ── Threshold settings (Low-Stock sensitivity + FSN cutoffs) ────────────────
+const THRESHOLD_DEFAULTS = {
+  low_stock_sensitivity_percent:   100,
+  fsn_fast_threshold_percent:      50,
+  fsn_nonmoving_threshold_percent: 10,
+  fsn_dead_stock_weeks:            26,
+  fsn_fast_min_daily_avg:          1.0,
+}
+
+const showThresholds     = ref(false)
+const thresholds         = ref({ ...THRESHOLD_DEFAULTS })
+const thresholdsLoading  = ref(false)
+const thresholdsSaving   = ref(false)
+const thresholdsBanner   = ref(null)
+let thresholdsLoaded     = false
+
+function applyThresholdResponse(data) {
+  thresholds.value = {
+    low_stock_sensitivity_percent:   data.low_stock_sensitivity_percent,
+    fsn_fast_threshold_percent:      data.fsn_fast_threshold_percent,
+    fsn_nonmoving_threshold_percent: data.fsn_nonmoving_threshold_percent,
+    fsn_dead_stock_weeks:            data.fsn_dead_stock_weeks,
+    fsn_fast_min_daily_avg:          Number(data.fsn_fast_min_daily_avg),
+  }
+}
+
+async function loadThresholds() {
+  thresholdsLoading.value = true
+  try {
+    const { data } = await api.get('/settings')
+    applyThresholdResponse(data)
+    thresholdsLoaded = true
+  } catch (e) {
+    thresholdsBanner.value = { type: 'error', text: 'Could not load thresholds. Make sure the backend is running.' }
+  } finally {
+    thresholdsLoading.value = false
+  }
+}
+
+function resetThresholdDefaults() {
+  thresholds.value = { ...THRESHOLD_DEFAULTS }
+  thresholdsBanner.value = { type: 'info', text: 'Defaults loaded — click Save Thresholds to apply them.' }
+}
+
+async function saveThresholds() {
+  thresholdsSaving.value = true
+  thresholdsBanner.value = null
+  try {
+    const { data } = await api.put('/settings', thresholds.value)
+    applyThresholdResponse(data)
+    const successText = 'Saved. Alerts use the new sensitivity immediately; re-run Analytics to apply the FSN changes.'
+    thresholdsBanner.value = { type: 'success', text: successText }
+    flashStore.set(successText, 'success')
+  } catch (e) {
+    const msg = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Could not save thresholds.'
+    thresholdsBanner.value = { type: 'error', text: msg }
+    flashStore.set(msg, 'error')
+  } finally {
+    thresholdsSaving.value = false
+  }
+}
+
+watch(showThresholds, (open) => {
+  if (open && !thresholdsLoaded) loadThresholds()
+})
 
 // ── Loading state ─────────────────────────────────────────
 const loadingStage   = ref('')
@@ -858,11 +1005,25 @@ function methodLabel(rd) {
   return 'ARIMA(1,1,1)'
 }
 
-function fsnDescription(cls) {
+// The four FSN thresholds are admin-configurable (Settings page) and are
+// stamped into each analytics run's result_data at compute time, so the copy
+// below always matches whatever was actually applied — never a hardcoded
+// guess that can drift out of sync with the real setting.
+function fsnThresholds(rd) {
   return {
-    fast:       'Active in ≥50% of the last 52 weeks or ≥1 unit/day average. Prioritise replenishment and maintain higher safety stock.',
-    slow:       'Active in 10–50% of the last 52 weeks. Monitor levels regularly and avoid over-ordering.',
-    non_moving: 'Active in <10% of the last 52 weeks or no sale in ≥6 months. Review for dead stock — consider promotions or clearance.',
+    fast:      rd?.fsn_fast_threshold_percent      ?? 50,
+    nonMoving: rd?.fsn_nonmoving_threshold_percent ?? 10,
+    deadWeeks: rd?.fsn_dead_stock_weeks            ?? 26,
+    minDaily:  rd?.fsn_fast_min_daily_avg          ?? 1,
+  }
+}
+
+function fsnDescription(cls, rd) {
+  const t = fsnThresholds(rd)
+  return {
+    fast:       `Active in ≥${t.fast}% of the last 4 years or ≥${t.minDaily} unit/day average. Prioritise replenishment and maintain higher safety stock.`,
+    slow:       `Active in ${t.nonMoving}–${t.fast}% of the last 4 years. Monitor levels regularly and avoid over-ordering.`,
+    non_moving: `Active in <${t.nonMoving}% of the last 4 years or no sale in ≥${t.deadWeeks} weeks. Review for dead stock — consider promotions or clearance.`,
   }[cls] ?? ''
 }
 
@@ -1192,12 +1353,15 @@ const fsnActivityData = computed(() => {
   const barColors   = results.value.map(r => ({ fast: 'rgba(34,197,94,0.75)', slow: 'rgba(250,204,21,0.75)' }[r.analytics?.fsn_classification] ?? 'rgba(248,113,113,0.75)'))
   const borderColors = results.value.map(r => ({ fast: '#16a34a', slow: '#ca8a04' }[r.analytics?.fsn_classification] ?? '#ef4444'))
   const n = labels.length
+  // All rows from the same run share the same (admin-configured) thresholds —
+  // read them off the first row rather than hardcoding 50/10.
+  const t = fsnThresholds(results.value[0]?.analytics?.result_data)
   return {
     labels,
     datasets: [
       { type: 'bar', label: 'Sales Activity (%)', data: actPct, backgroundColor: barColors, borderColor: borderColors, borderWidth: 1, borderRadius: 4, order: 2 },
-      { type: 'line', label: 'Fast-Moving Threshold (50%)', data: Array(n).fill(50), borderColor: '#16a34a', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 1 },
-      { type: 'line', label: 'Slow/Dead Stock Threshold (10%)', data: Array(n).fill(10), borderColor: '#ef4444', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 0 },
+      { type: 'line', label: `Fast-Moving Threshold (${t.fast}%)`, data: Array(n).fill(t.fast), borderColor: '#16a34a', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 1 },
+      { type: 'line', label: `Slow/Dead Stock Threshold (${t.nonMoving}%)`, data: Array(n).fill(t.nonMoving), borderColor: '#ef4444', borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false, order: 0 },
     ],
   }
 })
@@ -1211,7 +1375,7 @@ const fsnActivityOptions = {
   scales: {
     x: { ticks: { font: { size: 10 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
     y: { beginAtZero: true, max: 105, ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#f3f4f6' },
-         title: { display: true, text: '% of weeks with sales activity (last 52 weeks)', font: { size: 10 }, color: '#9ca3af' } },
+         title: { display: true, text: '% of weeks with sales activity (last 4 years)', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
 
@@ -1323,6 +1487,68 @@ onMounted(loadSummary)
 .btn-run:disabled { opacity: .65; cursor: not-allowed; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.btn-thresholds {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px;
+  border: 1.5px solid #e5e7eb; border-radius: 11px; background: #fff;
+  color: #4b5563; font-size: 13px; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: all .2s;
+}
+.btn-thresholds:hover { border-color: #a5b4fc; color: #4338ca; background: #f5f5ff; }
+.btn-thresholds.active { border-color: #4338ca; color: #4338ca; background: #eef2ff; }
+
+/* Threshold settings panel */
+.thresholds-panel {
+  background: #fff; border: 1.5px solid #e5e7eb; border-radius: 14px;
+  padding: 20px 22px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+}
+.th-banner { padding: 10px 14px; border-radius: 9px; font-size: 12.5px; font-weight: 600; margin-bottom: 14px; }
+.th-banner.success { background: #dcfce7; color: #15803d; border: 1.5px solid #86efac; }
+.th-banner.error   { background: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; }
+.th-banner.info    { background: #e0f2fe; color: #075985; border: 1.5px solid #bae6fd; }
+
+.th-form  { display: flex; flex-direction: column; gap: 22px; }
+.th-group + .th-group { padding-top: 20px; border-top: 1px dashed #e5e7eb; }
+.th-group-title { font-size: 13.5px; font-weight: 700; color: #111827; margin: 0 0 3px; }
+.th-group-sub   { font-size: 12px; color: #6b7280; margin: 0 0 14px; max-width: 68ch; line-height: 1.5; }
+
+.th-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 24px; }
+.th-field { display: flex; flex-direction: column; gap: 5px; }
+.th-group > .th-field { margin-top: 4px; }
+.th-label { font-size: 11.5px; font-weight: 700; color: #374151; }
+.th-input-row { display: flex; align-items: center; gap: 8px; }
+.th-input {
+  width: 100px; flex-shrink: 0; padding: 8px 11px; border: 1.5px solid #e5e7eb;
+  border-radius: 9px; font-size: 13px; font-family: inherit; color: #111827;
+  background: #fff; outline: none; transition: border-color .2s;
+}
+.th-input:focus { border-color: #4338ca; box-shadow: 0 0 0 3px rgba(67,56,202,.12); }
+.th-unit { font-size: 12px; color: #6b7280; font-weight: 600; }
+.th-hint { font-size: 11.5px; color: #9ca3af; margin: 0; line-height: 1.5; }
+
+.th-warn {
+  margin-top: 4px; padding: 9px 13px; border-radius: 9px;
+  background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 600;
+}
+
+.th-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.th-btn-ghost {
+  padding: 9px 16px; border: 1.5px solid #e5e7eb; border-radius: 10px;
+  background: #fff; font-size: 12.5px; font-weight: 600; color: #4b5563;
+  font-family: inherit; cursor: pointer; transition: background .2s;
+}
+.th-btn-ghost:hover:not(:disabled) { background: #f9fafb; }
+.th-btn-ghost:disabled { opacity: .6; cursor: not-allowed; }
+.th-btn-save {
+  padding: 9px 20px; border: none; border-radius: 10px;
+  background: linear-gradient(135deg, #4338ca, #3730a3); color: #fff;
+  font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(67,56,202,.3); transition: opacity .2s;
+}
+.th-btn-save:disabled { opacity: .6; cursor: not-allowed; }
+
+@media (max-width: 640px) { .th-grid { grid-template-columns: 1fr; } }
 
 /* Algorithm cards */
 .algo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
@@ -2251,9 +2477,12 @@ onMounted(loadSummary)
   .running-steps { grid-template-columns: repeat(3, 1fr); } 
 }
 
-@media (max-width: 640px)  { 
-  .algo-grid { grid-template-columns: 1fr; } 
-  .analytics-page { padding: 16px; } 
+@media (max-width: 640px)  {
+  .algo-grid { grid-template-columns: 1fr; }
+  .analytics-page { padding: 16px; }
+  .page-header { flex-wrap: wrap; gap: 10px; }
+  .header-actions { width: 100%; }
+  .header-actions .btn-thresholds, .header-actions .btn-run { flex: 1; justify-content: center; }
   .running-steps { grid-template-columns: repeat(2, 1fr); } 
   .running-card { flex-wrap: wrap; }
   .so-panel { max-width: 100%; }

@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AlertController;
+use App\Http\Controllers\Api\SettingController;
 
 // ── Public ───────────────────────────────────────────────────────────────────
 // Throttle login to 10 attempts per minute per IP to prevent brute-force attacks
@@ -117,9 +118,13 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ── Predictive Analytics — admin & inventory_staff ───────────────────────
+    // Threshold settings live alongside it (on the Analytics page) since
+    // they're what drives the FSN classification shown there.
     Route::middleware('role:admin,inventory_staff')->group(function () {
         Route::post('/analytics/run',    [AnalyticsController::class, 'run']);
         Route::get('/analytics/summary', [AnalyticsController::class, 'summary']);
+        Route::get('/settings',          [SettingController::class, 'show']);
+        Route::put('/settings',          [SettingController::class, 'update']);
     });
 
     // ── User / Account management — admin only ────────────────────────────────
