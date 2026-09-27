@@ -595,14 +595,97 @@ onMounted(async () => {
 
 /* Responsive */
 @media (max-width: 1100px) {
-  .stats-row { grid-template-columns: repeat(2, 1fr); }
-  .appt-doctor, .appt-type { display: none; }
+  .stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
-@media (max-width: 768px) {
-  .appts-page { padding: 16px 16px 32px; }
-  .stats-row  { grid-template-columns: repeat(2, 1fr); }
-  .appt-patient { min-width: unset; }
-  .appt-datetime { min-width: unset; }
-  .form-grid { grid-template-columns: 1fr; }
+
+@media (max-width: 860px) {
+  .appts-page {
+    padding: 16px 16px 32px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .btn-book {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-field {
+    width: 100%;
+  }
+
+  .filter-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .appt-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .status-stripe {
+    width: 100%;
+    height: 5px;
+    min-height: 0;
+  }
+
+  .appt-patient,
+  .appt-datetime,
+  .appt-doctor,
+  .appt-type,
+  .appt-status-col,
+  .appt-actions {
+    width: 100%;
+    min-width: 0;
+    padding: 12px 14px;
+  }
+
+  .appt-actions {
+    margin-left: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 18px;
+  }
+
+  .stat-num {
+    font-size: 18px;
+  }
+
+  .appt-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .act-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>

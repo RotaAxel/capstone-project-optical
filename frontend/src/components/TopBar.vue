@@ -44,6 +44,13 @@ defineProps({
   gap: 0;
   flex: 1;
   justify-content: center;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.topbar-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .top-nav-link {
@@ -56,6 +63,7 @@ defineProps({
   position: relative;
   transition: color var(--duration) var(--ease);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Clean underline only on active */
@@ -89,7 +97,7 @@ defineProps({
   display: flex;
   align-items: center;
   gap: 8px;
-  /* margin-left: auto; */
+  flex-shrink: 0;
 }
 
 /* Default style for any button dropped into the actions slot */
@@ -115,5 +123,54 @@ defineProps({
 .topbar-actions :deep(a):hover {
   background: var(--teal-dark);
   box-shadow: 0 4px 12px rgba(91, 200, 192, 0.4);
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    height: auto;
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .topbar-nav {
+    order: 2;
+    width: 100%;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  }
+
+  .top-nav-link {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .topbar-actions {
+    order: 1;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar {
+    padding: 10px 12px;
+  }
+
+  .topbar-nav {
+    gap: 4px;
+  }
+
+  .top-nav-link {
+    padding: 10px 10px;
+    font-size: 11px;
+  }
+
+  .topbar-actions :deep(button),
+  .topbar-actions :deep(a) {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
 }
 </style>
