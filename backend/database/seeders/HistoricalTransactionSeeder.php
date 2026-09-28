@@ -363,44 +363,53 @@ class HistoricalTransactionSeeder extends Seeder
         $total = count($allPatients);
         $this->command->info("Assigning 1–2 sales to each of {$total} patients…");
 
+        // ── Generate sales using realistic yearly quotas rather than 1–2 sales per patient ──
+        $patientIds = DB::table('patients')
+            ->whereNull('deleted_at')
+            ->pluck('id')
+            ->all();
+
+        $yearlyTargets = [
+            2021 => 900,
+            2022 => 1100,
+            2023 => 1300,
+            2024 => 1450,
+            2025 => 1600,
+            2026 => 1700,
+        ];
+
+        $this->command->info('Generating sales using realistic yearly quotas: ' . json_encode($yearlyTargets));
+
         $payMethods = ['cash','cash','cash','cash','gcash','gcash','card','maya'];
-        $now        = Carbon::now();
         $receiptNo  = 0;
         $saleCount  = 0;
         $itemCount  = 0;
 
         DB::beginTransaction();
         try {
-            foreach ($allPatients as $patient) {
-                $regDate       = $patient['reg'];
-                $daysAvailable = max(1, (int) $regDate->diffInDays($now));
-                $numSales      = rand(1, 2);
+            foreach ($yearlyTargets as $year => $target) {
+                $generatedThisYear = 0;
 
-                for ($s = 0; $s < $numSales; $s++) {
-                    $offset   = rand(0, $daysAvailable);
-                    $saleDate = $regDate->copy()
-                        ->addDays($offset)
-                        ->setHour(rand(8, 18))
-                        ->setMinute(rand(0, 59));
+                while ($generatedThisYear < $target) {
+                    $saleDate = $this->pickSaleDateForYear($year);
+                    $patientId = $patientIds[array_rand($patientIds)];
+                    $roll = random_int(1, 100);
 
-                    if ($saleDate->isAfter($now)) {
-                        $saleDate = $now->copy()->subMinutes(rand(30, 300));
-                    }
-
-                    $roll    = rand(1, 100);
                     $product = match (true) {
-                        $roll <= 70 => $this->weightedPick($fastPool, $fastCum, $totalFast),
-                        $roll <= 95 => $this->weightedPick($slowPool->isEmpty() ? $fastPool : $slowPool, $slowCum, $totalSlow),
-                        default     => $accPool->isEmpty() ? $this->weightedPick($fastPool, $fastCum, $totalFast) : $accPool->values()[rand(0, $accPool->count() - 1)],
+                        $roll <= 68 => $this->weightedPick($fastPool, $fastCum, $totalFast),
+                        $roll <= 92 => $this->weightedPick($slowPool->isEmpty() ? $fastPool : $slowPool, $slowCum, $totalSlow),
+                        default     => $accPool->isEmpty()
+                            ? $this->weightedPick($fastPool, $fastCum, $totalFast)
+                            : $accPool->values()[random_int(0, $accPool->count() - 1)],
                     };
 
-                    $qty      = rand(1, 2);
+                    $qty = random_int(1, 2);
                     $subtotal = $product->selling_price * $qty;
                     $receiptNo++;
 
                     $saleId = DB::table('sales')->insertGetId([
                         'receipt_number'  => 'RCP-' . str_pad($receiptNo, 6, '0', STR_PAD_LEFT),
-                        'patient_id'      => $patient['id'],
+                        'patient_id'      => $patientId,
                         'cashier_id'      => $recep->id,
                         'prescription_id' => null,
                         'subtotal'        => $subtotal,
@@ -426,12 +435,13 @@ class HistoricalTransactionSeeder extends Seeder
                         'created_at' => $saleDate,
                         'updated_at' => $saleDate,
                     ]);
+
                     $saleCount++;
                     $itemCount++;
 
-                    // 20% chance of a second bundled line item (frame + lens)
-                    if ($roll <= 70 && rand(1, 100) <= 20 && $fastPool->count() > 1) {
+                    if ($roll <= 68 && random_int(1, 100) <= 23 && $fastPool->count() > 1) {
                         $product2 = $this->weightedPick($fastPool, $fastCum, $totalFast);
+
                         if ($product2->id !== $product->id) {
                             DB::table('sale_items')->insert([
                                 'sale_id'    => $saleId,
@@ -443,9 +453,12 @@ class HistoricalTransactionSeeder extends Seeder
                                 'created_at' => $saleDate,
                                 'updated_at' => $saleDate,
                             ]);
+
                             $itemCount++;
                         }
                     }
+
+                    $generatedThisYear++;
                 }
             }
 
@@ -455,7 +468,7 @@ class HistoricalTransactionSeeder extends Seeder
             throw $e;
         }
 
-        $this->command->info("✓ {$total} patients | {$saleCount} sales | {$itemCount} line items.");
+        $this->command->info("✓ Sales generated: {$saleCount} sales | {$itemCount} line items.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -485,26 +498,62 @@ class HistoricalTransactionSeeder extends Seeder
         return array_slice($out, 0, $limit);
     }
 
+    private function pickSaleDateForYear(int $year): Carbon
+    {
+        $monthWeights = [1.0, 1.2, 1.4, 1.5, 1.6, 1.8, 2.0, 1.9, 1.6, 1.4, 1.2, 1.0];
+        $weightedMonths = [];
+
+        foreach ($monthWeights as $index => $weight) {
+            $month = $index + 1;
+
+            for ($i = 0; $i < max(1, (int) round($weight * 10)); $i++) {
+                $weightedMonths[] = $month;
+            }
+        }
+
+        $month = $weightedMonths[array_rand($weightedMonths)];
+        $daysInMonth = Carbon::create($year, $month, 1)->daysInMonth;
+        $day = random_int(1, $daysInMonth);
+
+        return Carbon::create(
+            $year,
+            $month,
+            $day,
+            random_int(9, 18),
+            random_int(0, 59),
+            0
+        );
+    }
+
     private function buildWeights(\Illuminate\Support\Collection $pool, float $decay): array
     {
-        $cum = []; $total = 0;
+        $cum = [];
+        $total = 0;
+
         foreach ($pool as $i => $_) {
             $total += max(1, (int) round(100 * pow($decay, $i)));
-            $cum[]  = $total;
+            $cum[] = $total;
         }
+
         return [$cum, $total];
     }
 
     private function weightedPick(\Illuminate\Support\Collection $pool, array $cum, int $total): object
     {
         $rand = mt_rand(1, $total);
-        $lo   = 0;
-        $hi   = count($cum) - 1;
+        $lo = 0;
+        $hi = count($cum) - 1;
+
         while ($lo < $hi) {
-            $mid = ($lo + $hi) >> 1;
-            if ($cum[$mid] < $rand) $lo = $mid + 1;
-            else                    $hi = $mid;
+            $mid = (int) floor(($lo + $hi) / 2);
+
+            if ($cum[$mid] < $rand) {
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid;
+            }
         }
+
         return $pool[$lo];
     }
 }
