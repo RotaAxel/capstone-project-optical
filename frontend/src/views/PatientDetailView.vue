@@ -154,8 +154,7 @@
           <div v-if="sortedAppointments.length" class="space-y-2">
             <div v-for="appt in sortedAppointments" :key="appt.id" class="appt-row">
               <div class="appt-date-col">
-                <p class="appt-date">{{ formatDate(appt.appointment_date) }}</p>
-                <p class="appt-time">{{ formatTime(appt.appointment_date) }}</p>
+                <p class="appt-date">{{ appt.appointment_label }}</p>
               </div>
               <div class="flex-1">
                 <p class="text-sm font-semibold text-gray-900 capitalize">{{ appt.type?.replace(/_/g, ' ') }}</p>
@@ -291,7 +290,8 @@ const activeTab = ref('appointments')
 const latestRx = computed(() => patient.value?.prescriptions?.[0] ?? null)
 
 const sortedAppointments = computed(() =>
-  [...(patient.value?.appointments ?? [])].sort((a, b) => new Date(b.appointment_date) - new Date(a.appointment_date))
+  [...(patient.value?.appointments ?? [])].sort((a, b) =>
+    (b.appointment_year * 12 + b.appointment_month) - (a.appointment_year * 12 + a.appointment_month))
 )
 
 const ageLabel = computed(() => {
@@ -311,7 +311,7 @@ const totalSpent = computed(() => {
 
 const lastVisitLabel = computed(() => {
   const appts = sortedAppointments.value
-  return appts.length ? formatDate(appts[0].appointment_date) : 'None'
+  return appts.length ? appts[0].appointment_label : 'None'
 })
 
 const historyTabs = computed(() => [
@@ -331,7 +331,6 @@ function statusClass(status) {
 }
 
 function formatDate(d)     { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
-function formatTime(d)     { return d ? new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '' }
 function formatDateTime(d) { return d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' }
 function formatAmount(v)   { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }
 

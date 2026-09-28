@@ -72,9 +72,9 @@
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             </div>
             <div class="asc-body">
-              <p class="asc-label">Appointments Today</p>
-              <p class="asc-value">{{ data.stats?.appointments_today ?? 0 }}</p>
-              <p class="asc-sub">Scheduled for today</p>
+              <p class="asc-label">Appointments This Month</p>
+              <p class="asc-value">{{ data.stats?.appointments_this_month ?? 0 }}</p>
+              <p class="asc-sub">Scheduled this month</p>
             </div>
           </div>
         </div>
@@ -155,7 +155,7 @@
                 </div>
                 <div class="appointment-info">
                   <p class="appointment-name">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
-                  <p class="appointment-time">{{ fmtDateTime(appt.appointment_date) }}</p>
+                  <p class="appointment-time">{{ appt.appointment_label }}</p>
                 </div>
                 <span class="appointment-type">{{ appt.type?.replace('_', ' ') }}</span>
               </div>
@@ -171,11 +171,11 @@
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-icon blue"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
-            <div><p class="stat-label">Appointments Today</p><p class="stat-value">{{ data.stats?.appointments_today ?? 0 }}</p></div>
+            <div><p class="stat-label">Appointments This Month</p><p class="stat-value">{{ data.stats?.appointments_this_month ?? 0 }}</p></div>
           </div>
           <div class="stat-card">
             <div class="stat-icon green"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-            <div><p class="stat-label">Completed Today</p><p class="stat-value">{{ data.stats?.completed_today ?? 0 }}</p></div>
+            <div><p class="stat-label">Completed This Month</p><p class="stat-value">{{ data.stats?.completed_this_month ?? 0 }}</p></div>
           </div>
           <div class="stat-card">
             <div class="stat-icon purple"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
@@ -183,19 +183,19 @@
           </div>
           <div class="stat-card">
             <div class="stat-icon red"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></div>
-            <div><p class="stat-label">Cancelled Today</p><p class="stat-value">{{ data.stats?.cancelled_today ?? 0 }}</p></div>
+            <div><p class="stat-label">Cancelled This Month</p><p class="stat-value">{{ data.stats?.cancelled_this_month ?? 0 }}</p></div>
           </div>
         </div>
 
         <div class="content-grid">
           <div class="card">
             <div class="section-header">
-              <h2 class="section-title">Today's Schedule</h2>
+              <h2 class="section-title">This Month's Schedule</h2>
               <RouterLink to="/appointments" class="view-link">View all →</RouterLink>
             </div>
-            <div v-if="data.today_appointments?.length" class="schedule-list">
-              <div v-for="appt in data.today_appointments" :key="appt.id" class="schedule-item">
-                <div class="time-badge">{{ fmtTime(appt.appointment_date) }}</div>
+            <div v-if="data.this_month_appointments?.length" class="schedule-list">
+              <div v-for="appt in data.this_month_appointments" :key="appt.id" class="schedule-item">
+                <div class="month-badge">{{ appt.appointment_label }}</div>
                 <div class="schedule-details">
                   <p class="schedule-name">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
                   <p class="schedule-meta">{{ appt.type?.replace('_', ' ') }} · Dr. {{ appt.optometrist?.name ?? '—' }}</p>
@@ -203,7 +203,7 @@
                 <span class="status-badge" :class="appt.status">{{ appt.status?.replace('_', ' ') }}</span>
               </div>
             </div>
-            <p v-else class="empty-state">No appointments scheduled today</p>
+            <p v-else class="empty-state">No appointments scheduled this month</p>
           </div>
 
           <div class="card">
@@ -231,11 +231,11 @@
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-icon blue"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
-            <div><p class="stat-label">My Appointments Today</p><p class="stat-value">{{ data.stats?.my_appointments_today ?? 0 }}</p></div>
+            <div><p class="stat-label">My Appointments This Month</p><p class="stat-value">{{ data.stats?.my_appointments_this_month ?? 0 }}</p></div>
           </div>
           <div class="stat-card">
             <div class="stat-icon green"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-            <div><p class="stat-label">Completed Today</p><p class="stat-value">{{ data.stats?.completed_today ?? 0 }}</p></div>
+            <div><p class="stat-label">Completed This Month</p><p class="stat-value">{{ data.stats?.completed_this_month ?? 0 }}</p></div>
           </div>
           <div class="stat-card">
             <div class="stat-icon purple"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
@@ -243,19 +243,19 @@
           </div>
           <div class="stat-card">
             <div class="stat-icon orange"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-            <div><p class="stat-label">Pending Today</p><p class="stat-value">{{ data.stats?.scheduled_today ?? 0 }}</p></div>
+            <div><p class="stat-label">Pending This Month</p><p class="stat-value">{{ data.stats?.scheduled_this_month ?? 0 }}</p></div>
           </div>
         </div>
 
         <div class="content-grid">
           <div class="card">
             <div class="section-header">
-              <h2 class="section-title">My Schedule Today</h2>
+              <h2 class="section-title">My Schedule This Month</h2>
               <RouterLink to="/appointments" class="view-link">View all →</RouterLink>
             </div>
-            <div v-if="data.today_appointments?.length" class="schedule-list">
-              <div v-for="appt in data.today_appointments" :key="appt.id" class="schedule-item">
-                <div class="time-badge">{{ fmtTime(appt.appointment_date) }}</div>
+            <div v-if="data.this_month_appointments?.length" class="schedule-list">
+              <div v-for="appt in data.this_month_appointments" :key="appt.id" class="schedule-item">
+                <div class="month-badge">{{ appt.appointment_label }}</div>
                 <div class="schedule-details">
                   <p class="schedule-name">{{ appt.patient?.first_name }} {{ appt.patient?.last_name }}</p>
                   <p class="schedule-meta">{{ appt.type?.replace('_', ' ') }} · {{ appt.reason || '—' }}</p>
@@ -263,7 +263,7 @@
                 <span class="status-badge" :class="appt.status">{{ appt.status }}</span>
               </div>
             </div>
-            <p v-else class="empty-state">No appointments assigned to you today</p>
+            <p v-else class="empty-state">No appointments assigned to you this month</p>
           </div>
 
           <div class="card">
@@ -409,8 +409,6 @@ const chartDefaults = {
 }
 
 function fmt(v) { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
-function fmtDateTime(v) { return v ? new Date(v).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' }
-function fmtTime(v) { return v ? new Date(v).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '—' }
 function fmtDateShort(v) { return v ? new Date(v).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : '—' }
 
 async function fetchDashboard() {
@@ -882,12 +880,15 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 
 .schedule-item:hover { border-color: var(--teal); }
 
-.time-badge {
-  width: 48px;
+.month-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--teal-bg, rgba(20,184,166,.12));
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--teal);
+  white-space: nowrap;
   flex-shrink: 0;
 }
 

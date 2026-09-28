@@ -119,47 +119,27 @@ class AlertController extends Controller
         return $alerts;
     }
 
-    // ── Admin: today's total appointments across all doctors ─────────────────
+    // ── Admin: this month's total appointments across all doctors ────────────
     private function adminAppointmentAlerts(): array
     {
         $alerts = [];
+        [$year, $month]         = [now()->year, now()->month];
+        [$nextYear, $nextMonth] = $this->nextMonth();
 
-        $count = Appointment::whereDate('appointment_date', Carbon::today())
-            ->where('status', 'scheduled')
-            ->count();
+        $count = Appointment::where('appointment_year', $year)->where('appointment_month', $month)
+            ->where('status', 'scheduled')->count();
 
         if ($count > 0) {
-            $alerts[] = [
-                'id'           => 'appt-today',
-                'type'         => 'appointments',
-                'severity'     => 'info',
-                'title'        => 'Today\'s Appointments',
-                'message'      => "{$count} appointment(s) scheduled for today.",
-                'route'        => '/appointments',
-                'highlight_id' => null,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
+            $alerts[] = $this->apptAlert('appt-this-month', 'info',
+                "This Month's Appointments", "{$count} appointment(s) scheduled this month.");
         }
 
-        // Unconfirmed appointments for tomorrow
-        $tomorrow = Carbon::tomorrow()->toDateString();
-        $tmrCount = Appointment::whereDate('appointment_date', $tomorrow)
-            ->where('status', 'scheduled')
-            ->count();
+        $nextCount = Appointment::where('appointment_year', $nextYear)->where('appointment_month', $nextMonth)
+            ->where('status', 'scheduled')->count();
 
-        if ($tmrCount > 0) {
-            $alerts[] = [
-                'id'           => 'appt-tomorrow',
-                'type'         => 'appointments',
-                'severity'     => 'info',
-                'title'        => 'Tomorrow\'s Appointments',
-                'message'      => "{$tmrCount} appointment(s) scheduled for tomorrow.",
-                'route'        => '/appointments',
-                'highlight_id' => null,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
+        if ($nextCount > 0) {
+            $alerts[] = $this->apptAlert('appt-next-month', 'info',
+                "Next Month's Appointments", "{$nextCount} appointment(s) scheduled for next month.");
         }
 
         return $alerts;
@@ -169,88 +149,36 @@ class AlertController extends Controller
     private function receptionistAlerts(): array
     {
         $alerts = [];
-        $today  = Carbon::today();
+        [$year, $month]         = [now()->year, now()->month];
+        [$nextYear, $nextMonth] = $this->nextMonth();
 
-        $scheduled = Appointment::whereDate('appointment_date', $today)
-            ->where('status', 'scheduled')
-            ->count();
+        $scheduled = Appointment::where('appointment_year', $year)->where('appointment_month', $month)
+            ->where('status', 'scheduled')->count();
 
         if ($scheduled > 0) {
-            $alerts[] = [
-                'id'           => 'appt-today',
-                'type'         => 'appointments',
-                'severity'     => 'info',
-                'title'        => 'Today\'s Appointments',
-                'message'      => "{$scheduled} appointment(s) still scheduled today.",
-                'route'        => '/appointments',
-                'highlight_id' => null,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
+            $alerts[] = $this->apptAlert('appt-this-month', 'info',
+                "This Month's Appointments", "{$scheduled} appointment(s) still scheduled this month.");
         }
 
-        // Appointments in the next hour (urgent)
-        $nextHour = Appointment::with('patient')
-            ->whereBetween('appointment_date', [now(), now()->addHour()])
-            ->where('status', 'scheduled')
-            ->get();
-
-        foreach ($nextHour as $appt) {
-            $name = $appt->patient ? $appt->patient->first_name . ' ' . $appt->patient->last_name : 'Unknown';
-            $time = Carbon::parse($appt->appointment_date)->format('g:i A');
-            $alerts[] = [
-                'id'           => 'appt-soon-' . $appt->id,
-                'type'         => 'appointments',
-                'severity'     => 'warning',
-                'title'        => 'Appointment Starting Soon',
-                'message'      => "{$name} has an appointment at {$time}.",
-                'route'        => '/appointments',
-                'highlight_id' => $appt->id,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
-        }
-
-        // No-show check: scheduled appointments past their time (over 30 min ago)
-        $noShows = Appointment::with('patient')
-            ->where('appointment_date', '<', now()->subMinutes(30))
-            ->whereDate('appointment_date', $today)
-            ->where('status', 'scheduled')
-            ->get();
-
-        foreach ($noShows as $appt) {
-            $name = $appt->patient ? $appt->patient->first_name . ' ' . $appt->patient->last_name : 'Unknown';
-            $time = Carbon::parse($appt->appointment_date)->format('g:i A');
-            $alerts[] = [
-                'id'           => 'noshow-' . $appt->id,
-                'type'         => 'no_show',
-                'severity'     => 'warning',
-                'title'        => 'Possible No-Show',
-                'message'      => "{$name} was scheduled at {$time} but has not been marked as completed.",
-                'route'        => '/appointments',
-                'highlight_id' => $appt->id,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
-        }
-
-        // Tomorrow's appointments count
-        $tomorrow = Appointment::whereDate('appointment_date', Carbon::tomorrow())
-            ->where('status', 'scheduled')
+        // Appointments still marked "scheduled" for a month that has already passed —
+        // the month-only equivalent of a no-show check (there's no time-of-day to compare against).
+        $overdueCount = Appointment::where('status', 'scheduled')
+            ->where(fn($q) => $q->where('appointment_year', '<', $year)
+                ->orWhere(fn($q2) => $q2->where('appointment_year', $year)->where('appointment_month', '<', $month)))
             ->count();
 
-        if ($tomorrow > 0) {
-            $alerts[] = [
-                'id'           => 'appt-tomorrow',
-                'type'         => 'appointments',
-                'severity'     => 'info',
-                'title'        => 'Tomorrow\'s Schedule',
-                'message'      => "{$tomorrow} appointment(s) scheduled for tomorrow.",
-                'route'        => '/appointments',
-                'highlight_id' => null,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
+        if ($overdueCount > 0) {
+            $alerts[] = $this->apptAlert('appt-overdue', 'warning',
+                'Unresolved Past Appointments',
+                "{$overdueCount} appointment(s) from an earlier month are still marked \"scheduled\" — mark them completed, cancelled, or no-show.");
+        }
+
+        $nextCount = Appointment::where('appointment_year', $nextYear)->where('appointment_month', $nextMonth)
+            ->where('status', 'scheduled')->count();
+
+        if ($nextCount > 0) {
+            $alerts[] = $this->apptAlert('appt-next-month', 'info',
+                "Next Month's Schedule", "{$nextCount} appointment(s) scheduled for next month.");
         }
 
         return $alerts;
@@ -261,48 +189,28 @@ class AlertController extends Controller
     {
         $alerts = [];
         $today  = Carbon::today();
+        [$year, $month] = [now()->year, now()->month];
 
-        // Their appointments today
-        $myToday = Appointment::whereDate('appointment_date', $today)
-            ->where('optometrist_id', $user->id)
-            ->where('status', 'scheduled')
-            ->count();
+        // Their appointments this month
+        $myThisMonth = Appointment::where('appointment_year', $year)->where('appointment_month', $month)
+            ->where('optometrist_id', $user->id)->where('status', 'scheduled')->count();
 
-        if ($myToday > 0) {
-            $alerts[] = [
-                'id'           => 'my-appt-today',
-                'type'         => 'appointments',
-                'severity'     => 'info',
-                'title'        => 'Your Appointments Today',
-                'message'      => "You have {$myToday} appointment(s) scheduled for today.",
-                'route'        => '/appointments',
-                'highlight_id' => null,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
+        if ($myThisMonth > 0) {
+            $alerts[] = $this->apptAlert('my-appt-this-month', 'info',
+                'Your Appointments This Month', "You have {$myThisMonth} appointment(s) scheduled this month.");
         }
 
-        // Their appointment starting within the next hour
-        $nextHour = Appointment::with('patient')
-            ->whereBetween('appointment_date', [now(), now()->addHour()])
+        // Their own appointments left "scheduled" for a month that's already passed
+        $myOverdue = Appointment::where('status', 'scheduled')
             ->where('optometrist_id', $user->id)
-            ->where('status', 'scheduled')
-            ->get();
+            ->where(fn($q) => $q->where('appointment_year', '<', $year)
+                ->orWhere(fn($q2) => $q2->where('appointment_year', $year)->where('appointment_month', '<', $month)))
+            ->count();
 
-        foreach ($nextHour as $appt) {
-            $name = $appt->patient ? $appt->patient->first_name . ' ' . $appt->patient->last_name : 'Unknown';
-            $time = Carbon::parse($appt->appointment_date)->format('g:i A');
-            $alerts[] = [
-                'id'           => 'my-appt-soon-' . $appt->id,
-                'type'         => 'appointments',
-                'severity'     => 'warning',
-                'title'        => 'Patient Arriving Soon',
-                'message'      => "{$name} is scheduled at {$time}.",
-                'route'        => '/appointments',
-                'highlight_id' => $appt->id,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
+        if ($myOverdue > 0) {
+            $alerts[] = $this->apptAlert('my-appt-overdue', 'warning',
+                'Unresolved Past Appointments',
+                "{$myOverdue} of your appointment(s) from an earlier month are still marked \"scheduled\".");
         }
 
         // Prescriptions expiring in the next 7 days (written by this optometrist)
@@ -328,30 +236,28 @@ class AlertController extends Controller
             ];
         }
 
-        // Overdue appointments (past time, still scheduled, their patients)
-        $overdue = Appointment::with('patient')
-            ->where('appointment_date', '<', now()->subMinutes(30))
-            ->whereDate('appointment_date', $today)
-            ->where('optometrist_id', $user->id)
-            ->where('status', 'scheduled')
-            ->get();
-
-        foreach ($overdue as $appt) {
-            $name = $appt->patient ? $appt->patient->first_name . ' ' . $appt->patient->last_name : 'Unknown';
-            $time = Carbon::parse($appt->appointment_date)->format('g:i A');
-            $alerts[] = [
-                'id'           => 'my-overdue-' . $appt->id,
-                'type'         => 'overdue_appointment',
-                'severity'     => 'warning',
-                'title'        => 'Appointment Not Completed',
-                'message'      => "{$name}'s {$time} appointment has not been marked completed.",
-                'route'        => '/appointments',
-                'highlight_id' => $appt->id,
-                'search_hint'  => null,
-                'created_at'   => now(),
-            ];
-        }
-
         return $alerts;
+    }
+
+    /** [year, month] of the calendar month right after the current one. */
+    private function nextMonth(): array
+    {
+        $next = now()->copy()->addMonthNoOverflow();
+        return [$next->year, $next->month];
+    }
+
+    private function apptAlert(string $id, string $severity, string $title, string $message): array
+    {
+        return [
+            'id'           => $id,
+            'type'         => 'appointments',
+            'severity'     => $severity,
+            'title'        => $title,
+            'message'      => $message,
+            'route'        => '/appointments',
+            'highlight_id' => null,
+            'search_hint'  => null,
+            'created_at'   => now(),
+        ];
     }
 }

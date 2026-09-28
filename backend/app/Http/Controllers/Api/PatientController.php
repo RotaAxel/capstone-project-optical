@@ -15,9 +15,11 @@ class PatientController extends Controller
         $query = Patient::with('createdBy')
             ->withCount(['appointments', 'prescriptions', 'sales'])
             ->addSelect([
-                'last_visit' => \App\Models\Appointment::select('appointment_date')
+                // "YYYY-MM" — appointments only track a month now, not a specific day.
+                'last_visit' => \App\Models\Appointment::selectRaw("CONCAT(appointment_year, '-', LPAD(appointment_month, 2, '0'))")
                     ->whereColumn('patient_id', 'patients.id')
-                    ->orderByDesc('appointment_date')
+                    ->orderByDesc('appointment_year')
+                    ->orderByDesc('appointment_month')
                     ->limit(1),
                 'latest_rx_date' => \App\Models\Prescription::select('exam_date')
                     ->whereColumn('patient_id', 'patients.id')

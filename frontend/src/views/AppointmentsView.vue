@@ -62,7 +62,7 @@
     <div class="filter-bar">
       <div class="filter-field">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        <input v-model="filterDate" type="date" class="filter-input" @change="applyFilters" />
+        <input v-model="filterMonth" type="month" class="filter-input" @change="applyFilters" />
       </div>
       <div class="filter-field">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
@@ -74,7 +74,7 @@
           <option value="no_show">No Show</option>
         </select>
       </div>
-      <button v-if="filterDate || filterStatus" @click="clearFilters" class="clear-btn">
+      <button v-if="filterMonth || filterStatus" @click="clearFilters" class="clear-btn">
         Clear filters
       </button>
     </div>
@@ -99,10 +99,9 @@
             </div>
           </div>
 
-          <!-- Date & Time -->
+          <!-- Month -->
           <div class="appt-datetime">
-            <p class="appt-date">{{ fmtDate(a.appointment_date) }}</p>
-            <p class="appt-time">{{ fmtTime(a.appointment_date) }}</p>
+            <p class="appt-date">{{ a.appointment_label }}</p>
           </div>
 
           <!-- Doctor -->
@@ -192,8 +191,8 @@
               </select>
             </div>
             <div class="fg">
-              <label class="fl">Date &amp; Time *</label>
-              <input v-model="form.appointment_date" type="datetime-local" class="fi" required />
+              <label class="fl">Month *</label>
+              <input v-model="form.month_input" type="month" class="fi" :min="currentMonthStr" required />
             </div>
             <div class="fg">
               <label class="fl">Type *</label>
@@ -239,33 +238,44 @@ const optometrists = ref([])
 const pagination   = ref({})
 const apptStats    = ref({})
 const loading      = ref(true)
-const filterDate   = ref('')
+const filterMonth  = ref('') // "YYYY-MM" from <input type="month">
 const filterStatus = ref('')
 const showModal    = ref(false)
 const editingId    = ref(null)
 const saving       = ref(false)
 const formError    = ref('')
 
-const emptyForm = () => ({ patient_id: '', optometrist_id: '', appointment_date: '', type: 'eye_exam', reason: '' })
+const currentMonthStr = new Date().toISOString().slice(0, 7)
+
+const emptyForm = () => ({ patient_id: '', optometrist_id: '', month_input: '', type: 'eye_exam', reason: '' })
 const form = ref(emptyForm())
+
+// "YYYY-MM" (from <input type="month">) <-> separate month/year params the API expects.
+function splitMonthStr(s) {
+  if (!s) return {}
+  const [year, month] = s.split('-').map(Number)
+  return { year, month }
+}
 
 async function fetchStats() {
   try {
+    const { year, month } = splitMonthStr(filterMonth.value)
     const { data } = await api.get('/appointments/stats', {
-      params: { date: filterDate.value || undefined, status: filterStatus.value || undefined },
+      params: { year, month, status: filterStatus.value || undefined },
     })
     apptStats.value = data
   } catch { /* */ }
 }
 
 function applyFilters() { fetchPage(1); fetchStats() }
-function clearFilters() { filterDate.value = ''; filterStatus.value = ''; applyFilters() }
+function clearFilters() { filterMonth.value = ''; filterStatus.value = ''; applyFilters() }
 
 async function fetchPage(page = 1) {
   loading.value = true
   try {
+    const { year, month } = splitMonthStr(filterMonth.value)
     const { data } = await api.get('/appointments', {
-      params: { page, date: filterDate.value || undefined, status: filterStatus.value || undefined }
+      params: { page, year, month, status: filterStatus.value || undefined }
     })
     appointments.value = data.data
     pagination.value   = { current_page: data.current_page, last_page: data.last_page, total: data.total }
@@ -277,7 +287,10 @@ function openModal(appt = null) {
   formError.value = ''
   if (appt) {
     editingId.value = appt.id
-    form.value = { ...appt, appointment_date: appt.appointment_date?.replace(' ', 'T').slice(0, 16) }
+    const monthInput = appt.appointment_year && appt.appointment_month
+      ? `${appt.appointment_year}-${String(appt.appointment_month).padStart(2, '0')}`
+      : ''
+    form.value = { ...appt, month_input: monthInput }
   } else {
     editingId.value = null
     form.value = emptyForm()
@@ -290,8 +303,11 @@ function closeModal() { showModal.value = false }
 async function save() {
   formError.value = ''; saving.value = true
   try {
-    if (editingId.value) await api.put(`/appointments/${editingId.value}`, form.value)
-    else await api.post('/appointments', form.value)
+    const { year, month } = splitMonthStr(form.value.month_input)
+    const payload = { ...form.value, appointment_year: year, appointment_month: month }
+    delete payload.month_input
+    if (editingId.value) await api.put(`/appointments/${editingId.value}`, payload)
+    else await api.post('/appointments', payload)
     closeModal(); fetchPage(pagination.value.current_page ?? 1); fetchStats()
   } catch (e) {
     formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save appointment.'
@@ -313,12 +329,9 @@ function statusPill(s) {
   return { 'pill-amber': s === 'scheduled', 'pill-green': s === 'completed', 'pill-red': s === 'cancelled', 'pill-gray': s === 'no_show' }
 }
 
-function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
-function fmtTime(d) { return d ? new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '' }
-
 async function activateHighlight(id) {
   highlightId.value  = id
-  filterDate.value   = ''
+  filterMonth.value  = ''
   filterStatus.value = ''
   loading.value = true
   try {

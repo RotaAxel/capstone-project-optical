@@ -326,16 +326,17 @@ class HistoricalTransactionSeeder extends Seeder
                     }
 
                     $apptBatch[] = [
-                        'patient_id'       => $np->id,
-                        'optometrist_id'   => $opto->id,
-                        'created_by'       => $recep->id,
-                        'appointment_date' => $apptDate,
-                        'type'             => $apptTypes[($np->id + $a) % count($apptTypes)],
-                        'status'           => $status,
-                        'reason'           => $this->apptReasons[($np->id + $a) % count($this->apptReasons)],
-                        'notes'            => null,
-                        'created_at'       => $apptDate->copy()->subHours(rand(1, 48)),
-                        'updated_at'       => $apptDate,
+                        'patient_id'         => $np->id,
+                        'optometrist_id'     => $opto->id,
+                        'created_by'         => $recep->id,
+                        'appointment_month'  => $apptDate->month,
+                        'appointment_year'   => $apptDate->year,
+                        'type'               => $apptTypes[($np->id + $a) % count($apptTypes)],
+                        'status'             => $status,
+                        'reason'             => $this->apptReasons[($np->id + $a) % count($this->apptReasons)],
+                        'notes'              => null,
+                        'created_at'         => $apptDate->copy()->subHours(rand(1, 48)),
+                        'updated_at'         => $apptDate,
                     ];
                     $apptCount++;
 

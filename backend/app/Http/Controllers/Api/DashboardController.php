@@ -34,13 +34,13 @@ class DashboardController extends Controller
         $monthStart = now()->startOfMonth()->toDateString();
 
         $stats = [
-            'total_patients'     => Patient::count(),
-            'new_patients_today' => Patient::whereDate('created_at', $today)->count(),
-            'appointments_today' => Appointment::whereDate('appointment_date', $today)->count(),
-            'low_stock_count'    => Product::whereColumn('stock_quantity', '<=', 'reorder_point')->count(),
-            'sales_today'        => Sale::whereDate('created_at', $today)->where('status', 'completed')->sum('total_amount'),
-            'sales_this_month'   => Sale::whereDate('created_at', '>=', $monthStart)->where('status', 'completed')->sum('total_amount'),
-            'transactions_today' => Sale::whereDate('created_at', $today)->where('status', 'completed')->count(),
+            'total_patients'         => Patient::count(),
+            'new_patients_today'     => Patient::whereDate('created_at', $today)->count(),
+            'appointments_this_month'=> Appointment::where('appointment_year', now()->year)->where('appointment_month', now()->month)->count(),
+            'low_stock_count'        => Product::whereColumn('stock_quantity', '<=', 'reorder_point')->count(),
+            'sales_today'            => Sale::whereDate('created_at', $today)->where('status', 'completed')->sum('total_amount'),
+            'sales_this_month'       => Sale::whereDate('created_at', '>=', $monthStart)->where('status', 'completed')->sum('total_amount'),
+            'transactions_today'     => Sale::whereDate('created_at', $today)->where('status', 'completed')->count(),
         ];
 
         $topSelling = SaleItem::selectRaw('product_id, SUM(quantity) as total_sold')
@@ -64,7 +64,7 @@ class DashboardController extends Controller
             'top_selling_products' => $topSelling,
             'low_stock_products'   => Product::with('category')->whereColumn('stock_quantity', '<=', 'reorder_point')->orderBy('stock_quantity')->limit(5)->get(),
             'recent_sales'         => Sale::with(['patient', 'cashier', 'items'])->latest()->limit(5)->get(),
-            'upcoming_appointments'=> Appointment::with(['patient', 'optometrist'])->where('appointment_date', '>=', now())->where('status', 'scheduled')->orderBy('appointment_date')->limit(5)->get(),
+            'upcoming_appointments'=> $this->upcomingAppointmentsQuery()->with(['patient', 'optometrist'])->limit(5)->get(),
             'monthly_sales'        => Sale::selectRaw('MONTH(created_at) as month, SUM(total_amount) as total')->whereYear('created_at', now()->year)->where('status', 'completed')->groupBy('month')->orderBy('month')->get(),
         ];
     }
@@ -72,69 +72,70 @@ class DashboardController extends Controller
     // ── Receptionist ─────────────────────────────────────────────────────────
     private function receptionistData(string $today): array
     {
-        $todayAppts = Appointment::with(['patient', 'optometrist'])
-            ->whereDate('appointment_date', $today)
-            ->orderBy('appointment_date')
+        $thisMonthAppts = Appointment::with(['patient', 'optometrist'])
+            ->where('appointment_year', now()->year)->where('appointment_month', now()->month)
             ->get();
 
         $stats = [
-            'appointments_today' => $todayAppts->count(),
-            'scheduled_today'    => $todayAppts->where('status', 'scheduled')->count(),
-            'completed_today'    => $todayAppts->where('status', 'completed')->count(),
-            'cancelled_today'    => $todayAppts->where('status', 'cancelled')->count(),
-            'new_patients_today' => Patient::whereDate('created_at', $today)->count(),
-            'total_patients'     => Patient::count(),
+            'appointments_this_month' => $thisMonthAppts->count(),
+            'scheduled_this_month'    => $thisMonthAppts->where('status', 'scheduled')->count(),
+            'completed_this_month'    => $thisMonthAppts->where('status', 'completed')->count(),
+            'cancelled_this_month'    => $thisMonthAppts->where('status', 'cancelled')->count(),
+            'new_patients_today'      => Patient::whereDate('created_at', $today)->count(),
+            'total_patients'          => Patient::count(),
         ];
 
         return [
-            'role'               => 'receptionist',
-            'stats'              => $stats,
-            'today_appointments' => $todayAppts,
-            'recent_patients'    => Patient::with('createdBy')->latest()->limit(8)->get(),
-            'upcoming_appointments' => Appointment::with(['patient', 'optometrist'])
-                ->where('appointment_date', '>', now())
-                ->where('status', 'scheduled')
-                ->orderBy('appointment_date')
-                ->limit(5)
-                ->get(),
+            'role'                  => 'receptionist',
+            'stats'                 => $stats,
+            'this_month_appointments' => $thisMonthAppts,
+            'recent_patients'       => Patient::with('createdBy')->latest()->limit(8)->get(),
+            'upcoming_appointments' => $this->upcomingAppointmentsQuery()->with(['patient', 'optometrist'])->limit(5)->get(),
         ];
     }
 
     // ── Optometrist ───────────────────────────────────────────────────────────
     private function optometristData(\App\Models\User $user, string $today): array
     {
-        $myTodayAppts = Appointment::with('patient')
-            ->whereDate('appointment_date', $today)
+        $myThisMonthAppts = Appointment::with('patient')
+            ->where('appointment_year', now()->year)->where('appointment_month', now()->month)
             ->where('optometrist_id', $user->id)
-            ->orderBy('appointment_date')
             ->get();
 
         $stats = [
-            'my_appointments_today' => $myTodayAppts->count(),
-            'completed_today'       => $myTodayAppts->where('status', 'completed')->count(),
-            'scheduled_today'       => $myTodayAppts->where('status', 'scheduled')->count(),
-            'prescriptions_this_week' => Prescription::where('optometrist_id', $user->id)
+            'my_appointments_this_month' => $myThisMonthAppts->count(),
+            'completed_this_month'       => $myThisMonthAppts->where('status', 'completed')->count(),
+            'scheduled_this_month'       => $myThisMonthAppts->where('status', 'scheduled')->count(),
+            'prescriptions_this_week'    => Prescription::where('optometrist_id', $user->id)
                 ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
                 ->count(),
         ];
 
         return [
-            'role'               => 'optometrist',
-            'stats'              => $stats,
-            'today_appointments' => $myTodayAppts,
-            'recent_prescriptions' => Prescription::with('patient')
+            'role'                  => 'optometrist',
+            'stats'                 => $stats,
+            'this_month_appointments' => $myThisMonthAppts,
+            'recent_prescriptions'  => Prescription::with('patient')
                 ->where('optometrist_id', $user->id)
                 ->latest()
                 ->limit(8)
                 ->get(),
-            'upcoming_appointments' => Appointment::with('patient')
+            'upcoming_appointments' => $this->upcomingAppointmentsQuery()
                 ->where('optometrist_id', $user->id)
-                ->where('appointment_date', '>', now())
-                ->where('status', 'scheduled')
-                ->orderBy('appointment_date')
+                ->with('patient')
                 ->limit(5)
                 ->get(),
         ];
+    }
+
+    /** Scheduled appointments this month or later, soonest first. */
+    private function upcomingAppointmentsQuery()
+    {
+        $year = now()->year; $month = now()->month;
+        return Appointment::where('status', 'scheduled')
+            ->where(fn ($q) => $q->where('appointment_year', '>', $year)
+                ->orWhere(fn ($q2) => $q2->where('appointment_year', $year)->where('appointment_month', '>=', $month)))
+            ->orderBy('appointment_year')->orderBy('appointment_month');
     }
 
     // ── Inventory Staff ───────────────────────────────────────────────────────

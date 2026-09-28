@@ -111,7 +111,7 @@
             </span>
             <span v-if="p.last_visit" class="cl-tag cl-last">
               <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              Last visit: {{ formatDate(p.last_visit) }}
+              Last visit: {{ formatMonthYear(p.last_visit) }}
             </span>
             <span v-if="p.emergency_contact_name" class="cl-tag cl-emg" :title="p.emergency_contact_name + ' · ' + (p.emergency_contact_phone ?? '')">
               <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
@@ -365,6 +365,12 @@ async function deletePatient(patient) {
 }
 
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+// last_visit comes back as "YYYY-MM" (appointments only track a month, not a day).
+function formatMonthYear(ym) {
+  if (!ym) return '—'
+  const [year, month] = ym.split('-').map(Number)
+  return new Date(year, month - 1, 1).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' })
+}
 
 function calcAge(dob) {
   if (!dob) return '—'

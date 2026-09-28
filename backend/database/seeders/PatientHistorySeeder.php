@@ -157,15 +157,16 @@ class PatientHistorySeeder extends Seeder
                 }
 
                 Appointment::create([
-                    'patient_id'       => $p['id'],
-                    'optometrist_id'   => $opto->id,
-                    'created_by'       => $recep->id,
-                    'appointment_date' => $apptDate,
-                    'type'             => $apptTypes[($idx + $a) % count($apptTypes)],
-                    'status'           => $status,
-                    'notes'            => 'Routine appointment.',
-                    'created_at'       => $apptDate->copy()->subHours(2),
-                    'updated_at'       => $apptDate,
+                    'patient_id'         => $p['id'],
+                    'optometrist_id'     => $opto->id,
+                    'created_by'         => $recep->id,
+                    'appointment_month'  => $apptDate->month,
+                    'appointment_year'   => $apptDate->year,
+                    'type'               => $apptTypes[($idx + $a) % count($apptTypes)],
+                    'status'             => $status,
+                    'notes'              => 'Routine appointment.',
+                    'created_at'         => $apptDate->copy()->subHours(2),
+                    'updated_at'         => $apptDate,
                 ]);
                 $apptCount++;
             }
