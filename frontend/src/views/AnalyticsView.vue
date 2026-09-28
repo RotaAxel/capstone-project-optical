@@ -361,117 +361,161 @@
     </div>
 
     <!-- ── Results Table ───────────────────────────────────────── -->
-    <div v-if="results.length" class="results-card">
-      <div class="results-header">
-        <div class="flex items-center gap-2">
-          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-          </svg>
-          <span class="results-title">Analytics Results</span>
-          <span class="results-count">{{ results.length }} products</span>
+    <div v-if="results.length" class="results-wrapper">
+
+      <!-- Monthly Forecast Accuracy -->
+      <div class="chart-card monthly-forecast-card">
+        <div class="chart-header ch-gray">
+          <div class="ch-dot gray"></div>
+          <div>
+            <p class="ch-title">Monthly Forecast Accuracy</p>
+            <p class="ch-sub">Actual vs forecast over the last 6 months</p>
+          </div>
+          <div class="ch-legend">
+            <span class="leg-item"><span class="leg-bar blue-bar"></span>Actual Sales</span>
+            <span class="leg-item"><span class="leg-line orange-dash"></span>Forecast</span>
+          </div>
         </div>
-        <div class="results-header-right">
-          <button @click="toggleFsnSort" class="fsn-sort-btn" :title="fsnSortDir === 'asc' ? 'Currently: Fast → Non-moving. Click to reverse.' : 'Currently: Non-moving → Fast. Click to reverse.'">
-            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h10a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h6a1 1 0 010 2H4a1 1 0 01-1-1z"/>
-            </svg>
-            <span v-if="fsnSortDir === 'asc'">Fast → Non-moving</span>
-            <span v-else>Non-moving → Fast</span>
-            <span class="sort-arrow-icon">{{ fsnSortDir === 'asc' ? '↑' : '↓' }}</span>
-          </button>
-          <span class="results-computed">
-            Computed: {{ computedAt }}
-            <span v-if="running" class="stale-badge refreshing">● Refreshing…</span>
-            <span v-else-if="summary?.is_stale" class="stale-badge">● Outdated</span>
-            <span v-else class="stale-badge fresh">● Up to date</span>
-          </span>
+
+        <div class="chart-body mf-body">
+          <!-- WMAPE badge -->
+          <div class="mf-metric" :class="monthlyWmapeClass">
+            <div>
+              <p class="mf-metric-label">Monthly WMAPE</p>
+              <p class="mf-metric-sub">Lower is better</p>
+            </div>
+            <p class="mf-metric-value">
+              {{ monthlyWmape !== null ? Number(monthlyWmape).toFixed(2) + '%' : 'N/A' }}
+            </p>
+          </div>
+
+          <!-- Chart -->
+          <div v-if="monthlyForecastChartData" class="mf-chart">
+            <Bar :data="monthlyForecastChartData" :options="monthlyForecastChartOptions" />
+          </div>
+
+          <!-- Table -->
+          <div v-if="monthlyForecastRows.length" class="mf-table-wrap">
+            <table class="mf-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Actual</th>
+                  <th>Forecast</th>
+                  <th>WMAPE</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in monthlyForecastRows" :key="row.label">
+                  <td class="mf-month">{{ row.label }}</td>
+                  <td><span class="val-blue">{{ row.actual }}</span></td>
+                  <td><span class="val-orange">{{ row.forecast }}</span></td>
+                  <td>{{ row.wmape }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-      <div class="table-wrap">
-        <table class="res-table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Current Stock</th>
-              <th>Expected Sales <span class="th-note">(30 days)</span></th>
-              <th>Best Order Qty</th>
-              <th>Reorder When</th>
-              <th class="th-sortable" @click="toggleFsnSort" title="Sort by Sales Speed">
-                Sales Speed
-                <span class="col-sort-arrow">{{ fsnSortDir === 'asc' ? '↑' : '↓' }}</span>
-              </th>
-              <th>Forecast Error <span class="th-note">(WMAPE — fast items only)</span></th>
-              <th>Alert</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in pagedResults" :key="r.product.id" @click="openDetail(r)" class="res-row">
-              <td>
-                <p class="res-product">{{ r.product.name }}</p>
-                <p class="res-sku">{{ r.product.sku }}</p>
-              </td>
-              <td>
-                <span :class="r.product.stock_quantity <= r.product.reorder_point ? 'stock-low' : 'stock-ok'">
-                  {{ r.product.stock_quantity }}
-                </span>
-              </td>
-              <td><span class="val-blue">{{ r.analytics?.predicted_demand ?? '—' }}</span></td>
-              <td><span class="val-purple">{{ r.analytics?.eoq_value ?? '—' }}</span></td>
-              <td><span class="val-orange">{{ r.analytics?.rop_value ?? '—' }}</span></td>
-              <td>
-                <span :class="{
-                  'fsn-pill fast':       r.analytics?.fsn_classification === 'fast',
-                  'fsn-pill slow':       r.analytics?.fsn_classification === 'slow',
-                  'fsn-pill non-moving': r.analytics?.fsn_classification === 'non_moving',
-                  'fsn-pill unknown':    !r.analytics?.fsn_classification,
-                }">
-                  {{ r.analytics?.fsn_classification?.replace('_', ' ') ?? '—' }}
-                </span>
-                <span class="mape-sub">{{ turnoverLabel(r.analytics?.turnover_ratio) }} · {{ turnoverPercent(r.analytics?.turnover_ratio) }} /yr</span>
-              </td>
-              <td>
-                <template v-if="wmapePct(r.analytics?.result_data) != null">
-                  <span :class="mapeClass(wmapePct(r.analytics.result_data))">
-                    {{ wmapePct(r.analytics.result_data) }}%
-                  </span>
-                  <span class="mape-sub">error rate</span>
-                </template>
-                <template v-else-if="r.analytics?.fsn_classification === 'slow' || r.analytics?.fsn_classification === 'non_moving'">
-                  <span class="dim">—</span>
-                  <span class="mape-sub">intermittent</span>
-                </template>
-                <span v-else class="dim">—</span>
-              </td>
-              <td>
-                <div class="alert-cell">
-                  <span v-if="r.product.stock_quantity <= r.product.reorder_point" class="alert-pill danger">⚠ Reorder Now</span>
-                  <span v-else-if="r.analytics?.predicted_demand > r.product.stock_quantity" class="alert-pill warn">⚠ Stock Forecast</span>
-                  <span v-else class="alert-pill ok">✓ OK</span>
-                  <span class="view-hint">
-                    View details
-                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-                  </span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
       </div>
 
-      <!-- Pagination footer -->
-      <div v-if="tableLastPage > 1" class="res-pagination">
-        <span class="res-page-info">Showing {{ tablePageFrom }}–{{ tablePageTo }} of {{ results.length }}</span>
-        <div class="res-page-btns">
-          <button class="res-page-btn" :disabled="tablePage === 1" @click="tablePage--">
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Prev
-          </button>
-          <span class="res-page-cur">{{ tablePage }} / {{ tableLastPage }}</span>
-          <button class="res-page-btn" :disabled="tablePage === tableLastPage" @click="tablePage++">
-            Next
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
+      <div class="results-card">
+        <div class="results-header">
+          <div class="flex items-center gap-2">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <span class="results-title">Analytics Results</span>
+            <span class="results-count">{{ results.length }} products</span>
+          </div>
+          <div class="results-header-right">
+            <button @click="toggleFsnSort" class="fsn-sort-btn" :title="fsnSortDir === 'asc' ? 'Currently: Fast → Non-moving. Click to reverse.' : 'Currently: Non-moving → Fast. Click to reverse.'">
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h10a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h6a1 1 0 010 2H4a1 1 0 01-1-1z"/>
+              </svg>
+              <span v-if="fsnSortDir === 'asc'">Fast → Non-moving</span>
+              <span v-else>Non-moving → Fast</span>
+              <span class="sort-arrow-icon">{{ fsnSortDir === 'asc' ? '↑' : '↓' }}</span>
+            </button>
+            <span class="results-computed">
+              Computed: {{ computedAt }}
+              <span v-if="running" class="stale-badge refreshing">● Refreshing…</span>
+              <span v-else-if="summary?.is_stale" class="stale-badge">● Outdated</span>
+              <span v-else class="stale-badge fresh">● Up to date</span>
+            </span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="res-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Current Stock</th>
+                <th>Expected Sales <span class="th-note">(30 days)</span></th>
+                <th>Best Order Qty</th>
+                <th>Reorder When</th>
+                <th class="th-sortable" @click="toggleFsnSort" title="Sort by Sales Speed">
+                  Sales Speed
+                  <span class="col-sort-arrow">{{ fsnSortDir === 'asc' ? '↑' : '↓' }}</span>
+                </th>
+                <th>Alert</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in pagedResults" :key="r.product.id" @click="openDetail(r)" class="res-row">
+                <td>
+                  <p class="res-product">{{ r.product.name }}</p>
+                  <p class="res-sku">{{ r.product.sku }}</p>
+                </td>
+                <td>
+                  <span :class="r.product.stock_quantity <= r.product.reorder_point ? 'stock-low' : 'stock-ok'">
+                    {{ r.product.stock_quantity }}
+                  </span>
+                </td>
+                <td><span class="val-blue">{{ r.analytics?.predicted_demand ?? '—' }}</span></td>
+                <td><span class="val-purple">{{ r.analytics?.eoq_value ?? '—' }}</span></td>
+                <td><span class="val-orange">{{ r.analytics?.rop_value ?? '—' }}</span></td>
+                <td>
+                  <span :class="{
+                    'fsn-pill fast':       r.analytics?.fsn_classification === 'fast',
+                    'fsn-pill slow':       r.analytics?.fsn_classification === 'slow',
+                    'fsn-pill non-moving': r.analytics?.fsn_classification === 'non_moving',
+                    'fsn-pill unknown':    !r.analytics?.fsn_classification,
+                  }">
+                    {{ r.analytics?.fsn_classification?.replace('_', ' ') ?? '—' }}
+                  </span>
+                  <span class="mape-sub">{{ turnoverLabel(r.analytics?.turnover_ratio) }} · {{ turnoverPercent(r.analytics?.turnover_ratio) }} /yr</span>
+                </td>
+                <td>
+                  <div class="alert-cell">
+                    <span v-if="r.product.stock_quantity <= r.product.reorder_point" class="alert-pill danger">⚠ Reorder Now</span>
+                    <span v-else-if="r.analytics?.predicted_demand > r.product.stock_quantity" class="alert-pill warn">⚠ Stock Forecast</span>
+                    <span v-else class="alert-pill ok">✓ OK</span>
+                    <span class="view-hint">
+                      View details
+                      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination footer -->
+        <div v-if="tableLastPage > 1" class="res-pagination">
+          <span class="res-page-info">Showing {{ tablePageFrom }}–{{ tablePageTo }} of {{ results.length }}</span>
+          <div class="res-page-btns">
+            <button class="res-page-btn" :disabled="tablePage === 1" @click="tablePage--">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Prev
+            </button>
+            <span class="res-page-cur">{{ tablePage }} / {{ tableLastPage }}</span>
+            <button class="res-page-btn" :disabled="tablePage === tableLastPage" @click="tablePage++">
+              Next
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -830,34 +874,99 @@ const running                 = ref(false)
 const computedAt              = ref('')
 const selected                = ref(null)
 const selectedForecastProduct = ref(null)
+const monthlyForecast         = ref(null)
 
 const tablePage     = ref(1)
 const tablePageSize = 20
-const fsnSortDir    = ref('asc') // 'asc' = Fast → Slow → Non-moving, 'desc' = reverse
+const fsnSortDir    = ref('asc')
 
-const fsnRank = { fast: 0, slow: 1, non_moving: 2 }
+// ── Monthly forecast accuracy ────────────────────────────────────────────────
+function formatMonth(label) {
+  const d = new Date(label)
+  return isNaN(d) ? label : d.toLocaleDateString('en-PH', { month: 'short', year: 'numeric' })
+}
 
-const sortedResults = computed(() => {
-  const arr = [...results.value]
-  arr.sort((a, b) => {
-    const ra = fsnRank[a.analytics?.fsn_classification] ?? 3
-    const rb = fsnRank[b.analytics?.fsn_classification] ?? 3
-    return fsnSortDir.value === 'asc' ? ra - rb : rb - ra
-  })
-  return arr
+const monthlyWmape = computed(() => {
+  return Number(monthlyForecast.value?.wmape ?? summary.value?.monthly_wmape ?? 0)
 })
 
-const tableLastPage  = computed(() => Math.max(1, Math.ceil(sortedResults.value.length / tablePageSize)))
-const pagedResults   = computed(() => {
-  const start = (tablePage.value - 1) * tablePageSize
-  return sortedResults.value.slice(start, start + tablePageSize)
+const monthlyWmapeClass = computed(() => {
+  const v = Number(monthlyWmape.value || 0)
+  if (v <= 20) return 'good'
+  if (v <= 40) return 'warn'
+  return 'poor'
 })
-const tablePageFrom  = computed(() => sortedResults.value.length === 0 ? 0 : (tablePage.value - 1) * tablePageSize + 1)
-const tablePageTo    = computed(() => Math.min(tablePage.value * tablePageSize, sortedResults.value.length))
 
-function toggleFsnSort() {
-  fsnSortDir.value = fsnSortDir.value === 'asc' ? 'desc' : 'asc'
-  tablePage.value  = 1
+const monthlyForecastRows = computed(() => {
+  if (!monthlyForecast.value) return []
+
+  const labels = monthlyForecast.value.labels ?? []
+  const actual = monthlyForecast.value.actual ?? []
+  const forecast = monthlyForecast.value.forecast ?? []
+  const wmape = monthlyForecast.value.wmape_series ?? []
+
+  const data = labels.map((label, i) => ({
+    label: formatMonth(label),
+    actual: Number(actual[i] ?? 0).toFixed(1),
+    forecast: Number(forecast[i] ?? 0).toFixed(1),
+    wmape: Number.isFinite(Number(wmape[i])) ? `${Number(wmape[i]).toFixed(2)}%` : `${Number(monthlyWmape.value || 0).toFixed(2)}%`
+  }))
+
+  return data.slice(-6)
+})
+
+const monthlyForecastChartData = computed(() => {
+  if (!monthlyForecast.value) return null
+
+  const labels   = monthlyForecast.value.labels   ?? []
+  const actual   = monthlyForecast.value.actual   ?? []
+  const forecast = monthlyForecast.value.forecast ?? []
+  const start    = Math.max(0, labels.length - 6)
+
+  return {
+    labels: labels.slice(start).map(formatMonth),
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Actual Sales',
+        data: actual.slice(start).map(Number),
+        backgroundColor: 'rgba(59,130,246,0.4)',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
+        borderRadius: 6,
+        order: 2,
+      },
+      {
+        type: 'line',
+        label: 'Forecast',
+        data: forecast.slice(start).map(Number),
+        borderColor: '#f97316',
+        borderWidth: 2.5,
+        borderDash: [7, 4],
+        pointRadius: 5,
+        pointBackgroundColor: '#f97316',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        tension: 0.3,
+        fill: false,
+        order: 1,
+      },
+    ],
+  }
+})
+
+const monthlyForecastChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false }, // legend is already shown in the card header
+    tooltip: { mode: 'index', intersect: false },
+  },
+  scales: {
+    x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+    y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' },
+         title: { display: true, text: 'Units / month', font: { size: 10 }, color: '#9ca3af' } },
+  },
 }
 
 // ── Threshold settings (Low-Stock sensitivity + FSN cutoffs) ────────────────
@@ -1294,7 +1403,7 @@ const eoqCurveOptions = {
   },
   scales: {
     x: { ticks: { font: { size: 9 }, maxTicksLimit: 10 }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'Order Quantity (units)', font: { size: 10 }, color: '#9ca3af' } },
-    y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => '₱' + Number(v).toLocaleString('en-PH') }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'Annual Cost (₱)', font: { size: 10 }, color: '#9ca3af' } },
+    y: { beginAtZero: true, ticks: { font: { size: 9 } }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'Annual Cost (₱)', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
 
@@ -1413,7 +1522,7 @@ const stockRunwayOptions = computed(() => ({
           // Use the true (uncapped) day count for the tooltip — the bar itself is capped at 30d.
           const days = stockRunwayItems.value[ctx.dataIndex]?.days ?? ctx.parsed.x
           const urgency = days < 14 ? '⚠ Critical' : days < 30 ? '● Warning' : '✓ Safe'
-          const daysLabel = days >= 30 ? '30+ days' : `${days} days`
+          const daysLabel = days >= 30 ? '30+' : `${days} days`
           return `  ${urgency} — ${daysLabel} remaining`
         },
       },
@@ -1444,9 +1553,20 @@ async function runAnalytics() {
   startLoadingTimers()
   try {
     const { data } = await api.post('/analytics/run')
-    results.value    = data.results
+    if (!Array.isArray(data.results)) {
+      throw new Error('Invalid analytics payload')
+    }
+
+    results.value = data.results
     computedAt.value = new Date(data.computed_at).toLocaleString('en-PH')
     await loadSummary()
+    await loadMonthlyAccuracy()
+  } catch (error) {
+    console.error('runAnalytics failed:', error)
+    flashStore.set(
+      error.response?.data?.message || 'Analytics failed. Check backend logs.',
+      'error'
+    )
   } finally {
     stopLoadingTimers()
     running.value = false
@@ -1458,20 +1578,44 @@ async function loadSummary() {
     const { data } = await api.get('/analytics/summary')
     summary.value = data
 
-    if (data.items?.length) {
-      results.value    = data.items.map(a => ({ product: a.product, analytics: a }))
-      computedAt.value = data.last_run
-        ? new Date(data.last_run + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-        : 'Never'
+    if (Array.isArray(data.items)) {
+      results.value = data.items.map(item => ({
+        product: item.product,
+        analytics: item
+      }))
     }
 
-    if (data.is_stale && !running.value) {
-      runAnalytics()
+    if (data.last_run) {
+      // FIX: don't append 'T00:00:00' — last_run may already include a time,
+      // which produced "Invalid Date".
+      const d = new Date(data.last_run)
+      computedAt.value = isNaN(d)
+        ? String(data.last_run)
+        : d.toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
     }
-  } catch {}
+  } catch (error) {
+    console.error('loadSummary failed:', error)
+    flashStore.set(
+      error.response?.data?.message || 'Summary failed to load.',
+      'error'
+    )
+  }
 }
 
-onMounted(loadSummary)
+async function loadMonthlyAccuracy() {
+  try {
+    const { data } = await api.get('/analytics/monthly-accuracy')
+    monthlyForecast.value = data
+  } catch (error) {
+    console.error('monthly accuracy failed:', error)
+    monthlyForecast.value = null
+  }
+}
+
+onMounted(() => {
+  loadSummary()
+  loadMonthlyAccuracy()
+})
 </script>
 
 <style scoped>
@@ -1632,6 +1776,38 @@ onMounted(loadSummary)
 
 .chart-body { padding: 16px; flex: 1; }
 
+/* Results wrapper (spacing between Monthly Accuracy card and Results table) */
+.results-wrapper { display: flex; flex-direction: column; gap: 20px; }
+
+/* Monthly Forecast Accuracy */
+.mf-body { display: flex; flex-direction: column; gap: 16px; }
+
+.mf-metric {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-radius: 12px; border: 1.5px solid transparent;
+}
+.mf-metric.good { background: #ecfdf5; border-color: #d1fae5; color: #15803d; }
+.mf-metric.warn { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+.mf-metric.poor { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+.mf-metric-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; margin: 0; }
+.mf-metric-sub   { font-size: 11px; opacity: .7; margin: 2px 0 0; }
+.mf-metric-value { font-size: 1.6rem; font-weight: 800; line-height: 1; margin: 0; }
+
+.mf-chart { height: 240px; }
+
+.mf-table-wrap { overflow-x: auto; border: 1.5px solid #f3f4f6; border-radius: 12px; }
+.mf-table { width: 100%; border-collapse: collapse; }
+.mf-table thead tr { background: #f9fafb; border-bottom: 2px solid #f3f4f6; }
+.mf-table thead th {
+  padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700;
+  color: #6b7280; text-transform: uppercase; letter-spacing: .5px;
+}
+.mf-table tbody tr { border-bottom: 1px solid #f9fafb; transition: background .15s; }
+.mf-table tbody tr:last-child { border-bottom: none; }
+.mf-table tbody tr:hover { background: #eff6ff; }
+.mf-table td { padding: 11px 16px; font-size: 13px; color: #374151; }
+.mf-month { font-weight: 700; color: #111827; }
+
 /* Results table */
 .results-card   { background: #fff; border-radius: 16px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 12px rgba(0,0,0,.05); overflow: hidden; }
 .results-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #f9fafb; border-bottom: 1.5px solid #f3f4f6; font-size: 13px; color: #4b5563; }
@@ -1777,7 +1953,7 @@ onMounted(loadSummary)
 .empty-sub   { font-size: 13px; color: #9ca3af; margin-bottom: 4px; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* FIXED: SLIDE-OVER PANEL - COMPLETE FIX FOR SCROLLING            */
+/* SLIDE-OVER PANEL                                                 */
 /* ════════════════════════════════════════════════════════════════ */
 
 /* Slide-over backdrop + panel */
@@ -1946,10 +2122,7 @@ onMounted(loadSummary)
   color: #374151;
 }
 
-/* ════════════════════════════════════════════════════════════════ */
-/* BODY (SCROLLABLE) - THIS IS THE CRITICAL FIX                    */
-/* ════════════════════════════════════════════════════════════════ */
-
+/* ── BODY (SCROLLABLE) ────────────────────────────────────────── */
 .sop-body {
   flex: 1;
   overflow-y: auto;

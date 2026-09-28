@@ -123,6 +123,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin,inventory_staff')->group(function () {
         Route::post('/analytics/run',    [AnalyticsController::class, 'run']);
         Route::get('/analytics/summary', [AnalyticsController::class, 'summary']);
+        Route::get('/analytics/monthly-accuracy',  [AnalyticsController::class, 'monthlyAccuracy']); 
         Route::get('/settings',          [SettingController::class, 'show']);
         Route::put('/settings',          [SettingController::class, 'update']);
     });
@@ -132,3 +133,4 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('users', UserController::class);
     });
 });
+

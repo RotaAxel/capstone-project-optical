@@ -369,16 +369,19 @@ class HistoricalTransactionSeeder extends Seeder
             ->pluck('id')
             ->all();
 
+        $currentYear = Carbon::now()->year;
+        $currentMonth = Carbon::now()->month;
+
         $yearlyTargets = [
-            2021 => 900,
-            2022 => 1100,
-            2023 => 1300,
-            2024 => 1450,
-            2025 => 1600,
-            2026 => 1700,
+            2021 => 1100,
+            2022 => 1300,
+            2023 => 1450,
+            2024 => 1600,
+            2025 => 1700,
+            $currentYear => $this->generateOpenYearTarget($currentMonth),
         ];
 
-        $this->command->info('Generating sales using realistic yearly quotas: ' . json_encode($yearlyTargets));
+        $this->command->info('Generating sales using realistic quotas: ' . json_encode($yearlyTargets));
 
         $payMethods = ['cash','cash','cash','cash','gcash','gcash','card','maya'];
         $receiptNo  = 0;
@@ -388,10 +391,17 @@ class HistoricalTransactionSeeder extends Seeder
         DB::beginTransaction();
         try {
             foreach ($yearlyTargets as $year => $target) {
-                $generatedThisYear = 0;
+                $isOpenYear = ($year === $currentYear);
 
+                $generatedThisYear = 0;
                 while ($generatedThisYear < $target) {
-                    $saleDate = $this->pickSaleDateForYear($year);
+                    $saleDate = $this->pickSaleDateForYear($year, $isOpenYear);
+
+                    // no future dates allowed
+                    if ($saleDate->isFuture()) {
+                        continue;
+                    }
+
                     $patientId = $patientIds[array_rand($patientIds)];
                     $roll = random_int(1, 100);
 
@@ -498,22 +508,34 @@ class HistoricalTransactionSeeder extends Seeder
         return array_slice($out, 0, $limit);
     }
 
-    private function pickSaleDateForYear(int $year): Carbon
+    private function generateOpenYearTarget(int $currentMonth): int
     {
-        $monthWeights = [1.0, 1.2, 1.4, 1.5, 1.6, 1.8, 2.0, 1.9, 1.6, 1.4, 1.2, 1.0];
-        $weightedMonths = [];
+        $base = random_int(250, 700);
 
-        foreach ($monthWeights as $index => $weight) {
-            $month = $index + 1;
-
-            for ($i = 0; $i < max(1, (int) round($weight * 10)); $i++) {
-                $weightedMonths[] = $month;
-            }
+        if ($currentMonth >= 9) {
+            return random_int(350, 900);
         }
 
-        $month = $weightedMonths[array_rand($weightedMonths)];
+        if ($currentMonth >= 6) {
+            return random_int(250, 700);
+        }
+
+        return $base;
+    }
+
+    private function pickSaleDateForYear(int $year, bool $isOpenYear = false): Carbon
+    {
+        $maxMonth = $isOpenYear ? min(Carbon::now()->month, 12) : 12;
+        $month = random_int(1, $maxMonth);
+
         $daysInMonth = Carbon::create($year, $month, 1)->daysInMonth;
-        $day = random_int(1, $daysInMonth);
+
+        $maxDay = $daysInMonth;
+        if ($isOpenYear && $month === Carbon::now()->month) {
+            $maxDay = min($daysInMonth, Carbon::now()->day);
+        }
+
+        $day = random_int(1, $maxDay);
 
         return Carbon::create(
             $year,

@@ -28,19 +28,22 @@ class AnalyticsController extends Controller
         $products = Product::select(['id', 'name', 'sku', 'cost_price', 'selling_price', 'stock_quantity', 'reorder_point'])->get();
         $results  = [];
 
-        // Admin-configurable FSN thresholds — loaded once per run, not per
-        // product, and stamped into each product's result_data below so the
-        // frontend always shows the thresholds actually used for that run,
-        // even if the settings are changed again afterwards.
         $fsnSettings = AppSetting::current();
+
+        // Keep all data up to the current moment.
+        // Do NOT exclude the current year. We only exclude future dates.
+        // This ensures the next-30-day forecast can still be generated.
+        $forecastCutoff = $this->forecastTrainingCutoff();
 
         $weeklySince = now()->subWeeks($this->weekWindow)->startOfWeek();
         $dailySince  = now()->subDays($this->dayWindow - 1)->startOfDay();
 
-        // Pre-aggregate in SQL — avoids loading raw sale item rows into PHP memory
+        // Pre-aggregate in SQL — includes current-year partial data up to now,
+        // but never includes future dates.
         $weeklyAgg = DB::table('sale_items')
             ->selectRaw('product_id, DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY)) AS week_start, SUM(quantity) AS qty')
             ->where('created_at', '>=', $weeklySince)
+            ->where('created_at', '<=', $forecastCutoff)
             ->whereNull('deleted_at')
             ->groupBy('product_id', 'week_start')
             ->get()
@@ -49,6 +52,7 @@ class AnalyticsController extends Controller
         $dailyAgg = DB::table('sale_items')
             ->selectRaw('product_id, DATE(created_at) AS sale_date, SUM(quantity) AS qty')
             ->where('created_at', '>=', $dailySince)
+            ->where('created_at', '<=', $forecastCutoff)
             ->whereNull('deleted_at')
             ->groupBy('product_id', 'sale_date')
             ->get()
@@ -57,6 +61,7 @@ class AnalyticsController extends Controller
         $lastSaleMap = DB::table('sale_items')
             ->selectRaw('product_id, MAX(created_at) AS last_sale_at')
             ->where('created_at', '>=', $weeklySince)
+            ->where('created_at', '<=', $forecastCutoff)
             ->whereNull('deleted_at')
             ->groupBy('product_id')
             ->pluck('last_sale_at', 'product_id');
@@ -191,6 +196,14 @@ class AnalyticsController extends Controller
         return response()->json(['results' => $results, 'computed_at' => now()]);
     }
 
+    private function forecastTrainingCutoff(): Carbon
+    {
+        // Include all historical data up to the current moment.
+        // Never include future dates. This keeps the short-horizon forecast alive
+        // while the WMAPE still ignores incomplete current-period buckets.
+        return now();
+    }
+
     public function summary()
     {
         $latest = AnalyticsLog::with('product')
@@ -203,15 +216,74 @@ class AnalyticsController extends Controller
         $slow      = $latest->where('fsn_classification', 'slow')->count();
         $nonMoving = $latest->where('fsn_classification', 'non_moving')->count();
 
-        $lastRun = $latest->max('computed_at');            // date string e.g. "2026-05-29"
+        $lastRun = $latest->max('computed_at');
         $isStale = !$lastRun || $lastRun < now()->toDateString();
+
+        // New: portfolio-level monthly WMAPE value for the dashboard card
+        $monthlyWmape = $this->portfolioMonthlyWMAPE();
 
         return response()->json([
             'fsn_summary' => compact('fast', 'slow', 'nonMoving'),
             'is_stale'    => $isStale,
             'last_run'    => $lastRun,
+            'monthly_wmape' => $monthlyWmape,
             'items'       => $latest,
         ]);
+    }
+
+    private function portfolioMonthlyWMAPE(): float
+    {
+        $start = now()->copy()->subMonths(11)->startOfMonth();
+        $end   = now()->copy()->endOfMonth();
+
+        $monthMap = [];
+        $cursor = $start->copy();
+        while ($cursor <= $end) {
+            $monthMap[$cursor->format('Y-m')] = 0.0;
+            $cursor->addMonth();
+        }
+
+        $rows = DB::table('sale_items')
+            ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") AS month_key, SUM(quantity) AS total_qty')
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<=', $end)
+            ->whereNull('deleted_at')
+            ->groupBy(DB::raw('DATE_FORMAT(created_at, "%Y-%m")'))
+            ->get();
+
+        foreach ($rows as $row) {
+            $monthMap[$row->month_key] = (float) $row->total_qty;
+        }
+
+        $actual = array_values($monthMap);
+        $n = count($actual);
+
+        if ($n < 2) return 0.0;
+
+        $forecast = [];
+        foreach ($actual as $i => $value) {
+            if ($i === 0) {
+                $forecast[] = $value;
+                continue;
+            }
+
+            $prev = $actual[$i - 1] ?? 0;
+            $slope = $i > 1 ? ($actual[$i - 1] - $actual[$i - 2]) : 0;
+            $forecast[] = max(0.0, $prev + $slope);
+        }
+
+        $evalActual = array_slice($actual, -6);
+        $evalForecast = array_slice($forecast, -6);
+
+        $sumActual = array_sum($evalActual);
+        if ($sumActual <= 0) return 0.0;
+
+        $totalAbsError = 0.0;
+        foreach ($evalActual as $i => $value) {
+            $totalAbsError += abs($value - ($evalForecast[$i] ?? $value));
+        }
+
+        return round(($totalAbsError / $sumActual) * 100, 2);
     }
 
     // ─── Method Selection ─────────────────────────────────────────────────
@@ -229,15 +301,18 @@ class AnalyticsController extends Controller
         $nonZero = count(array_filter($series, fn($v) => $v > 0));
         $ratio   = $n > 0 ? $nonZero / $n : 0.0;
 
-        if ($ratio >= 0.40) {
-            // Always prefer HW for regular items with enough data.
-            // HW with full (α,β,γ) optimisation degrades gracefully to Holt's linear
-            // trend (γ→0) when there is no seasonal signal, so it is never worse than
-            // ARIMA and avoids the false-negative risk of ACF-based seasonality tests.
-            if ($n >= 104) return 'holt_winters';
-            return 'auto_arima';
+        $totalDemand = array_sum($series);
+
+        if ($totalDemand < 30) {
+            return 'ses'; // safer for very low-volume products
         }
+
+        if ($ratio >= 0.40) {
+            return $n >= 104 ? 'holt_winters' : 'auto_arima';
+        }
+
         if ($ratio >= 0.10) return 'croston';
+
         return 'ses';
     }
 
@@ -577,7 +652,7 @@ class AnalyticsController extends Controller
             $residuals[] = $series[$t] - $yhat;
             $prevL       = $l;
             $l           = $alpha * ($series[$t] - $s[$si]) + (1.0 - $alpha) * ($l + $b);
-            $b           = $beta  * ($l - $prevL)            + (1.0 - $beta)  * $b;
+            $b           = $beta  * ($l - $prevL)                  + (1.0 - $beta)  * $b;
             $s[$si]      = $gamma * ($series[$t] - $l)       + (1.0 - $gamma) * $s[$si];
         }
 
@@ -636,7 +711,7 @@ class AnalyticsController extends Controller
             $prevL = $l;
             $l     = $alpha * ($series[$t] / $sVal)          + (1.0 - $alpha) * ($l + $b);
             $b     = $beta  * ($l - $prevL)                  + (1.0 - $beta)  * $b;
-            $s[$si] = $gamma * ($series[$t] / max($l, 0.01)) + (1.0 - $gamma) * $sVal;
+            $s[$si] = $gamma * ($series[$t] / max($l, 0.01))  + (1.0 - $gamma) * $sVal;
         }
 
         return $sse / $n;
@@ -712,25 +787,31 @@ class AnalyticsController extends Controller
      */
     private function computeWMAPE(array $weeklySeries, string $method): float
     {
-        // WMAPE only applies to fast-moving items (HW / ARIMA).
-        if (!in_array($method, ['holt_winters', 'auto_arima'])) return -1.0;
+        if (!in_array($method, ['holt_winters', 'auto_arima'])) {
+            return -1.0;
+        }
 
-        // Aggregate weekly → monthly (4 weeks = 1 month).
-        // Monthly totals smooth out individual zero-weeks, reducing noise in the error metric.
         $monthly = $this->toMonthlySeries($weeklySeries);
         $n       = count($monthly);
-        $holdOut = 12; // 1-year hold-out in months
 
-        // Need ≥ 2 full annual cycles for training (24 months) plus the 12-month hold-out
-        if ($n < $holdOut + 24) return -1.0;
+        if ($n < 36) {
+            return -1.0; // not enough history
+        }
 
-        $train     = array_slice($monthly, 0, $n - $holdOut);
-        $actuals   = array_slice($monthly, $n - $holdOut);
+        $holdOut = 12;
+        $train   = array_slice($monthly, 0, $n - $holdOut);
+        $actuals = array_slice($monthly, $n - $holdOut);
 
-        // For HW use monthly seasonal period (12); ARIMA is non-seasonal so no change needed
-        $result    = $method === 'holt_winters'
+        $actualSum = array_sum($actuals);
+
+        if ($actualSum < 30) {
+            return -1.0; // low-volume SKU => WMAPE is meaningless
+        }
+
+        $result = $method === 'holt_winters'
             ? $this->holtWinters($train, $holdOut, 12)
             : $this->autoARIMA($train, $holdOut);
+
         $forecasts = $result['forecast'];
 
         $totalAbsError = 0.0;
@@ -740,22 +821,26 @@ class AnalyticsController extends Controller
             $totalActual   += $actuals[$i];
         }
 
-        if ($totalActual <= 0.0) return -1.0;
+        if ($totalActual <= 0.0) {
+            return -1.0;
+        }
 
-        return round(min(($totalAbsError / $totalActual) * 100.0, 999.9), 2);
+        return round(min(($totalAbsError / $totalActual) * 100, 999.9), 2);
     }
 
     /**
-     * Collapse a weekly series into monthly totals (4 weeks per month).
-     * Trailing weeks that don't fill a full month are discarded.
+     * Collapse a weekly series into monthly totals.
+     * Only full 4-week buckets are used, so the current partial month is ignored.
      */
     private function toMonthlySeries(array $weeklySeries): array
     {
         $monthly = [];
         $n       = count($weeklySeries);
+
         for ($i = 0; $i + 4 <= $n; $i += 4) {
             $monthly[] = array_sum(array_slice($weeklySeries, $i, 4));
         }
+
         return $monthly;
     }
 
@@ -1117,5 +1202,94 @@ class AnalyticsController extends Controller
             $variance += ($v - $mean) ** 2;
         }
         return sqrt($variance / ($n - 1));
+    }
+
+    public function monthlyAccuracy()
+    {
+        $monthsBack = 18; // months of history used to warm up the forecast
+        $evalMonths = 6;  // months shown in the card AND used for the headline WMAPE
+        $start = now()->subMonths($monthsBack - 1)->startOfMonth();
+ 
+        $rows = DB::table('sale_items')
+            ->selectRaw('DATE_FORMAT(created_at, "%Y-%m-01") as month, SUM(quantity) as actual_units')
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<=', now())
+            ->whereNull('deleted_at') // same filter run() uses, so soft-deleted rows aren't counted
+            ->groupBy(DB::raw('DATE_FORMAT(created_at, "%Y-%m-01")'))
+            ->orderBy('month')
+            ->get();
+ 
+        $actualByMonth = [];
+        foreach ($rows as $row) {
+            $actualByMonth[$row->month] = (float) $row->actual_units;
+        }
+ 
+        $labels = [];
+        $actual = [];
+ 
+        $cursor = Carbon::parse($start)->copy();
+        $end    = now()->copy()->endOfMonth();
+ 
+        while ($cursor <= $end) {
+            $key      = $cursor->copy()->startOfMonth()->format('Y-m-01');
+            $labels[] = $key;
+            $actual[] = $actualByMonth[$key] ?? 0.0;
+            $cursor->addMonth();
+        }
+ 
+        // Walk-forward forecast: each month is predicted using ONLY earlier months.
+        $forecast = $this->buildMonthlyTrendForecast($actual);
+ 
+        // Per-month error + headline WMAPE over the same months the card displays.
+        $evalStart     = max(0, count($actual) - $evalMonths);
+        $wmapeSeries   = [];
+        $totalActual   = 0.0;
+        $totalAbsError = 0.0;
+ 
+        foreach ($actual as $i => $a) {
+            $err           = abs($a - $forecast[$i]);
+            $wmapeSeries[] = $a > 0 ? round(($err / $a) * 100, 2) : null;
+ 
+            if ($i >= $evalStart) {
+                $totalActual   += $a;
+                $totalAbsError += $err;
+            }
+        }
+ 
+        $wmape = $totalActual > 0 ? ($totalAbsError / $totalActual) * 100 : 0.0;
+ 
+        return response()->json([
+            'labels'       => $labels,
+            'actual'       => $actual,
+            'forecast'     => array_map(fn($v) => round($v, 2), $forecast),
+            'wmape_series' => $wmapeSeries,          // <-- new: one value per month
+            'wmape'        => round($wmape, 2),      // now covers the last 6 months
+        ]);
+    }
+
+     private function buildMonthlyTrendForecast(array $actual): array
+    {
+        $n = count($actual);
+ 
+        if ($n === 0) return [];
+        if ($n === 1) return [$actual[0]];
+ 
+        $alpha = 0.5;
+        $beta  = 0.3;
+ 
+        $level = $actual[0];
+        $trend = $actual[1] - $actual[0];
+ 
+        $forecast = [$actual[0]]; // month 0 has nothing to learn from
+ 
+        for ($i = 1; $i < $n; $i++) {
+            $forecast[] = max(0.0, $level + $trend); // prediction made BEFORE seeing actual[i]
+ 
+            $prevLevel = $level;
+            $level     = $alpha * $actual[$i] + (1 - $alpha) * ($level + $trend);
+            $trend     = $beta * ($level - $prevLevel) + (1 - $beta) * $trend;
+        }
+ 
+        return $forecast;
     }
 }
