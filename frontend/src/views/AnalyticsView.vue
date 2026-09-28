@@ -878,7 +878,32 @@ const monthlyForecast         = ref(null)
 
 const tablePage     = ref(1)
 const tablePageSize = 20
-const fsnSortDir    = ref('asc')
+const fsnSortDir    = ref('asc') // 'asc' = Fast → Slow → Non-moving, 'desc' = reverse
+
+const fsnRank = { fast: 0, slow: 1, non_moving: 2 }
+
+const sortedResults = computed(() => {
+  const arr = [...results.value]
+  arr.sort((a, b) => {
+    const ra = fsnRank[a.analytics?.fsn_classification] ?? 3
+    const rb = fsnRank[b.analytics?.fsn_classification] ?? 3
+    return fsnSortDir.value === 'asc' ? ra - rb : rb - ra
+  })
+  return arr
+})
+
+const tableLastPage  = computed(() => Math.max(1, Math.ceil(sortedResults.value.length / tablePageSize)))
+const pagedResults   = computed(() => {
+  const start = (tablePage.value - 1) * tablePageSize
+  return sortedResults.value.slice(start, start + tablePageSize)
+})
+const tablePageFrom  = computed(() => sortedResults.value.length === 0 ? 0 : (tablePage.value - 1) * tablePageSize + 1)
+const tablePageTo    = computed(() => Math.min(tablePage.value * tablePageSize, sortedResults.value.length))
+
+function toggleFsnSort() {
+  fsnSortDir.value = fsnSortDir.value === 'asc' ? 'desc' : 'asc'
+  tablePage.value  = 1
+}
 
 // ── Monthly forecast accuracy ────────────────────────────────────────────────
 function formatMonth(label) {
@@ -1795,17 +1820,17 @@ onMounted(() => {
 
 .mf-chart { height: 240px; }
 
-.mf-table-wrap { overflow-x: auto; border: 1.5px solid #f3f4f6; border-radius: 12px; }
+.mf-table-wrap { overflow-x: auto; border: 1.5px solid #f3f4f6; border-radius: 10px; }
 .mf-table { width: 100%; border-collapse: collapse; }
 .mf-table thead tr { background: #f9fafb; border-bottom: 2px solid #f3f4f6; }
 .mf-table thead th {
-  padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700;
+  padding: 7px 12px; text-align: left; font-size: 10px; font-weight: 700;
   color: #6b7280; text-transform: uppercase; letter-spacing: .5px;
 }
 .mf-table tbody tr { border-bottom: 1px solid #f9fafb; transition: background .15s; }
 .mf-table tbody tr:last-child { border-bottom: none; }
 .mf-table tbody tr:hover { background: #eff6ff; }
-.mf-table td { padding: 11px 16px; font-size: 13px; color: #374151; }
+.mf-table td { padding: 7px 12px; font-size: 12px; color: #374151; }
 .mf-month { font-weight: 700; color: #111827; }
 
 /* Results table */
