@@ -212,21 +212,6 @@
         </div>
         <form @submit.prevent="saveProduct" class="modal-body">
 
-          <!-- Image upload -->
-          <div class="fg fg--full" style="margin-bottom:16px;">
-            <label class="fl">Product Image</label>
-            <div class="img-upload-zone" :class="{ 'has-img': imagePreview }" @click="imgInput.click()">
-              <img v-if="imagePreview" :src="imagePreview" class="img-preview" />
-              <div v-else class="img-upload-placeholder">
-                <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <p class="upload-label">Click to upload image</p>
-                <p class="upload-hint">PNG, JPG, WEBP · max 2 MB</p>
-              </div>
-              <input ref="imgInput" type="file" accept="image/png,image/jpeg,image/webp" @change="onImageChange" style="display:none" />
-            </div>
-            <button v-if="imagePreview" type="button" @click="clearImage" class="img-remove-btn">✕ Remove image</button>
-          </div>
-
           <div class="form-grid">
             <div class="fg fg--full">
               <label class="fl">Item Name *</label>
@@ -410,7 +395,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch, useTemplateRef } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAlerts } from '@/composables/useAlerts'
@@ -441,24 +426,9 @@ const saving         = ref(false)
 const formError      = ref('')
 const stockInProduct = ref(null)
 
-const imgInput    = useTemplateRef('imgInput')
-const imageFile   = ref(null)
-const imagePreview = ref('')
-
 const emptyForm = () => ({ name: '', category_id: '', supplier_id: '', brand: '', model: '', color: '', size: '', cost_price: 0, selling_price: 0, stock_quantity: 0, reorder_point: 5, reorder_quantity: 20 })
 const form = ref(emptyForm())
 
-function onImageChange(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  imageFile.value   = file
-  imagePreview.value = URL.createObjectURL(file)
-}
-function clearImage() {
-  imageFile.value    = null
-  imagePreview.value = ''
-  if (imgInput.value) imgInput.value.value = ''
-}
 const stockInForm  = ref({ product_id: '', quantity: 1, unit_cost: null, reference_number: '', notes: '' })
 const showAdjustModal = ref(false)
 const adjustProduct   = ref(null)
@@ -548,49 +518,26 @@ async function fetchPage(page = 1) {
 
 function openModal(product = null) {
   formError.value = ''
-  clearImage()
   if (product) {
-    editingId.value    = product.id
-    form.value         = { ...product }
-    imagePreview.value = product.image_url ?? ''
+    editingId.value = product.id
+    form.value      = { ...product }
   } else {
     editingId.value = null
     form.value      = emptyForm()
   }
   showModal.value = true
 }
-function closeModal() { showModal.value = false; clearImage() }
+function closeModal() { showModal.value = false }
 
 async function saveProduct() {
   formError.value = ''; saving.value = true
   try {
-    const payload = imageFile.value ? buildFormData() : form.value
-    const headers = imageFile.value ? { 'Content-Type': 'multipart/form-data' } : {}
-
-    if (editingId.value) {
-      // Laravel doesn't parse files from PUT; spoof with POST + _method
-      if (imageFile.value) {
-        payload.append('_method', 'PUT')
-        await api.post(`/products/${editingId.value}`, payload, { headers })
-      } else {
-        await api.put(`/products/${editingId.value}`, payload)
-      }
-    } else {
-      await api.post('/products', payload, { headers })
-    }
+    if (editingId.value) await api.put(`/products/${editingId.value}`, form.value)
+    else await api.post('/products', form.value)
     closeModal(); fetchPage(pagination.value.current_page ?? 1); fetchStats()
   } catch (e) {
     formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save.'
   } finally { saving.value = false }
-}
-
-function buildFormData() {
-  const fd = new FormData()
-  Object.entries(form.value).forEach(([k, v]) => {
-    if (v !== null && v !== undefined) fd.append(k, v)
-  })
-  fd.append('image', imageFile.value)
-  return fd
 }
 
 function openStockIn(product = null) {
@@ -957,29 +904,6 @@ onMounted(async () => {
 }
 .fi:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
 .fi--ta   { resize: vertical; min-height: 70px; }
-
-/* Image upload zone */
-.img-upload-zone {
-  border: 2px dashed #e5e7eb; border-radius: 12px;
-  cursor: pointer; overflow: hidden; transition: border-color 0.2s, background 0.2s;
-  background: #f9fafb; min-height: 130px;
-  display: flex; align-items: center; justify-content: center;
-}
-.img-upload-zone:hover { border-color: #0d9488; background: #f0fdfa; }
-.img-upload-zone.has-img { border-style: solid; border-color: #0d9488; background: #000; }
-.img-preview  { width: 100%; max-height: 220px; object-fit: contain; display: block; }
-.img-upload-placeholder {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px; padding: 24px; color: #9ca3af; text-align: center;
-}
-.upload-label { font-size: 13px; font-weight: 600; color: #374151; margin: 0; }
-.upload-hint  { font-size: 11px; color: #9ca3af; margin: 0; }
-.img-remove-btn {
-  margin-top: 8px; padding: 5px 14px; background: #fef2f2; color: #dc2626;
-  border: 1.5px solid #fecaca; border-radius: 8px; font-size: 12px; font-weight: 700;
-  cursor: pointer; font-family: inherit; transition: background 0.2s;
-}
-.img-remove-btn:hover { background: #fee2e2; }
 
 .error-msg {
   margin-top: 12px; padding: 10px 14px;
