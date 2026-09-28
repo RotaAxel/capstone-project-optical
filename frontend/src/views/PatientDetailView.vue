@@ -309,9 +309,34 @@ const totalSpent = computed(() => {
   return Number(sum).toLocaleString('en-PH', { minimumFractionDigits: 2 })
 })
 
+// "Last Visit" is the most recent of three independent signs the patient was
+// actually at the clinic: a completed appointment, a prescription's exam date,
+// or a purchase. A completed appointment alone isn't enough — a written
+// prescription or a sale is just as real evidence of a visit, and appointment
+// status-keeping doesn't always line up with them (e.g. a prescription can
+// exist with no appointment ever marked "completed").
 const lastVisitLabel = computed(() => {
-  const appts = sortedAppointments.value
-  return appts.length ? appts[0].appointment_label : 'None'
+  const candidates = []
+  const monthYearKey = (y, m) => y * 12 + m
+  const labelFor = (date) => date.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+
+  const completed = sortedAppointments.value.filter(a => a.status === 'completed')[0]
+  if (completed) candidates.push({ key: monthYearKey(completed.appointment_year, completed.appointment_month), label: completed.appointment_label })
+
+  const latestRx = [...(patient.value?.prescriptions ?? [])].sort((a, b) => new Date(b.exam_date) - new Date(a.exam_date))[0]
+  if (latestRx?.exam_date) {
+    const d = new Date(latestRx.exam_date)
+    candidates.push({ key: monthYearKey(d.getFullYear(), d.getMonth() + 1), label: labelFor(d) })
+  }
+
+  const latestSale = [...(patient.value?.sales ?? [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
+  if (latestSale?.created_at) {
+    const d = new Date(latestSale.created_at)
+    candidates.push({ key: monthYearKey(d.getFullYear(), d.getMonth() + 1), label: labelFor(d) })
+  }
+
+  if (!candidates.length) return 'None'
+  return candidates.reduce((best, c) => (c.key > best.key ? c : best)).label
 })
 
 const historyTabs = computed(() => [

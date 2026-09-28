@@ -18,10 +18,14 @@ class SaleController extends Controller
     {
         $query = Sale::with(['patient', 'cashier', 'items.product'])
             ->when($request->search, fn($q) => $q->where(function ($q) use ($request) {
+                // The CONCAT check lets a typed full name (e.g. "Aileen Salazar") match
+                // even though first_name/last_name are two separate columns — without
+                // it, a full-name search can never match either column alone.
                 $q->where('receipt_number', 'like', "%{$request->search}%")
                   ->orWhereHas('patient', fn($pq) =>
                       $pq->where('first_name', 'like', "%{$request->search}%")
                          ->orWhere('last_name', 'like', "%{$request->search}%")
+                         ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$request->search}%"])
                   );
             }))
             ->when($request->date_from, fn($q) => $q->whereDate('created_at', '>=', $request->date_from))

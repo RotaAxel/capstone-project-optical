@@ -14,21 +14,41 @@ class PatientController extends Controller
     {
         $query = Patient::with('createdBy')
             ->withCount(['appointments', 'prescriptions', 'sales'])
+            // "last_visit" ("YYYY-MM") is the most recent of three independent signals
+            // that the patient was actually at the clinic: a completed appointment, a
+            // prescription's exam date, or a purchase. A completed appointment alone
+            // isn't enough — a prescription or a sale is just as real evidence of a
+            // visit, and appointment status-keeping doesn't always line up with them
+            // (e.g. a patient can have a written prescription with no appointment ever
+            // marked "completed"). '0000-00' is a sentinel so GREATEST() ignores a
+            // signal that doesn't exist for this patient; NULLIF turns it back to null.
+            ->addSelect(DB::raw("(
+                SELECT NULLIF(GREATEST(
+                    COALESCE((SELECT CONCAT(a.appointment_year, '-', LPAD(a.appointment_month, 2, '0'))
+                               FROM appointments a
+                               WHERE a.patient_id = patients.id AND a.status = 'completed' AND a.deleted_at IS NULL
+                               ORDER BY a.appointment_year DESC, a.appointment_month DESC LIMIT 1), '0000-00'),
+                    COALESCE((SELECT DATE_FORMAT(MAX(r.exam_date), '%Y-%m')
+                               FROM prescriptions r
+                               WHERE r.patient_id = patients.id AND r.deleted_at IS NULL), '0000-00'),
+                    COALESCE((SELECT DATE_FORMAT(MAX(s.created_at), '%Y-%m')
+                               FROM sales s
+                               WHERE s.patient_id = patients.id AND s.deleted_at IS NULL), '0000-00')
+                ), '0000-00')
+            ) as last_visit"))
             ->addSelect([
-                // "YYYY-MM" — appointments only track a month now, not a specific day.
-                'last_visit' => \App\Models\Appointment::selectRaw("CONCAT(appointment_year, '-', LPAD(appointment_month, 2, '0'))")
-                    ->whereColumn('patient_id', 'patients.id')
-                    ->orderByDesc('appointment_year')
-                    ->orderByDesc('appointment_month')
-                    ->limit(1),
                 'latest_rx_date' => \App\Models\Prescription::select('exam_date')
                     ->whereColumn('patient_id', 'patients.id')
                     ->orderByDesc('exam_date')
                     ->limit(1),
             ])
             ->when($request->search, fn($q) => $q->where(function ($q) use ($request) {
+                // The extra CONCAT check lets a typed full name (e.g. "Aileen Salazar")
+                // match even though first_name/last_name are two separate columns —
+                // without it, a full-name search can never match either column alone.
                 $q->where('first_name', 'like', "%{$request->search}%")
                   ->orWhere('last_name', 'like', "%{$request->search}%")
+                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$request->search}%"])
                   ->orWhere('patient_code', 'like', "%{$request->search}%")
                   ->orWhere('phone', 'like', "%{$request->search}%");
             }));

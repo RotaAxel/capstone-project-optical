@@ -15,9 +15,13 @@ class PrescriptionController extends Controller
     {
         $query = Prescription::with(['patient', 'optometrist'])
             ->when($request->patient_id, fn($q) => $q->where('patient_id', $request->patient_id))
+            // The CONCAT check lets a typed full name (e.g. "Aileen Salazar") match
+            // even though first_name/last_name are two separate columns — without
+            // it, a full-name search can never match either column alone.
             ->when($request->search, fn($q) => $q->whereHas('patient', fn($pq) =>
                 $pq->where('first_name', 'like', "%{$request->search}%")
                    ->orWhere('last_name', 'like', "%{$request->search}%")
+                   ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$request->search}%"])
                    ->orWhere('patient_code', 'like', "%{$request->search}%")
             ))
             ->when($request->date, fn($q) => $q->whereDate('exam_date', $request->date));
