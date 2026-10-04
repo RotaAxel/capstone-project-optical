@@ -53,8 +53,12 @@
           </svg>
         </div>
         <div class="ctrl-group">
-          <label class="ctrl-lbl">Report Date</label>
-          <input v-model="dailyDate" type="date" class="ctrl-input" @change="loadDaily" />
+          <label class="ctrl-lbl">From</label>
+          <input v-model="dailyFrom" type="date" class="ctrl-input" :max="dailyTo || undefined" />
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-lbl">To</label>
+          <input v-model="dailyTo" type="date" class="ctrl-input" :min="dailyFrom || undefined" />
         </div>
         <button @click="loadDaily" class="gen-btn">
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,22 +117,24 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
             </svg>
             Sales Transactions
+            <span class="range-note">{{ dailyRangeLabel }}</span>
           </div>
           <div class="table-wrap">
             <table class="rep-table">
               <thead><tr>
-                <th>Receipt #</th><th>Patient</th><th>Items</th><th>Total</th><th>Payment</th>
+                <th>Receipt #</th><th>Date</th><th>Patient</th><th>Items</th><th>Total</th><th>Payment</th>
               </tr></thead>
               <tbody>
                 <tr v-for="s in dailyData.sales" :key="s.id">
                   <td><span class="mono-badge">{{ s.receipt_number }}</span></td>
+                  <td class="date-cell">{{ fmtDateTime(s.created_at) }}</td>
                   <td>{{ s.patient ? s.patient.first_name + ' ' + s.patient.last_name : 'Walk-in' }}</td>
                   <td>{{ s.items?.length }} item{{ s.items?.length !== 1 ? 's' : '' }}</td>
                   <td><span class="amount-val">₱{{ fmt(s.total_amount) }}</span></td>
                   <td><span :class="payPill(s.payment_method)" class="pay-pill">{{ s.payment_method }}</span></td>
                 </tr>
                 <tr v-if="!dailyData.sales?.length">
-                  <td colspan="5" class="empty-row">No transactions for this date.</td>
+                  <td colspan="6" class="empty-row">No transactions for this date range.</td>
                 </tr>
               </tbody>
             </table>
@@ -142,8 +148,8 @@
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
         </div>
-        <p class="empty-title">Select a date and click Generate</p>
-        <p class="empty-sub">Daily sales report will appear here</p>
+        <p class="empty-title">Select a date range and click Generate</p>
+        <p class="empty-sub">All transactions between the two dates will appear here</p>
       </div>
     </div>
 
@@ -641,8 +647,15 @@ const years = computed(() => {
   return Array.from({ length: now - 2019 }, (_, i) => now - i)
 })
 
-const dailyDate     = ref(new Date().toISOString().split('T')[0])
+// Local-time YYYY-MM-DD (toISOString() would give the UTC date, which is "yesterday" in the early morning in PH)
+function toLocalISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const dailyFrom     = ref(toLocalISO(new Date()))
+const dailyTo       = ref(toLocalISO(new Date()))
 const dailyData     = ref(null)
+const dailyRangeLabel = ref('')   // range that the shown data was generated for
 const monthlyMonthFrom = ref(new Date().getMonth() + 1)
 const monthlyMonthTo   = ref(new Date().getMonth() + 1)
 const monthlyYear   = ref(new Date().getFullYear())
@@ -674,12 +687,62 @@ function resetControlNumber() {
   localStorage.setItem('report_control_number', '0')
 }
 
-async function loadDaily() {
-  error.value = ''; loading.value = true
-  try { dailyData.value = (await api.get('/reports/sales/daily', { params: { date: dailyDate.value } })).data }
-  catch (e) { error.value = e.response?.data?.message || 'Could not load report. Make sure the backend is running.' }
-  finally { loading.value = false }
+// ── Daily Sales (date range) ──────────────────────────────────────────────
+// The backend daily endpoint returns one date at a time, so a range is built by
+// requesting each day (a few at a time) and merging the results.
+const MAX_DAILY_RANGE_DAYS = 93
+
+function datesBetween(from, to) {
+  const out = []
+  const d   = new Date(from + 'T00:00:00')
+  const end = new Date(to + 'T00:00:00')
+  while (d <= end) { out.push(toLocalISO(d)); d.setDate(d.getDate() + 1) }
+  return out
 }
+
+function dailyPeriodLabel(from, to) {
+  return from === to ? fmtDate(from) : `${fmtDate(from)} – ${fmtDate(to)}`
+}
+
+async function loadDaily() {
+  error.value = ''
+  if (!dailyFrom.value || !dailyTo.value) { error.value = 'Please choose both a start date and an end date.'; return }
+  if (dailyFrom.value > dailyTo.value)    { error.value = 'The "From" date must be on or before the "To" date.'; return }
+
+  const days = datesBetween(dailyFrom.value, dailyTo.value)
+  if (days.length > MAX_DAILY_RANGE_DAYS) {
+    error.value = `Please choose a range of ${MAX_DAILY_RANGE_DAYS} days or less. For longer periods, use the Monthly or Yearly Sales tabs.`
+    return
+  }
+
+  loading.value = true
+  try {
+    const results = []
+    for (let i = 0; i < days.length; i += 7) {
+      const chunk = days.slice(i, i + 7)
+      const batch = await Promise.all(
+        chunk.map(date => api.get('/reports/sales/daily', { params: { date } }).then(r => r.data))
+      )
+      results.push(...batch)
+    }
+
+    const sales = results.flatMap(r => r.sales ?? [])
+    sales.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
+
+    dailyData.value = {
+      total_transactions: results.reduce((s, r) => s + (Number(r.total_transactions) || 0), 0),
+      total_revenue:      results.reduce((s, r) => s + (Number(r.total_revenue) || 0), 0),
+      total_discount:     results.reduce((s, r) => s + (Number(r.total_discount) || 0), 0),
+      sales,
+      date_from: dailyFrom.value,
+      date_to:   dailyTo.value,
+    }
+    dailyRangeLabel.value = dailyPeriodLabel(dailyFrom.value, dailyTo.value)
+  } catch (e) {
+    error.value = e.response?.data?.message || 'Could not load report. Make sure the backend is running.'
+  } finally { loading.value = false }
+}
+
 async function loadMonthly() {
   error.value = ''; loading.value = true
   try { monthlyData.value = (await api.get('/reports/sales/monthly', { params: { month_from: monthlyMonthFrom.value, month_to: monthlyMonthTo.value, year: monthlyYear.value } })).data }
@@ -707,6 +770,7 @@ async function loadTop() {
 
 function fmt(v)     { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+function fmtDateTime(d) { return d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' }
 
 // FSN classification + turnover ratio — from the last Analytics run (see AnalyticsController).
 function fsnLabel(cls) {
@@ -812,14 +876,14 @@ function exportDailyPdf() {
     const items = `${s.items?.length ?? 0} item${s.items?.length !== 1 ? 's' : ''}`
     const pmLabels = { cash: 'Cash', card: 'Card', gcash: 'GCash', maya: 'Maya', other: 'Other' }
     const discount = Number(s.discount_amount) > 0 ? `₱${fmt(s.discount_amount)}` : '—'
-    return `<tr><td><span class="mono">${s.receipt_number}</span></td><td>${patient}</td><td>${items}</td><td><span class="amt">₱${fmt(s.total_amount)}</span></td><td>${discount}</td><td>${pmLabels[s.payment_method] ?? s.payment_method}</td></tr>`
+    return `<tr><td><span class="mono">${s.receipt_number}</span></td><td>${fmtDateTime(s.created_at)}</td><td>${patient}</td><td>${items}</td><td><span class="amt">₱${fmt(s.total_amount)}</span></td><td>${discount}</td><td>${pmLabels[s.payment_method] ?? s.payment_method}</td></tr>`
   }).join('')
-  const totalsRow = `<tr class="totals-row"><td colspan="3">TOTAL — ${d.total_transactions} transaction${d.total_transactions !== 1 ? 's' : ''}</td><td class="amt">₱${fmt(d.total_revenue)}</td><td>₱${fmt(d.total_discount)}</td><td></td></tr>`
+  const totalsRow = `<tr class="totals-row"><td colspan="4">TOTAL — ${d.total_transactions} transaction${d.total_transactions !== 1 ? 's' : ''}</td><td class="amt">₱${fmt(d.total_revenue)}</td><td>₱${fmt(d.total_discount)}</td><td></td></tr>`
   const table = `<div class="section">Sales Transactions</div>
-  <table><thead><tr><th>Receipt #</th><th>Patient</th><th>Items</th><th>Total</th><th>Discount</th><th>Payment</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:24px 0;color:#9ca3af;">No transactions for this date.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
+  <table><thead><tr><th>Receipt #</th><th>Date</th><th>Patient</th><th>Items</th><th>Total</th><th>Discount</th><th>Payment</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:24px 0;color:#9ca3af;">No transactions for this date range.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
   incrementControlNumber()
-  openPdf(pdfShell('Daily Sales Report', fmtDate(dailyDate.value), table, controlNumber.value))
+  openPdf(pdfShell('Daily Sales Report', dailyPeriodLabel(d.date_from, d.date_to), table, controlNumber.value))
 }
 
 function exportMonthlyPdf() {
@@ -959,6 +1023,7 @@ function exportTopPdf() {
 
 /* Table */
 .table-heading { display: flex; align-items: center; gap: 8px; padding: 14px 20px; font-size: 13px; font-weight: 700; color: #374151; border-bottom: 1.5px solid #f3f4f6; }
+.range-note    { margin-left: auto; font-size: 12px; font-weight: 600; color: #6b7280; }
 .table-wrap    { overflow-x: auto; }
 
 .rep-table { width: 100%; border-collapse: collapse; }
@@ -974,6 +1039,7 @@ function exportTopPdf() {
 /* Cells */
 .mono-badge  { font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #4f46e5; background: #eef2ff; padding: 3px 8px; border-radius: 5px; }
 .amount-val  { font-size: 13px; font-weight: 700; color: #059669; }
+.date-cell   { white-space: nowrap; color: #6b7280; font-size: 12px; }
 .product-name-cell { font-weight: 600; color: #111827; }
 .cat-badge   { display: inline-block; padding: 3px 9px; border-radius: 20px; background: #f3f4f6; color: #4b5563; font-size: 11px; font-weight: 600; }
 .stock-ok    { font-weight: 700; color: #059669; }
@@ -1018,7 +1084,7 @@ function exportTopPdf() {
 .rank-default  { background: #f3f4f6; color: #6b7280; border: 2px solid #e5e7eb; }
 
 /* Qty sold */
- qty-sold { font-size: 14px; font-weight: 700; color: #374151; }
+.qty-sold { font-size: 14px; font-weight: 700; color: #374151; }
 
 /* Day cell */
 .day-cell { font-weight: 600; color: #111827; }
