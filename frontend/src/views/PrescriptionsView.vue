@@ -194,10 +194,58 @@
           <div class="form-row-3">
             <div class="fg" style="grid-column: span 1;">
               <label class="fl">Patient *</label>
-              <select v-model="form.patient_id" class="fi" required :disabled="!!editingId">
-                <option value="">Select patient</option>
-                <option v-for="p in patients" :key="p.id" :value="p.id">{{ p.first_name }} {{ p.last_name }}</option>
-              </select>
+              <div class="patient-picker">
+
+                <!-- Dropdown mode -->
+                <select v-if="!patientSearchMode" v-model="form.patient_id" class="fi" required :disabled="!!editingId">
+                  <option value="">Select patient</option>
+                  <option v-if="selectedPatient && !patients.some(x => x.id === selectedPatient.id)" :value="selectedPatient.id">
+                    {{ selectedPatient.first_name }} {{ selectedPatient.last_name }}
+                  </option>
+                  <option v-for="p in patients" :key="p.id" :value="p.id">{{ p.first_name }} {{ p.last_name }}</option>
+                </select>
+
+                <!-- Search mode -->
+                <div v-else class="patient-search-wrap">
+                  <input
+                    ref="patientSearchInput"
+                    v-model="patientQuery"
+                    type="text"
+                    class="fi"
+                    :placeholder="selectedPatientName || 'Search patient name...'"
+                    autocomplete="off"
+                    @input="onPatientQueryInput"
+                    @keydown.down.prevent="movePatientActive(1)"
+                    @keydown.up.prevent="movePatientActive(-1)"
+                    @keydown.enter.prevent="pickActivePatient"
+                    @keydown.esc.prevent="closePatientSearch"
+                    @blur="onPatientSearchBlur"
+                  />
+                  <ul class="patient-results">
+                    <li
+                      v-for="(p, i) in filteredPatients"
+                      :key="p.id"
+                      class="patient-result"
+                      :class="{ active: i === patientActiveIdx }"
+                      @mousedown.prevent="pickPatient(p)"
+                      @mouseenter="patientActiveIdx = i"
+                    >{{ p.first_name }} {{ p.last_name }}</li>
+                    <li v-if="patientSearching" class="patient-empty">Searching…</li>
+                    <li v-else-if="!filteredPatients.length" class="patient-empty">No patients found</li>
+                  </ul>
+                </div>
+
+                <!-- Toggle button (hidden when editing, since patient can't be changed) -->
+                <button v-if="!editingId" type="button" class="patient-search-btn" :class="{ on: patientSearchMode }"
+                  :title="patientSearchMode ? 'Back to dropdown' : 'Search patients'" @click="togglePatientSearch">
+                  <svg v-if="!patientSearchMode" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35"/>
+                  </svg>
+                  <svg v-else width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div class="fg">
               <label class="fl">Exam Date *</label>
@@ -395,6 +443,74 @@ const emptyForm = () => ({
 })
 const form = ref(emptyForm())
 
+// ── Patient search picker ─────────────────────────────────────────────
+const patientSearchMode  = ref(false)
+const patientQuery       = ref('')
+const patientActiveIdx   = ref(0)
+const patientSearchInput = ref(null)
+const patientResults     = ref([])
+const patientSearching   = ref(false)
+const selectedPatient    = ref(null)   // keeps the chosen patient even if not in the loaded list
+let patientTimer
+
+const selectedPatientName = computed(() =>
+  selectedPatient.value ? `${selectedPatient.value.first_name} ${selectedPatient.value.last_name}` : ''
+)
+
+const filteredPatients = computed(() => patientResults.value)
+
+// Searches the server so ALL patients are covered, not just the ones loaded up front.
+async function fetchPatientResults(q) {
+  patientSearching.value = true
+  try {
+    const { data } = await api.get('/patients', { params: { search: q, per_page: 10 } })
+    patientResults.value = data.data ?? []
+  } catch { patientResults.value = [] }
+  finally { patientSearching.value = false }
+}
+
+function onPatientQueryInput() {
+  patientActiveIdx.value = 0
+  clearTimeout(patientTimer)
+  patientTimer = setTimeout(() => fetchPatientResults(patientQuery.value.trim()), 300)
+}
+
+async function togglePatientSearch() {
+  if (patientSearchMode.value) return closePatientSearch()
+  patientSearchMode.value = true
+  patientQuery.value = ''
+  patientActiveIdx.value = 0
+  patientResults.value = patients.value.slice(0, 8)
+  await nextTick()
+  patientSearchInput.value?.focus()
+}
+
+function closePatientSearch() {
+  patientSearchMode.value = false
+  patientQuery.value = ''
+}
+
+function movePatientActive(step) {
+  const n = filteredPatients.value.length
+  if (!n) return
+  patientActiveIdx.value = (patientActiveIdx.value + step + n) % n
+}
+
+function pickActivePatient() {
+  const p = filteredPatients.value[patientActiveIdx.value]
+  if (p) pickPatient(p)
+}
+
+function pickPatient(p) {
+  selectedPatient.value = p || null
+  form.value.patient_id = p ? p.id : ''
+  closePatientSearch()
+}
+
+function onPatientSearchBlur() {
+  setTimeout(closePatientSearch, 150)
+}
+
 const rxStats        = ref({})
 const activeCount    = computed(() => rxStats.value.active     ?? 0)
 const expiredCount   = computed(() => rxStats.value.expired    ?? 0)
@@ -452,8 +568,10 @@ async function fetchPage(page = 1) {
 
 function openModal(rx = null) {
   formError.value = ''
+  closePatientSearch()
   if (rx) {
     editingId.value = rx.id
+    selectedPatient.value = rx.patient ?? null
     form.value = {
       patient_id: rx.patient_id, exam_date: rx.exam_date, valid_until: rx.valid_until ?? '', fee: rx.fee ?? '',
       od_sphere: rx.od_sphere ?? '', od_cylinder: rx.od_cylinder ?? '', od_axis: rx.od_axis ?? '',
@@ -465,16 +583,23 @@ function openModal(rx = null) {
     }
   } else {
     editingId.value = null
+    selectedPatient.value = null
     form.value = emptyForm()
   }
   showModal.value = true
 }
 
-function closeModal() { showModal.value = false }
+function closeModal() {
+  showModal.value = false
+  selectedPatient.value = null
+  closePatientSearch()
+}
 function openView(rx) { viewing.value = rx }
 
 async function save() {
-  formError.value = ''; saving.value = true
+  formError.value = ''
+  if (!form.value.patient_id) { formError.value = 'Please select a patient.'; return }
+  saving.value = true
   try {
     if (editingId.value) await api.put(`/prescriptions/${editingId.value}`, form.value)
     else await api.post('/prescriptions', form.value)
@@ -861,6 +986,19 @@ onMounted(async () => {
 .fi--ta    { resize: vertical; min-height: 80px; }
 .fi.mono   { font-family: monospace; }
 .fi:disabled { background: #f9fafb; color: #9ca3af; cursor: not-allowed; }
+
+/* Patient search picker */
+.patient-picker      { display: flex; align-items: stretch; gap: 6px; }
+.patient-picker .fi  { flex: 1; min-width: 0; }
+.patient-search-wrap { position: relative; flex: 1; min-width: 0; }
+.patient-search-btn  { width: 40px; flex-shrink: 0; border: 1.5px solid #ddd6fe; border-radius: 10px; background: #f3e8ff; color: #7c3aed; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; }
+.patient-search-btn:hover { background: #ede9fe; border-color: #7c3aed; }
+.patient-search-btn.on    { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+
+.patient-results { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.12); max-height: 220px; overflow-y: auto; }
+.patient-result  { padding: 8px 10px; font-size: 13px; color: #374151; border-radius: 7px; cursor: pointer; }
+.patient-result.active, .patient-result:hover { background: #f3e8ff; color: #6d28d9; }
+.patient-empty   { padding: 10px; font-size: 12px; color: #9ca3af; text-align: center; }
 
 /* Eye sections */
 .eye-section {
