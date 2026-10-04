@@ -145,10 +145,10 @@
               <tr>
                 <th>Date & Time</th>
                 <th>Product</th>
-                <th>Type</th>
-                <th>Qty Change</th>
-                <th>Before</th>
-                <th>After</th>
+                <th class="mv-center">Stock In Qty</th>
+                <th class="mv-center">Stock Out Qty</th>
+                <th class="mv-center">Adjustment / Damage / Loss</th>
+                <th class="mv-center">Total Stock</th>
                 <th>Reference</th>
                 <th>Recorded By</th>
               </tr>
@@ -163,19 +163,19 @@
                   <p class="mv-product">{{ m.product?.name ?? '—' }}</p>
                   <p class="mv-sku">{{ m.product?.sku ?? '' }}</p>
                 </td>
-                <td>
-                  <span :class="typePill(m.type)" class="type-pill">
-                    <span class="type-dot"></span>
-                    {{ typeLabel(m.type) }}
-                  </span>
+                <td class="mv-center">
+                  <span v-if="isStockIn(m.type)" class="qty-val qty-pos">{{ m.quantity }}</span>
+                  <span v-else class="mv-dash">—</span>
                 </td>
-                <td>
-                  <span :class="qtyClass(m.type)" class="qty-val">
-                    {{ qtySign(m.type) }}{{ m.quantity }}
-                  </span>
+                <td class="mv-center">
+                  <span v-if="m.type === 'sale'" class="qty-val qty-neg">{{ m.quantity }}</span>
+                  <span v-else class="mv-dash">—</span>
                 </td>
-                <td class="mv-num">{{ m.quantity_before ?? '—' }}</td>
-                <td>
+                <td class="mv-center">
+                  <span v-if="isAdjustment(m.type)" class="qty-val qty-neg">{{ m.quantity }}</span>
+                  <span v-else class="mv-dash">—</span>
+                </td>
+                <td class="mv-center">
                   <span class="mv-after">{{ m.quantity_after ?? '—' }}</span>
                 </td>
                 <td class="mv-ref">{{ m.reference_number ?? '—' }}</td>
@@ -279,30 +279,8 @@ async function fetchSummary() {
 function fmtDay(d)  { return d ? new Date(d).toLocaleDateString('en-PH',  { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 function fmtTime(d) { return d ? new Date(d).toLocaleTimeString('en-PH',  { hour: '2-digit', minute: '2-digit' }) : '' }
 
-function typeLabel(t) {
-  return {
-    stock_in:   'Stock In',
-    sale:       'Sale',
-    adjustment: 'Adjustment',
-    damage:     'Damage',
-    loss:       'Loss',
-    return:     'Return',
-  }[t] ?? t ?? '—'
-}
-
-function typePill(t) {
-  return {
-    stock_in:   'pill-green',
-    return:     'pill-green',
-    sale:       'pill-blue',
-    adjustment: 'pill-amber',
-    damage:     'pill-red',
-    loss:       'pill-red',
-  }[t] ?? 'pill-gray'
-}
-
-function qtySign(t)  { return ['stock_in', 'return'].includes(t) ? '+' : '−' }
-function qtyClass(t) { return ['stock_in', 'return'].includes(t) ? 'qty-pos' : 'qty-neg' }
+function isStockIn(t)    { return ['stock_in', 'return'].includes(t) }
+function isAdjustment(t) { return ['adjustment', 'damage', 'loss'].includes(t) }
 
 function userInitials(name) {
   if (!name) return '?'
@@ -374,12 +352,13 @@ onMounted(() => { fetchPage(); fetchSummary() })
 .mv-table tbody tr:last-child { border-bottom: none; }
 .mv-table tbody tr:hover { background: #fffaf5; }
 .mv-table td { padding: 14px 16px; vertical-align: middle; }
+.mv-center   { text-align: center; }
 
 .mv-date    { font-size: 13px; font-weight: 600; color: #374151; }
 .mv-time    { font-size: 11px; color: #9ca3af; margin-top: 2px; }
 .mv-product { font-size: 13px; font-weight: 700; color: #111827; }
 .mv-sku     { font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace; margin-top: 2px; }
-.mv-num     { font-size: 13px; color: #6b7280; }
+.mv-dash    { font-size: 13px; color: #d1d5db; }
 .mv-after   { font-size: 13px; font-weight: 700; color: #111827; }
 .mv-ref     { font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace; }
 

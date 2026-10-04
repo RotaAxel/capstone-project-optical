@@ -54,58 +54,85 @@ class ReportController extends Controller
         $start = \Illuminate\Support\Carbon::create($year, $monthFrom, 1)->startOfMonth();
         $end   = \Illuminate\Support\Carbon::create($year, $monthTo, 1)->endOfMonth();
 
-        $dailyRows = Sale::selectRaw('DATE(created_at) as date, COUNT(*) as transactions, SUM(total_amount) as revenue')
+        // Summarized by month (not by day) — one row per month in the range,
+        // mirroring the yearly report's one-row-per-year format.
+        $monthRows = Sale::selectRaw('MONTH(created_at) as month, COUNT(*) as transactions, SUM(total_amount) as revenue')
             ->whereBetween('created_at', [$start, $end])
             ->where('status', 'completed')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
+            ->groupBy('month')
+            ->get()
+            ->keyBy('month');
 
-        $dailyByDate = $dailyRows->keyBy('date');
-        $daily = collect();
-        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
-            $dateKey = $date->toDateString();
-            $row = $dailyByDate->get($dateKey);
-            $daily->push([
-                'date'         => $dateKey,
+        $monthNames = [
+            1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+            5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+            9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+        ];
+
+        $monthly = collect();
+        for ($m = $monthFrom; $m <= $monthTo; $m++) {
+            $row = $monthRows->get($m);
+            $monthly->push([
+                'month'        => $m,
+                'month_name'   => $monthNames[$m],
                 'transactions' => (int) ($row->transactions ?? 0),
                 'revenue'      => (float) ($row->revenue ?? 0),
             ]);
         }
 
         return response()->json([
-            'year'              => $year,
-            'month_from'        => $monthFrom,
-            'month_to'          => $monthTo,
-            'total_transactions'=> $daily->sum('transactions'),
-            'total_revenue'     => $daily->sum('revenue'),
-            'daily_breakdown'   => $daily,
+            'year'               => $year,
+            'month_from'         => $monthFrom,
+            'month_to'           => $monthTo,
+            'total_transactions' => $monthly->sum('transactions'),
+            'total_revenue'      => $monthly->sum('revenue'),
+            'monthly_breakdown'  => $monthly,
         ]);
     }
 
     public function salesYearly(Request $request)
     {
         $request->validate([
-            'year' => 'required|integer|min:2000|max:2100',
+            'year_from' => 'required|integer|min:2000|max:2100',
+            'year_to'   => 'required|integer|min:2000|max:2100',
         ]);
 
-        $year = (int) $request->year;
+        $yearFrom = (int) $request->year_from;
+        $yearTo   = (int) $request->year_to;
+        if ($yearTo < $yearFrom) {
+            [$yearFrom, $yearTo] = [$yearTo, $yearFrom];
+        }
 
-        $stats = Sale::whereYear('created_at', $year)
+        $stats = Sale::whereYear('created_at', '>=', $yearFrom)
+            ->whereYear('created_at', '<=', $yearTo)
             ->where('status', 'completed')
             ->selectRaw('COUNT(*) as total_transactions, COALESCE(SUM(total_amount), 0) as total_revenue, COALESCE(SUM(discount_amount), 0) as total_discount')
             ->first();
 
-        // Single summary row for the selected year.
-        $yearly = Sale::selectRaw('YEAR(created_at) as year, COUNT(*) as transactions, SUM(total_amount) as revenue, SUM(discount_amount) as discount')
-            ->whereYear('created_at', $year)
+        // One row per year in the range — e.g. 2024 to 2026 returns all three,
+        // including 2025 in between for context, even with zero sales.
+        $yearRows = Sale::selectRaw('YEAR(created_at) as year, COUNT(*) as transactions, SUM(total_amount) as revenue, SUM(discount_amount) as discount')
+            ->whereYear('created_at', '>=', $yearFrom)
+            ->whereYear('created_at', '<=', $yearTo)
             ->where('status', 'completed')
             ->groupBy('year')
-            ->orderBy('year')
-            ->get();
+            ->get()
+            ->keyBy('year');
+
+        $yearly = collect();
+        for ($y = $yearFrom; $y <= $yearTo; $y++) {
+            $row = $yearRows->get($y);
+            $yearly->push([
+                'year'         => $y,
+                'transactions' => (int) ($row->transactions ?? 0),
+                'revenue'      => (float) ($row->revenue ?? 0),
+                'discount'     => (float) ($row->discount ?? 0),
+            ]);
+        }
 
         return response()->json([
-            'year'               => $year,
+            'year_from'          => $yearFrom,
+            'year_to'            => $yearTo,
             'total_transactions' => (int) $stats->total_transactions,
             'total_revenue'      => (float) $stats->total_revenue,
             'total_discount'     => (float) $stats->total_discount,

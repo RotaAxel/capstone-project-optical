@@ -234,7 +234,7 @@
           <div class="form-grid-2">
             <div class="fg">
               <label class="fl">Patient (optional)</label>
-              <select v-model="saleForm.patient_id" class="fi">
+              <select v-model="saleForm.patient_id" class="fi" @change="onPatientChange">
                 <option value="">Walk-in Customer</option>
                 <option v-for="p in patients" :key="p.id" :value="p.id">{{ p.first_name }} {{ p.last_name }}</option>
               </select>
@@ -248,6 +248,16 @@
                 <option value="maya">Maya</option>
                 <option value="other">Other</option>
               </select>
+            </div>
+            <div v-if="saleForm.patient_id" class="fg fg--full">
+              <label class="fl">Prescription (optional)</label>
+              <select v-model="saleForm.prescription_id" class="fi" :disabled="loadingPrescriptions" @change="recalc">
+                <option value="">No prescription — frame/accessory only, or filling an old Rx</option>
+                <option v-for="rx in patientPrescriptions" :key="rx.id" :value="rx.id">{{ prescriptionLabel(rx) }}</option>
+              </select>
+              <p v-if="!loadingPrescriptions && saleForm.patient_id && !patientPrescriptions.length" class="rx-empty-hint">
+                This patient has no prescriptions on file yet.
+              </p>
             </div>
           </div>
 
@@ -311,6 +321,10 @@
             <div class="totals-row">
               <span class="totals-lbl">Subtotal</span>
               <span class="totals-val">₱{{ fmt(totals.subtotal) }}</span>
+            </div>
+            <div v-if="selectedPrescriptionFee > 0" class="totals-row">
+              <span class="totals-lbl">Professional Fee</span>
+              <span class="totals-val">₱{{ fmt(selectedPrescriptionFee) }}</span>
             </div>
             <div class="totals-row">
               <span class="totals-lbl">Overall Discount</span>
@@ -384,6 +398,14 @@
             </div>
           </div>
 
+          <!-- Prescription -->
+          <div v-if="viewingSale.prescription" class="receipt-rx">
+            <p class="receipt-rx-label">Prescription Filled</p>
+            <p class="receipt-rx-line">Exam {{ fmtExamDate(viewingSale.prescription.exam_date) }} — {{ doctorLabel(viewingSale.prescription.optometrist?.name) }}</p>
+            <p class="receipt-rx-line">OD {{ viewingSale.prescription.od_sphere ?? '—' }} / {{ viewingSale.prescription.od_cylinder ?? '—' }} &nbsp;·&nbsp; OS {{ viewingSale.prescription.os_sphere ?? '—' }} / {{ viewingSale.prescription.os_cylinder ?? '—' }}</p>
+            <p v-if="Number(viewingSale.prescription_fee) > 0" class="receipt-rx-line">Professional Fee: ₱{{ fmt(viewingSale.prescription_fee) }}</p>
+          </div>
+
           <!-- Items -->
           <div class="receipt-items-header">Items Purchased</div>
           <div v-if="loadingSale" class="receipt-loading">Loading items…</div>
@@ -403,6 +425,10 @@
             <div class="rt-row">
               <span>Subtotal</span>
               <span>₱{{ fmt(viewingSale.subtotal) }}</span>
+            </div>
+            <div v-if="Number(viewingSale.prescription_fee) > 0" class="rt-row">
+              <span>Professional Fee</span>
+              <span>₱{{ fmt(viewingSale.prescription_fee) }}</span>
             </div>
             <div v-if="Number(viewingSale.discount_amount) > 0" class="rt-row discount">
               <span>Discount</span>
@@ -458,8 +484,36 @@ const loadingSale   = ref(false)
 const saving     = ref(false)
 const saleError  = ref('')
 
-const saleForm = ref({ patient_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] })
+const saleForm = ref({ patient_id: '', prescription_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] })
 const totals   = ref({ subtotal: 0, total: 0, change: 0 })
+
+const patientPrescriptions = ref([])
+const loadingPrescriptions = ref(false)
+
+// Prescriptions are patient-specific — reload the list (and clear any
+// previously-picked one) every time the patient selection changes.
+async function onPatientChange() {
+  saleForm.value.prescription_id = ''
+  patientPrescriptions.value = []
+  if (!saleForm.value.patient_id) return
+  loadingPrescriptions.value = true
+  try {
+    const { data } = await api.get('/prescriptions', { params: { patient_id: saleForm.value.patient_id, per_page: 50 } })
+    patientPrescriptions.value = data.data ?? []
+  } catch { /* leave empty — field still usable, just shows no options */ }
+  finally { loadingPrescriptions.value = false; recalc() }
+}
+
+function fmtExamDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+// Some accounts already store "Dr. " in their name — avoid doubling it up.
+function doctorLabel(name) {
+  if (!name) return '—'
+  return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`
+}
+
+function prescriptionLabel(rx) {
+  return `${fmtExamDate(rx.exam_date)} — OD ${rx.od_sphere ?? '—'}/${rx.od_cylinder ?? '—'}, OS ${rx.os_sphere ?? '—'}/${rx.os_cylinder ?? '—'}`
+}
 
 const saleStats = ref({})
 
@@ -488,9 +542,16 @@ const visiblePages = computed(() => {
 
 function itemSubtotal(item) { return (Number(item.unit_price) * Number(item.quantity)) - (Number(item.discount) || 0) }
 
+// Preview only — the real charge is always recomputed server-side from the
+// prescription record itself, never trusted from this client-side value.
+const selectedPrescriptionFee = computed(() => {
+  const rx = patientPrescriptions.value.find(r => r.id === saleForm.value.prescription_id)
+  return rx ? Number(rx.fee) || 0 : 0
+})
+
 function recalc() {
   const sub   = saleForm.value.items.reduce((s, i) => s + itemSubtotal(i), 0)
-  const total = sub - (Number(saleForm.value.discount_amount) || 0)
+  const total = Math.max(0, (sub + selectedPrescriptionFee.value) - (Number(saleForm.value.discount_amount) || 0))
   totals.value = { subtotal: sub, total, change: Math.max(0, (Number(saleForm.value.amount_paid) || 0) - total) }
 }
 
@@ -509,7 +570,8 @@ function fillPrice(item) {
 function openSaleModal()  { showSaleModal.value = true }
 function closeSaleModal() {
   showSaleModal.value = false
-  saleForm.value = { patient_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] }
+  saleForm.value = { patient_id: '', prescription_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] }
+  patientPrescriptions.value = []
   totals.value   = { subtotal: 0, total: 0, change: 0 }
   saleError.value = ''
 }
@@ -659,6 +721,7 @@ function printReceipt(sale) {
 <div class="dash"></div>
 <table class="tot">
   <tr><td class="lbl">Subtotal</td><td class="tr">₱${fmt(sale.subtotal)}</td></tr>
+  ${Number(sale.prescription_fee) > 0 ? `<tr><td class="lbl">Professional Fee</td><td class="tr">₱${fmt(sale.prescription_fee)}</td></tr>` : ''}
   ${Number(sale.discount_amount) > 0 ? `<tr><td class="lbl">Discount</td><td class="tr">−₱${fmt(sale.discount_amount)}</td></tr>` : ''}
   <tr class="bigrow"><td>TOTAL</td><td class="tr">₱${fmt(sale.total_amount)}</td></tr>
   ${Number(sale.amount_paid) > 0 ? `<tr><td class="lbl">Paid</td><td class="tr">₱${fmt(sale.amount_paid)}</td></tr>` : ''}
@@ -808,9 +871,12 @@ onMounted(async () => {
 .section-label { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: .8px; border-bottom: 1.5px solid #d1fae5; padding-bottom: 8px; margin-bottom: 14px; }
 .form-grid-2   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .fg  { display: flex; flex-direction: column; gap: 5px; }
+.fg--full { grid-column: 1 / -1; }
 .fl  { font-size: 12px; font-weight: 700; color: #374151; }
 .fi  { padding: 9px 12px; border: 1.5px solid #e5e7eb; border-radius: 9px; font-family: inherit; font-size: 13px; color: #1f2937; background: #fff; outline: none; width: 100%; transition: border-color .2s; }
 .fi:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,.1); }
+.fi:disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+.rx-empty-hint { font-size: 11.5px; color: #9ca3af; margin: 2px 0 0; }
 
 .add-item-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1.5px solid #d1fae5; border-radius: 7px; background: #ecfdf5; color: #059669; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; }
 .add-item-btn:hover { background: #d1fae5; }
@@ -853,6 +919,9 @@ onMounted(async () => {
 .meta-row       { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
 .meta-lbl       { color: #9ca3af; font-size: 12px; }
 .meta-val       { font-weight: 600; color: #374151; }
+.receipt-rx     { background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; }
+.receipt-rx-label { font-size: 10px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: .6px; margin: 0 0 4px; }
+.receipt-rx-line  { font-size: 12.5px; color: #374151; margin: 2px 0; }
 .receipt-items-header { font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 10px; }
 .receipt-loading  { text-align: center; padding: 16px; font-size: 13px; color: #9ca3af; }
 .receipt-no-items { text-align: center; padding: 12px; font-size: 13px; color: #9ca3af; background: #f9fafb; border-radius: 8px; }

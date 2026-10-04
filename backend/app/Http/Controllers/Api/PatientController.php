@@ -24,10 +24,10 @@ class PatientController extends Controller
             // signal that doesn't exist for this patient; NULLIF turns it back to null.
             ->addSelect(DB::raw("(
                 SELECT NULLIF(GREATEST(
-                    COALESCE((SELECT CONCAT(a.appointment_year, '-', LPAD(a.appointment_month, 2, '0'))
+                    COALESCE((SELECT DATE_FORMAT(a.appointment_date, '%Y-%m')
                                FROM appointments a
                                WHERE a.patient_id = patients.id AND a.status = 'completed' AND a.deleted_at IS NULL
-                               ORDER BY a.appointment_year DESC, a.appointment_month DESC LIMIT 1), '0000-00'),
+                               ORDER BY a.appointment_date DESC LIMIT 1), '0000-00'),
                     COALESCE((SELECT DATE_FORMAT(MAX(r.exam_date), '%Y-%m')
                                FROM prescriptions r
                                WHERE r.patient_id = patients.id AND r.deleted_at IS NULL), '0000-00'),

@@ -17,42 +17,34 @@ class AppointmentController extends Controller
         $query = Appointment::with(['patient', 'optometrist'])
             ->when($request->patient_id, fn($q) => $q->where('patient_id', $request->patient_id))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->when($request->year,  fn($q) => $q->where('appointment_year', $request->year))
-            ->when($request->month, fn($q) => $q->where('appointment_month', $request->month));
+            ->when($request->date, fn($q) => $q->whereDate('appointment_date', $request->date));
 
         if ($request->highlight_id) {
             $target = Appointment::find($request->highlight_id);
             if ($target) {
-                // Stable sort: year ASC, month ASC, id ASC — count rows that come before target
+                // Stable sort: appointment_date ASC, id ASC — count rows that come before target
                 $before = (clone $query)->where(function ($q) use ($target) {
-                    $q->where('appointment_year', '<', $target->appointment_year)
-                      ->orWhere(fn($q2) => $q2->where('appointment_year', $target->appointment_year)
-                          ->where('appointment_month', '<', $target->appointment_month))
-                      ->orWhere(fn($q2) => $q2->where('appointment_year', $target->appointment_year)
-                          ->where('appointment_month', $target->appointment_month)
-                          ->where('id', '<', $target->id));
+                    $q->where('appointment_date', '<', $target->appointment_date)
+                      ->orWhere(fn($q2) => $q2->where('appointment_date', $target->appointment_date)->where('id', '<', $target->id));
                 })->count();
                 $page = (int) floor($before / 15) + 1;
-                return response()->json($query->orderBy('appointment_year')->orderBy('appointment_month')->orderBy('id')->paginate(15, ['*'], 'page', $page));
+                return response()->json($query->orderBy('appointment_date')->orderBy('id')->paginate(15, ['*'], 'page', $page));
             }
         }
 
-        return response()->json($query->orderBy('appointment_year')->orderBy('appointment_month')->orderBy('id')->paginate(15));
+        return response()->json($query->orderBy('appointment_date')->orderBy('id')->paginate(15));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'patient_id'         => 'required|exists:patients,id',
-            'optometrist_id'     => 'required|exists:users,id',
-            'appointment_month'  => 'required|integer|min:1|max:12',
-            'appointment_year'   => 'required|integer|min:' . now()->year,
-            'type'               => 'required|in:eye_exam,follow_up,fitting,other',
-            'reason'             => 'nullable|string',
-            'notes'              => 'nullable|string',
+            'patient_id'       => 'required|exists:patients,id',
+            'optometrist_id'   => 'required|exists:users,id',
+            'appointment_date' => 'required|date|after_or_equal:today',
+            'type'             => 'required|in:eye_exam,follow_up,fitting,other',
+            'reason'           => 'nullable|string',
+            'notes'            => 'nullable|string',
         ]);
-
-        $this->assertNotInThePast($validated['appointment_year'], $validated['appointment_month']);
 
         $opto = User::find($validated['optometrist_id']);
         if (!$opto || $opto->role !== 'optometrist' || !$opto->is_active) {
@@ -75,25 +67,23 @@ class AppointmentController extends Controller
 
     public function update(Request $request, Appointment $appointment)
     {
+        // Only enforce future-date rule when the date is actually being changed.
+        // Marking a past appointment as completed/no_show must not be blocked.
+        $dateIsChanging = $request->has('appointment_date')
+            && $request->appointment_date !== $appointment->appointment_date->toDateString();
+
         $validated = $request->validate([
-            'optometrist_id'     => 'sometimes|exists:users,id',
-            'appointment_month'  => 'sometimes|integer|min:1|max:12',
-            'appointment_year'   => 'sometimes|integer|min:2000',
-            'type'               => 'sometimes|in:eye_exam,follow_up,fitting,other',
-            'status'             => 'sometimes|in:scheduled,completed,cancelled,no_show',
-            'reason'             => 'nullable|string',
-            'notes'              => 'nullable|string',
+            'optometrist_id'   => 'sometimes|exists:users,id',
+            'appointment_date' => array_filter([
+                'sometimes',
+                'date',
+                $dateIsChanging ? 'after_or_equal:today' : null,
+            ]),
+            'type'             => 'sometimes|in:eye_exam,follow_up,fitting,other',
+            'status'           => 'sometimes|in:scheduled,completed,cancelled,no_show',
+            'reason'           => 'nullable|string',
+            'notes'            => 'nullable|string',
         ]);
-
-        // Only enforce the not-in-the-past rule when the month/year is actually
-        // changing — marking a past appointment completed/no_show must not be blocked.
-        $newMonth = $validated['appointment_month'] ?? $appointment->appointment_month;
-        $newYear  = $validated['appointment_year']  ?? $appointment->appointment_year;
-        $isChanging = $newMonth !== $appointment->appointment_month || $newYear !== $appointment->appointment_year;
-
-        if ($isChanging) {
-            $this->assertNotInThePast($newYear, $newMonth);
-        }
 
         if (isset($validated['optometrist_id'])) {
             $opto = User::find($validated['optometrist_id']);
@@ -119,8 +109,7 @@ class AppointmentController extends Controller
     {
         $stats = DB::table('appointments')
             ->whereNull('deleted_at')
-            ->when($request->year,   fn($q) => $q->where('appointment_year', $request->year))
-            ->when($request->month,  fn($q) => $q->where('appointment_month', $request->month))
+            ->when($request->date,   fn($q) => $q->whereDate('appointment_date', $request->date))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->selectRaw("
                 COUNT(*) as total,
@@ -130,18 +119,5 @@ class AppointmentController extends Controller
             ")
             ->first();
         return response()->json($stats);
-    }
-
-    /** A booked month/year must not be earlier than the current month. */
-    private function assertNotInThePast(int $year, int $month): void
-    {
-        $requested = $year * 12 + $month;
-        $current   = now()->year * 12 + now()->month;
-
-        if ($requested < $current) {
-            throw ValidationException::withMessages([
-                'appointment_month' => ['The selected month must be this month or later.'],
-            ]);
-        }
     }
 }

@@ -105,7 +105,7 @@
           <h3 class="info-title">Latest Prescription</h3>
           <div v-if="latestRx">
             <p class="text-xs text-gray-400 mb-3">
-              Exam: {{ formatDate(latestRx.exam_date) }} &nbsp;·&nbsp; Dr. {{ latestRx.optometrist?.name ?? '—' }}<br/>
+              Exam: {{ formatDate(latestRx.exam_date) }} &nbsp;·&nbsp; {{ doctorLabel(latestRx.optometrist?.name) }}<br/>
               Valid until: <span class="font-semibold text-gray-700">{{ latestRx.valid_until ? formatDate(latestRx.valid_until) : 'Not specified' }}</span>
             </p>
             <div class="overflow-x-auto">
@@ -154,11 +154,12 @@
           <div v-if="sortedAppointments.length" class="space-y-2">
             <div v-for="appt in sortedAppointments" :key="appt.id" class="appt-row">
               <div class="appt-date-col">
-                <p class="appt-date">{{ appt.appointment_label }}</p>
+                <p class="appt-date">{{ formatDate(appt.appointment_date) }}</p>
+                <p class="appt-time">{{ formatTime(appt.appointment_date) }}</p>
               </div>
               <div class="flex-1">
                 <p class="text-sm font-semibold text-gray-900 capitalize">{{ appt.type?.replace(/_/g, ' ') }}</p>
-                <p class="text-xs text-gray-500 mt-0.5">Dr. {{ appt.optometrist?.name ?? '—' }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">{{ doctorLabel(appt.optometrist?.name) }}</p>
                 <p v-if="appt.reason" class="text-xs text-gray-400 mt-0.5 italic">{{ appt.reason }}</p>
               </div>
               <span class="appt-status" :class="statusClass(appt.status)">{{ appt.status?.replace(/_/g, ' ') }}</span>
@@ -174,7 +175,7 @@
               <div class="flex items-start justify-between mb-3">
                 <div>
                   <p class="text-sm font-semibold text-gray-900">Exam: {{ formatDate(rx.exam_date) }}</p>
-                  <p class="text-xs text-gray-400 mt-0.5">Dr. {{ rx.optometrist?.name ?? '—' }} &nbsp;·&nbsp; Valid until {{ rx.valid_until ? formatDate(rx.valid_until) : 'Not set' }}</p>
+                  <p class="text-xs text-gray-400 mt-0.5">{{ doctorLabel(rx.optometrist?.name) }} &nbsp;·&nbsp; Valid until {{ rx.valid_until ? formatDate(rx.valid_until) : 'Not set' }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                   <span v-if="rx === latestRx" class="latest-badge">Latest</span>
@@ -290,8 +291,7 @@ const activeTab = ref('appointments')
 const latestRx = computed(() => patient.value?.prescriptions?.[0] ?? null)
 
 const sortedAppointments = computed(() =>
-  [...(patient.value?.appointments ?? [])].sort((a, b) =>
-    (b.appointment_year * 12 + b.appointment_month) - (a.appointment_year * 12 + a.appointment_month))
+  [...(patient.value?.appointments ?? [])].sort((a, b) => new Date(b.appointment_date) - new Date(a.appointment_date))
 )
 
 const ageLabel = computed(() => {
@@ -321,7 +321,10 @@ const lastVisitLabel = computed(() => {
   const labelFor = (date) => date.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
 
   const completed = sortedAppointments.value.filter(a => a.status === 'completed')[0]
-  if (completed) candidates.push({ key: monthYearKey(completed.appointment_year, completed.appointment_month), label: completed.appointment_label })
+  if (completed?.appointment_date) {
+    const d = new Date(completed.appointment_date)
+    candidates.push({ key: monthYearKey(d.getFullYear(), d.getMonth() + 1), label: labelFor(d) })
+  }
 
   const latestRx = [...(patient.value?.prescriptions ?? [])].sort((a, b) => new Date(b.exam_date) - new Date(a.exam_date))[0]
   if (latestRx?.exam_date) {
@@ -357,6 +360,12 @@ function statusClass(status) {
 
 function formatDate(d)     { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 function formatDateTime(d) { return d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' }
+// Some accounts already store "Dr. " in their name — avoid doubling it up.
+function doctorLabel(name) {
+  if (!name) return '—'
+  return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`
+}
+function formatTime(d)     { return d ? new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '' }
 function formatAmount(v)   { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }
 
 function printReceipt(sale) {
@@ -440,7 +449,7 @@ function printPrescription(rx) {
   <div class="info-grid">
     <div class="info-item"><span class="lbl">Patient:</span><span>${p?.first_name ?? ''} ${p?.last_name ?? ''}</span></div>
     <div class="info-item"><span class="lbl">Exam Date:</span><span>${formatDate(rx.exam_date)}</span></div>
-    <div class="info-item"><span class="lbl">Optometrist:</span><span>Dr. ${rx.optometrist?.name ?? '—'}</span></div>
+    <div class="info-item"><span class="lbl">Optometrist:</span><span>${doctorLabel(rx.optometrist?.name)}</span></div>
     <div class="info-item"><span class="lbl">Valid Until:</span><span>${rx.valid_until ? formatDate(rx.valid_until) : 'Not set'}</span></div>
   </div>
   <table>

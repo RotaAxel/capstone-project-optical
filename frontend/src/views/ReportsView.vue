@@ -220,27 +220,27 @@
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
-            Daily Breakdown
+            Monthly Breakdown
           </div>
           <div class="table-wrap">
             <table class="rep-table">
-              <thead><tr><th>Date</th><th>Transactions</th><th>Revenue</th><th>Share</th></tr></thead>
+              <thead><tr><th>Month</th><th>Transactions</th><th>Revenue</th><th>Share</th></tr></thead>
               <tbody>
-                <tr v-for="d in monthlyData.daily_breakdown" :key="d.date">
-                  <td class="day-cell">{{ fmtDate(d.date) }}</td>
+                <tr v-for="m in monthlyData.monthly_breakdown" :key="m.month">
+                  <td class="day-cell">{{ m.month_name }} {{ monthlyData.year }}</td>
                   <td>
-                    <span class="tx-count">{{ d.transactions }}</span>
+                    <span class="tx-count">{{ m.transactions }}</span>
                   </td>
-                  <td><span class="amount-val">₱{{ fmt(d.revenue) }}</span></td>
+                  <td><span class="amount-val">₱{{ fmt(m.revenue) }}</span></td>
                   <td>
                     <div class="share-bar-wrap">
-                      <div class="share-bar" :style="{ width: revenueShare(d.revenue, monthlyData.total_revenue) + '%' }"></div>
-                      <span class="share-pct">{{ revenueShare(d.revenue, monthlyData.total_revenue) }}%</span>
+                      <div class="share-bar" :style="{ width: revenueShare(m.revenue, monthlyData.total_revenue) + '%' }"></div>
+                      <span class="share-pct">{{ revenueShare(m.revenue, monthlyData.total_revenue) }}%</span>
                     </div>
                   </td>
                 </tr>
-                <tr v-if="!monthlyData.daily_breakdown?.length">
-                  <td colspan="4" class="empty-row">No data for this month.</td>
+                <tr v-if="!monthlyData.monthly_breakdown?.length">
+                  <td colspan="4" class="empty-row">No data for this range.</td>
                 </tr>
               </tbody>
             </table>
@@ -255,7 +255,7 @@
           </svg>
         </div>
         <p class="empty-title">Select a year and month range, then click Generate</p>
-        <p class="empty-sub">Daily breakdown for that span will appear here</p>
+        <p class="empty-sub">A summarized total per month in that range will appear here</p>
       </div>
     </div>
 
@@ -270,8 +270,14 @@
           </svg>
         </div>
         <div class="ctrl-group">
-          <label class="ctrl-lbl">Year</label>
-          <select v-model="yearlyYear" class="ctrl-select">
+          <label class="ctrl-lbl">From Year</label>
+          <select v-model="yearlyYearFrom" class="ctrl-select">
+            <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-lbl">To Year</label>
+          <select v-model="yearlyYearTo" class="ctrl-select">
             <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
           </select>
         </div>
@@ -366,8 +372,8 @@
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
         </div>
-        <p class="empty-title">Select a year and click Generate</p>
-        <p class="empty-sub">Sales totals for that year will appear here</p>
+        <p class="empty-title">Select a year range and click Generate</p>
+        <p class="empty-sub">A summarized total per year in that range will appear here — e.g. pick 2024 to 2026 to compare them side by side</p>
       </div>
     </div>
 
@@ -641,7 +647,8 @@ const monthlyMonthFrom = ref(new Date().getMonth() + 1)
 const monthlyMonthTo   = ref(new Date().getMonth() + 1)
 const monthlyYear   = ref(new Date().getFullYear())
 const monthlyData   = ref(null)
-const yearlyYear    = ref(new Date().getFullYear())
+const yearlyYearFrom = ref(new Date().getFullYear())
+const yearlyYearTo   = ref(new Date().getFullYear())
 const yearlyData    = ref(null)
 const inventoryData = ref(null)
 const topFrom       = ref(new Date(new Date().setDate(1)).toISOString().split('T')[0])
@@ -681,7 +688,7 @@ async function loadMonthly() {
 }
 async function loadYearly() {
   error.value = ''; loading.value = true
-  try { yearlyData.value = (await api.get('/reports/sales/yearly', { params: { year: yearlyYear.value } })).data }
+  try { yearlyData.value = (await api.get('/reports/sales/yearly', { params: { year_from: yearlyYearFrom.value, year_to: yearlyYearTo.value } })).data }
   catch (e) { error.value = e.response?.data?.message || 'Could not load report. Make sure the backend is running.' }
   finally { loading.value = false }
 }
@@ -822,20 +829,21 @@ function exportMonthlyPdf() {
   const periodLabel = mFrom === mTo
     ? `${mFrom} ${monthlyYear.value}`
     : `${mFrom} – ${mTo} ${monthlyYear.value}`
-  const rows = (d.daily_breakdown ?? []).map(day => {
-    const share = revenueShare(day.revenue, d.total_revenue)
-    return `<tr><td>${fmtDate(day.date)}</td><td>${day.transactions}</td><td><span class="amt">₱${fmt(day.revenue)}</span></td><td>${share}%</td></tr>`
+  const rows = (d.monthly_breakdown ?? []).map(m => {
+    const share = revenueShare(m.revenue, d.total_revenue)
+    return `<tr><td>${m.month_name} ${d.year}</td><td>${m.transactions}</td><td><span class="amt">₱${fmt(m.revenue)}</span></td><td>${share}%</td></tr>`
   }).join('')
   const totalsRow = `<tr class="totals-row"><td>TOTAL</td><td>${d.total_transactions}</td><td class="amt">₱${fmt(d.total_revenue)}</td><td>100%</td></tr>`
-  const table = `<div class="section">Daily Breakdown</div>
-  <table><thead><tr><th>Date</th><th>Transactions</th><th>Revenue</th><th>Share</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="4" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this month.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
+  const table = `<div class="section">Monthly Breakdown</div>
+  <table><thead><tr><th>Month</th><th>Transactions</th><th>Revenue</th><th>Share</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="4" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this range.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
   incrementControlNumber()
   openPdf(pdfShell('Monthly Sales Report', periodLabel, table, controlNumber.value))
 }
 
 function exportYearlyPdf() {
   const d = yearlyData.value
+  const periodLabel = d.year_from === d.year_to ? String(d.year_from) : `${d.year_from} – ${d.year_to}`
   const rows = (d.yearly_breakdown ?? []).map(y => {
     const share = revenueShare(y.revenue, d.total_revenue)
     return `<tr><td style="font-weight:600;">${y.year}</td><td>${y.transactions}</td><td><span class="amt">₱${fmt(y.revenue)}</span></td><td><span class="amt">₱${fmt(y.discount)}</span></td><td>${share}%</td></tr>`
@@ -845,7 +853,7 @@ function exportYearlyPdf() {
   <table><thead><tr><th>Year</th><th>Transactions</th><th>Revenue</th><th>Discounts</th><th>Share</th></tr></thead>
   <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this period.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
   incrementControlNumber()
-  openPdf(pdfShell('Yearly Sales Report', String(d.year ?? yearlyYear.value), table, controlNumber.value))
+  openPdf(pdfShell('Yearly Sales Report', periodLabel, table, controlNumber.value))
 }
 
 function exportInventoryPdf() {

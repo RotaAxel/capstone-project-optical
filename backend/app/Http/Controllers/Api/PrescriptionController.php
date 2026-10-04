@@ -62,6 +62,7 @@ class PrescriptionController extends Controller
             'visual_acuity_od' => 'nullable|numeric',
             'visual_acuity_os' => 'nullable|numeric',
             'notes'            => 'nullable|string',
+            'fee'              => 'required|numeric|min:0',
             'optometrist_id'   => $user->isAdmin() ? 'required|exists:users,id' : 'nullable',
         ]);
 
@@ -104,6 +105,7 @@ class PrescriptionController extends Controller
             'visual_acuity_od' => 'nullable|numeric',
             'visual_acuity_os' => 'nullable|numeric',
             'notes'            => 'nullable|string',
+            'fee'              => 'sometimes|numeric|min:0',
         ]));
 
         return response()->json($prescription->fresh(['patient', 'optometrist']));

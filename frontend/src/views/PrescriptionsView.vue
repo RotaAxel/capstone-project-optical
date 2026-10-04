@@ -126,7 +126,9 @@
           <!-- Doctor -->
           <div class="rx-doctor">
             <p class="date-label">Optometrist</p>
-            <p class="doctor-name">Dr. {{ rx.optometrist?.name ?? '—' }}</p>
+            <p class="doctor-name">{{ doctorLabel(rx.optometrist?.name) }}</p>
+            <p class="date-label fee-label">Prof. Fee</p>
+            <p class="date-val">₱{{ fmt(rx.fee) }}</p>
           </div>
 
           <!-- Actions -->
@@ -204,6 +206,13 @@
             <div class="fg">
               <label class="fl">Valid Until</label>
               <input v-model="form.valid_until" type="date" class="fi" />
+            </div>
+          </div>
+
+          <div class="form-row-3">
+            <div class="fg">
+              <label class="fl">Professional Fee (₱) *</label>
+              <input v-model="form.fee" type="number" step="0.01" min="0" class="fi" placeholder="0.00" required />
             </div>
           </div>
 
@@ -288,7 +297,7 @@
             </div>
             <div class="view-meta-row">
               <span class="view-key">Optometrist</span>
-              <span class="view-val">Dr. {{ viewing.optometrist?.name }}</span>
+              <span class="view-val">{{ doctorLabel(viewing.optometrist?.name) }}</span>
             </div>
             <div class="view-meta-row">
               <span class="view-key">Valid Until</span>
@@ -296,6 +305,10 @@
                 {{ fmtDate(viewing.valid_until) }}
               </span>
               <span v-else class="view-val text-gray-300">Not set</span>
+            </div>
+            <div class="view-meta-row">
+              <span class="view-key">Professional Fee</span>
+              <span class="view-val font-semibold">₱{{ fmt(viewing.fee) }}</span>
             </div>
           </div>
 
@@ -375,7 +388,7 @@ const saving        = ref(false)
 const formError     = ref('')
 
 const emptyForm = () => ({
-  patient_id: '', exam_date: new Date().toISOString().split('T')[0], valid_until: '',
+  patient_id: '', exam_date: new Date().toISOString().split('T')[0], valid_until: '', fee: '',
   od_sphere: '', od_cylinder: '', od_axis: '', od_add: '', od_pd: '',
   os_sphere: '', os_cylinder: '', os_axis: '', os_add: '', os_pd: '',
   visual_acuity_od: '', visual_acuity_os: '', notes: '',
@@ -442,7 +455,7 @@ function openModal(rx = null) {
   if (rx) {
     editingId.value = rx.id
     form.value = {
-      patient_id: rx.patient_id, exam_date: rx.exam_date, valid_until: rx.valid_until ?? '',
+      patient_id: rx.patient_id, exam_date: rx.exam_date, valid_until: rx.valid_until ?? '', fee: rx.fee ?? '',
       od_sphere: rx.od_sphere ?? '', od_cylinder: rx.od_cylinder ?? '', od_axis: rx.od_axis ?? '',
       od_add: rx.od_add ?? '', od_pd: rx.od_pd ?? '',
       os_sphere: rx.os_sphere ?? '', os_cylinder: rx.os_cylinder ?? '', os_axis: rx.os_axis ?? '',
@@ -478,6 +491,11 @@ async function deletePrescription(rx) {
 
 function fmt(v) { return v != null && v !== '' ? Number(v).toFixed(2) : '—' }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+// Some accounts already store "Dr. " in their name — avoid doubling it up.
+function doctorLabel(name) {
+  if (!name) return '—'
+  return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`
+}
 function isExpired(d) { return d && new Date(d) < new Date() }
 
 function printPrescription(rx) {
@@ -529,7 +547,7 @@ function printPrescription(rx) {
 <div class="info-grid">
   <div class="ir"><span class="ik">Patient</span><span class="iv">${patient}</span></div>
   <div class="ir"><span class="ik">Exam Date</span><span class="iv">${fmtDate(rx.exam_date)}</span></div>
-  <div class="ir"><span class="ik">Optometrist</span><span class="iv">Dr. ${rx.optometrist?.name ?? '—'}</span></div>
+  <div class="ir"><span class="ik">Optometrist</span><span class="iv">${doctorLabel(rx.optometrist?.name)}</span></div>
   <div class="ir"><span class="ik">Valid Until</span><span class="iv"><span class="${validityClass}">${validityLabel}</span></span></div>
 </div>
 
@@ -556,7 +574,7 @@ ${rx.notes ? `<div class="notes"><div class="nl">Notes / Remarks</div><div class
 
 <div class="sigs">
   <div class="sig">Patient Signature &nbsp;/&nbsp; Date</div>
-  <div class="sig">Dr. ${rx.optometrist?.name ?? '—'}<br>Licensed Optometrist</div>
+  <div class="sig">${doctorLabel(rx.optometrist?.name)}<br>Licensed Optometrist</div>
 </div>
 
 <div class="foot">This prescription is valid for one (1) year from the date of examination unless otherwise stated. · Acebedo Optical Clinic · Cebu City, Philippines</div>
@@ -747,6 +765,7 @@ onMounted(async () => {
   padding: 18px 16px; min-width: 150px; flex-shrink: 0;
 }
 .doctor-name { font-size: 13px; font-weight: 600; color: #374151; margin-top: 3px; }
+.fee-label   { margin-top: 12px; }
 
 .rx-actions {
   display: flex; align-items: center; gap: 8px;

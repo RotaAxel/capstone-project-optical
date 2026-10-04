@@ -12,10 +12,10 @@ class Prescription extends Model
         'patient_id', 'optometrist_id',
         'od_sphere', 'od_cylinder', 'od_axis', 'od_add', 'od_pd',
         'os_sphere', 'os_cylinder', 'os_axis', 'os_add', 'os_pd',
-        'visual_acuity_od', 'visual_acuity_os', 'notes', 'exam_date', 'valid_until',
+        'visual_acuity_od', 'visual_acuity_os', 'notes', 'exam_date', 'valid_until', 'fee',
     ];
 
-    protected $casts = ['exam_date' => 'date', 'valid_until' => 'date'];
+    protected $casts = ['exam_date' => 'date', 'valid_until' => 'date', 'fee' => 'decimal:2'];
 
     public function patient() { return $this->belongsTo(Patient::class); }
     public function optometrist() { return $this->belongsTo(User::class, 'optometrist_id'); }

@@ -52,7 +52,24 @@ class SaleController extends Controller
             'items.*.discount'   => 'nullable|numeric|min:0',
         ]);
 
-        return DB::transaction(function () use ($validated, $request) {
+        // A linked prescription must actually belong to the patient on this sale —
+        // otherwise the receipt would show someone else's eye exam details.
+        // The fee is read from the prescription itself here, server-side — the client
+        // never supplies it — so a sale can't be submitted with a tampered fee.
+        $prescriptionFee = 0;
+        if (!empty($validated['prescription_id']) && !empty($validated['patient_id'])) {
+            $prescription = \App\Models\Prescription::where('id', $validated['prescription_id'])
+                ->where('patient_id', $validated['patient_id'])
+                ->first();
+            if (!$prescription) {
+                throw ValidationException::withMessages([
+                    'prescription_id' => ['The selected prescription does not belong to this patient.'],
+                ]);
+            }
+            $prescriptionFee = (float) $prescription->fee;
+        }
+
+        return DB::transaction(function () use ($validated, $request, $prescriptionFee) {
             // Lock all products first and validate stock before any writes
             $productMap = [];
             foreach ($validated['items'] as $item) {
@@ -81,7 +98,7 @@ class SaleController extends Controller
             }
 
             $discount = $validated['discount_amount'] ?? 0;
-            $total    = max(0, $subtotal - $discount);
+            $total    = max(0, ($subtotal + $prescriptionFee) - $discount);
             $change   = $validated['amount_paid'] - $total;
 
             if ($validated['amount_paid'] < $total) {
@@ -96,6 +113,7 @@ class SaleController extends Controller
                 'patient_id'      => $validated['patient_id'] ?? null,
                 'cashier_id'      => $request->user()->id,
                 'prescription_id' => $validated['prescription_id'] ?? null,
+                'prescription_fee' => $prescriptionFee,
                 'subtotal'        => $subtotal,
                 'discount_amount' => $discount,
                 'tax_amount'      => 0,
@@ -139,13 +157,13 @@ class SaleController extends Controller
                 ]);
             }
 
-            return response()->json($sale->load(['patient', 'cashier', 'items.product']), 201);
+            return response()->json($sale->load(['patient', 'cashier', 'items.product', 'prescription.optometrist']), 201);
         });
     }
 
     public function show(Sale $sale)
     {
-        return response()->json($sale->load(['patient', 'cashier', 'items.product', 'prescription']));
+        return response()->json($sale->load(['patient', 'cashier', 'items.product', 'prescription.optometrist']));
     }
 
     public function update(Request $request, Sale $sale) { /* reserved */ }
