@@ -127,8 +127,6 @@
           <div class="rx-doctor">
             <p class="date-label">Optometrist</p>
             <p class="doctor-name">{{ doctorLabel(rx.optometrist?.name) }}</p>
-            <p class="date-label fee-label">Prof. Fee</p>
-            <p class="date-val">₱{{ fmt(rx.fee) }}</p>
           </div>
 
           <!-- Actions -->
@@ -194,6 +192,7 @@
           <div class="form-row-3">
             <div class="fg" style="grid-column: span 1;">
               <label class="fl">Patient *</label>
+<<<<<<< HEAD
               <div class="patient-picker">
 
                 <!-- Dropdown mode -->
@@ -245,6 +244,22 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
                 </button>
+=======
+              <div class="patient-search-wrap">
+                <input
+                  v-model="patientSearchText"
+                  @input="onPatientSearchInput"
+                  @keydown="e => patientSuggest.onKeydown(e, pickPatientSuggestion)"
+                  @focus="patientSuggest.reopen"
+                  @blur="onPatientSearchBlur"
+                  placeholder="Search patient by name…"
+                  class="fi"
+                  autocomplete="off"
+                  :disabled="!!editingId"
+                />
+                <SuggestDropdown :items="patientSuggest.suggestions.value" :active-index="patientSuggest.activeIndex.value"
+                  :visible="patientSuggest.open.value" @pick="pickPatientSuggestion" @hover="i => patientSuggest.activeIndex.value = i" />
+>>>>>>> 8fcd7b2 (add 3 datasets)
               </div>
             </div>
             <div class="fg">
@@ -254,13 +269,6 @@
             <div class="fg">
               <label class="fl">Valid Until</label>
               <input v-model="form.valid_until" type="date" class="fi" />
-            </div>
-          </div>
-
-          <div class="form-row-3">
-            <div class="fg">
-              <label class="fl">Professional Fee (₱) *</label>
-              <input v-model="form.fee" type="number" step="0.01" min="0" class="fi" placeholder="0.00" required />
             </div>
           </div>
 
@@ -354,10 +362,6 @@
               </span>
               <span v-else class="view-val text-gray-300">Not set</span>
             </div>
-            <div class="view-meta-row">
-              <span class="view-key">Professional Fee</span>
-              <span class="view-val font-semibold">₱{{ fmt(viewing.fee) }}</span>
-            </div>
           </div>
 
           <!-- Rx Table -->
@@ -436,13 +440,14 @@ const saving        = ref(false)
 const formError     = ref('')
 
 const emptyForm = () => ({
-  patient_id: '', exam_date: new Date().toISOString().split('T')[0], valid_until: '', fee: '',
+  patient_id: '', exam_date: new Date().toISOString().split('T')[0], valid_until: '',
   od_sphere: '', od_cylinder: '', od_axis: '', od_add: '', od_pd: '',
   os_sphere: '', os_cylinder: '', os_axis: '', os_add: '', os_pd: '',
   visual_acuity_od: '', visual_acuity_os: '', notes: '',
 })
 const form = ref(emptyForm())
 
+<<<<<<< HEAD
 // ── Patient search picker ─────────────────────────────────────────────
 const patientSearchMode  = ref(false)
 const patientQuery       = ref('')
@@ -509,6 +514,40 @@ function pickPatient(p) {
 
 function onPatientSearchBlur() {
   setTimeout(closePatientSearch, 150)
+=======
+// ── Patient search (New/Edit Prescription form) ───────────────────────────
+const patientSearchText = ref('')
+
+const patientSuggest = useSearchSuggest(async (q) => {
+  const query = q.toLowerCase()
+  return patients.value
+    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(query) || p.patient_code?.toLowerCase().includes(query))
+    .slice(0, 8)
+    .map(p => ({ id: p.id, label: `${p.first_name} ${p.last_name}`, sub: p.patient_code }))
+}, { delay: 120 })
+
+function onPatientSearchInput() {
+  form.value.patient_id = ''
+  patientSuggest.query(patientSearchText.value)
+}
+
+function onPatientSearchBlur() {
+  setTimeout(() => {
+    patientSuggest.close()
+    if (!form.value.patient_id) {
+      patientSearchText.value = ''
+      return
+    }
+    const p = patients.value.find(p => p.id === form.value.patient_id)
+    patientSearchText.value = p ? `${p.first_name} ${p.last_name}` : ''
+  }, 150)
+}
+
+function pickPatientSuggestion(item) {
+  patientSuggest.close()
+  form.value.patient_id = item.id
+  patientSearchText.value = item.label
+>>>>>>> 8fcd7b2 (add 3 datasets)
 }
 
 const rxStats        = ref({})
@@ -573,7 +612,7 @@ function openModal(rx = null) {
     editingId.value = rx.id
     selectedPatient.value = rx.patient ?? null
     form.value = {
-      patient_id: rx.patient_id, exam_date: rx.exam_date, valid_until: rx.valid_until ?? '', fee: rx.fee ?? '',
+      patient_id: rx.patient_id, exam_date: rx.exam_date, valid_until: rx.valid_until ?? '',
       od_sphere: rx.od_sphere ?? '', od_cylinder: rx.od_cylinder ?? '', od_axis: rx.od_axis ?? '',
       od_add: rx.od_add ?? '', od_pd: rx.od_pd ?? '',
       os_sphere: rx.os_sphere ?? '', os_cylinder: rx.os_cylinder ?? '', os_axis: rx.os_axis ?? '',
@@ -581,11 +620,14 @@ function openModal(rx = null) {
       visual_acuity_od: rx.visual_acuity_od ?? '', visual_acuity_os: rx.visual_acuity_os ?? '',
       notes: rx.notes ?? '',
     }
+    patientSearchText.value = rx.patient ? `${rx.patient.first_name} ${rx.patient.last_name}` : ''
   } else {
     editingId.value = null
     selectedPatient.value = null
     form.value = emptyForm()
+    patientSearchText.value = ''
   }
+  patientSuggest.close()
   showModal.value = true
 }
 
@@ -598,7 +640,16 @@ function openView(rx) { viewing.value = rx }
 
 async function save() {
   formError.value = ''
+<<<<<<< HEAD
   if (!form.value.patient_id) { formError.value = 'Please select a patient.'; return }
+=======
+
+  if (!form.value.patient_id) {
+    formError.value = 'Please select a patient from the suggestions.'
+    return
+  }
+
+>>>>>>> 8fcd7b2 (add 3 datasets)
   saving.value = true
   try {
     if (editingId.value) await api.put(`/prescriptions/${editingId.value}`, form.value)
@@ -890,7 +941,6 @@ onMounted(async () => {
   padding: 18px 16px; min-width: 150px; flex-shrink: 0;
 }
 .doctor-name { font-size: 13px; font-weight: 600; color: #374151; margin-top: 3px; }
-.fee-label   { margin-top: 12px; }
 
 .rx-actions {
   display: flex; align-items: center; gap: 8px;
@@ -987,6 +1037,7 @@ onMounted(async () => {
 .fi.mono   { font-family: monospace; }
 .fi:disabled { background: #f9fafb; color: #9ca3af; cursor: not-allowed; }
 
+<<<<<<< HEAD
 /* Patient search picker */
 .patient-picker      { display: flex; align-items: stretch; gap: 6px; }
 .patient-picker .fi  { flex: 1; min-width: 0; }
@@ -999,6 +1050,9 @@ onMounted(async () => {
 .patient-result  { padding: 8px 10px; font-size: 13px; color: #374151; border-radius: 7px; cursor: pointer; }
 .patient-result.active, .patient-result:hover { background: #f3e8ff; color: #6d28d9; }
 .patient-empty   { padding: 10px; font-size: 12px; color: #9ca3af; text-align: center; }
+=======
+.patient-search-wrap { position: relative; }
+>>>>>>> 8fcd7b2 (add 3 datasets)
 
 /* Eye sections */
 .eye-section {

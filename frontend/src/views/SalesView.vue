@@ -234,6 +234,7 @@
           <div class="form-grid-2">
             <div class="fg">
               <label class="fl">Patient (optional)</label>
+<<<<<<< HEAD
               <div class="patient-picker">
 
                 <!-- Dropdown mode -->
@@ -289,6 +290,24 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
                 </button>
+=======
+              <div class="patient-search-wrap">
+                <input
+                  v-model="patientSearchText"
+                  @input="onPatientSearchInput"
+                  @keydown="e => patientSuggest.onKeydown(e, pickPatientSuggestion)"
+                  @focus="patientSuggest.reopen"
+                  @blur="onPatientSearchBlur"
+                  placeholder="Walk-in Customer — search by name…"
+                  class="fi"
+                  autocomplete="off"
+                />
+                <button v-if="saleForm.patient_id" type="button" class="patient-clear-btn" @mousedown.prevent="clearPatientSelection">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+                <SuggestDropdown :items="patientSuggest.suggestions.value" :active-index="patientSuggest.activeIndex.value"
+                  :visible="patientSuggest.open.value" @pick="pickPatientSuggestion" @hover="i => patientSuggest.activeIndex.value = i" />
+>>>>>>> 8fcd7b2 (add 3 datasets)
               </div>
             </div>
             <div class="fg">
@@ -303,7 +322,7 @@
             </div>
             <div v-if="saleForm.patient_id" class="fg fg--full">
               <label class="fl">Prescription (optional)</label>
-              <select v-model="saleForm.prescription_id" class="fi" :disabled="loadingPrescriptions" @change="recalc">
+              <select v-model="saleForm.prescription_id" class="fi" :disabled="loadingPrescriptions">
                 <option value="">No prescription — frame/accessory only, or filling an old Rx</option>
                 <option v-for="rx in patientPrescriptions" :key="rx.id" :value="rx.id">{{ prescriptionLabel(rx) }}</option>
               </select>
@@ -373,10 +392,6 @@
             <div class="totals-row">
               <span class="totals-lbl">Subtotal</span>
               <span class="totals-val">₱{{ fmt(totals.subtotal) }}</span>
-            </div>
-            <div v-if="selectedPrescriptionFee > 0" class="totals-row">
-              <span class="totals-lbl">Professional Fee</span>
-              <span class="totals-val">₱{{ fmt(selectedPrescriptionFee) }}</span>
             </div>
             <div class="totals-row">
               <span class="totals-lbl">Overall Discount</span>
@@ -455,7 +470,6 @@
             <p class="receipt-rx-label">Prescription Filled</p>
             <p class="receipt-rx-line">Exam {{ fmtExamDate(viewingSale.prescription.exam_date) }} — {{ doctorLabel(viewingSale.prescription.optometrist?.name) }}</p>
             <p class="receipt-rx-line">OD {{ viewingSale.prescription.od_sphere ?? '—' }} / {{ viewingSale.prescription.od_cylinder ?? '—' }} &nbsp;·&nbsp; OS {{ viewingSale.prescription.os_sphere ?? '—' }} / {{ viewingSale.prescription.os_cylinder ?? '—' }}</p>
-            <p v-if="Number(viewingSale.prescription_fee) > 0" class="receipt-rx-line">Professional Fee: ₱{{ fmt(viewingSale.prescription_fee) }}</p>
           </div>
 
           <!-- Items -->
@@ -477,10 +491,6 @@
             <div class="rt-row">
               <span>Subtotal</span>
               <span>₱{{ fmt(viewingSale.subtotal) }}</span>
-            </div>
-            <div v-if="Number(viewingSale.prescription_fee) > 0" class="rt-row">
-              <span>Professional Fee</span>
-              <span>₱{{ fmt(viewingSale.prescription_fee) }}</span>
             </div>
             <div v-if="Number(viewingSale.discount_amount) > 0" class="rt-row discount">
               <span>Discount</span>
@@ -542,6 +552,7 @@ const totals   = ref({ subtotal: 0, total: 0, change: 0 })
 const patientPrescriptions = ref([])
 const loadingPrescriptions = ref(false)
 
+<<<<<<< HEAD
 // ── Patient search picker ─────────────────────────────────────────────
 const patientSearchMode  = ref(false)
 const patientQuery       = ref('')
@@ -610,6 +621,49 @@ function pickPatient(p) {
 
 function onPatientSearchBlur() {
   setTimeout(closePatientSearch, 150)
+=======
+// ── Patient search (New Sale form) ────────────────────────────────────────
+const patientSearchText = ref('')
+
+const patientSuggest = useSearchSuggest(async (q) => {
+  const query = q.toLowerCase()
+  return patients.value
+    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(query) || p.patient_code?.toLowerCase().includes(query))
+    .slice(0, 8)
+    .map(p => ({ id: p.id, label: `${p.first_name} ${p.last_name}`, sub: p.patient_code }))
+}, { delay: 120 })
+
+function onPatientSearchInput() {
+  patientSuggest.query(patientSearchText.value)
+}
+
+function onPatientSearchBlur() {
+  setTimeout(() => {
+    patientSuggest.close()
+    // Nothing was picked — snap the text back to whatever is actually selected
+    // (walk-in = blank) so a half-typed name never lingers as if it were chosen.
+    if (!saleForm.value.patient_id) {
+      patientSearchText.value = ''
+      return
+    }
+    const p = patients.value.find(p => p.id === saleForm.value.patient_id)
+    patientSearchText.value = p ? `${p.first_name} ${p.last_name}` : ''
+  }, 150)
+}
+
+function pickPatientSuggestion(item) {
+  patientSuggest.close()
+  saleForm.value.patient_id = item.id
+  patientSearchText.value = item.label
+  onPatientChange()
+}
+
+function clearPatientSelection() {
+  saleForm.value.patient_id = ''
+  patientSearchText.value = ''
+  patientSuggest.close()
+  onPatientChange()
+>>>>>>> 8fcd7b2 (add 3 datasets)
 }
 
 // Prescriptions are patient-specific — reload the list (and clear any
@@ -623,7 +677,7 @@ async function onPatientChange() {
     const { data } = await api.get('/prescriptions', { params: { patient_id: saleForm.value.patient_id, per_page: 50 } })
     patientPrescriptions.value = data.data ?? []
   } catch { /* leave empty — field still usable, just shows no options */ }
-  finally { loadingPrescriptions.value = false; recalc() }
+  finally { loadingPrescriptions.value = false }
 }
 
 function fmtExamDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
@@ -664,16 +718,9 @@ const visiblePages = computed(() => {
 
 function itemSubtotal(item) { return (Number(item.unit_price) * Number(item.quantity)) - (Number(item.discount) || 0) }
 
-// Preview only — the real charge is always recomputed server-side from the
-// prescription record itself, never trusted from this client-side value.
-const selectedPrescriptionFee = computed(() => {
-  const rx = patientPrescriptions.value.find(r => r.id === saleForm.value.prescription_id)
-  return rx ? Number(rx.fee) || 0 : 0
-})
-
 function recalc() {
   const sub   = saleForm.value.items.reduce((s, i) => s + itemSubtotal(i), 0)
-  const total = Math.max(0, (sub + selectedPrescriptionFee.value) - (Number(saleForm.value.discount_amount) || 0))
+  const total = sub - (Number(saleForm.value.discount_amount) || 0)
   totals.value = { subtotal: sub, total, change: Math.max(0, (Number(saleForm.value.amount_paid) || 0) - total) }
 }
 
@@ -694,6 +741,8 @@ function closeSaleModal() {
   showSaleModal.value = false
   saleForm.value = { patient_id: '', prescription_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] }
   patientPrescriptions.value = []
+  patientSearchText.value = ''
+  patientSuggest.close()
   totals.value   = { subtotal: 0, total: 0, change: 0 }
   saleError.value = ''
   selectedPatient.value = null
@@ -845,7 +894,6 @@ function printReceipt(sale) {
 <div class="dash"></div>
 <table class="tot">
   <tr><td class="lbl">Subtotal</td><td class="tr">₱${fmt(sale.subtotal)}</td></tr>
-  ${Number(sale.prescription_fee) > 0 ? `<tr><td class="lbl">Professional Fee</td><td class="tr">₱${fmt(sale.prescription_fee)}</td></tr>` : ''}
   ${Number(sale.discount_amount) > 0 ? `<tr><td class="lbl">Discount</td><td class="tr">−₱${fmt(sale.discount_amount)}</td></tr>` : ''}
   <tr class="bigrow"><td>TOTAL</td><td class="tr">₱${fmt(sale.total_amount)}</td></tr>
   ${Number(sale.amount_paid) > 0 ? `<tr><td class="lbl">Paid</td><td class="tr">₱${fmt(sale.amount_paid)}</td></tr>` : ''}
@@ -1002,6 +1050,7 @@ onMounted(async () => {
 .fi:disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
 .rx-empty-hint { font-size: 11.5px; color: #9ca3af; margin: 2px 0 0; }
 
+<<<<<<< HEAD
 /* Patient search picker */
 .patient-picker      { display: flex; align-items: stretch; gap: 6px; }
 .patient-picker .fi  { flex: 1; min-width: 0; }
@@ -1015,6 +1064,17 @@ onMounted(async () => {
 .patient-result.active, .patient-result:hover { background: #ecfdf5; color: #059669; }
 .patient-result.walkin { color: #6b7280; font-style: italic; }
 .patient-empty   { padding: 10px; font-size: 12px; color: #9ca3af; text-align: center; }
+=======
+.patient-search-wrap { position: relative; }
+.patient-search-wrap .fi { padding-right: 32px; }
+.patient-clear-btn {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; border: none; border-radius: 50%;
+  background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .15s;
+}
+.patient-clear-btn:hover { background: #fee2e2; color: #dc2626; }
+>>>>>>> 8fcd7b2 (add 3 datasets)
 
 .add-item-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1.5px solid #d1fae5; border-radius: 7px; background: #ecfdf5; color: #059669; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; }
 .add-item-btn:hover { background: #d1fae5; }

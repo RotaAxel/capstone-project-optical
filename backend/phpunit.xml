@@ -23,8 +23,18 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- MySQL, not sqlite: the analytics/reporting queries use raw MySQL-only
+             SQL (WEEKDAY(), DATE_SUB(), DATE_FORMAT(), enum-widening migrations),
+             so sqlite can't run this app's feature tests. Points at a dedicated
+             *_testing database (created once via `CREATE DATABASE`), separate
+             from the real dev database — RefreshDatabase migrates it fresh
+             every run, so nothing here touches real data. -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_DATABASE" value="acebedo_optical_clinic_testing"/>
+        <env name="DB_USERNAME" value="root"/>
+        <env name="DB_PASSWORD" value=""/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

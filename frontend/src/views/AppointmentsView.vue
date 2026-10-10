@@ -179,6 +179,7 @@
           <div class="form-grid">
             <div class="fg fg--full">
               <label class="fl">Patient *</label>
+<<<<<<< HEAD
               <div class="patient-picker">
 
                 <!-- Dropdown mode -->
@@ -230,6 +231,21 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
                 </button>
+=======
+              <div class="patient-search-wrap">
+                <input
+                  v-model="patientSearchText"
+                  @input="onPatientSearchInput"
+                  @keydown="e => patientSuggest.onKeydown(e, pickPatientSuggestion)"
+                  @focus="patientSuggest.reopen"
+                  @blur="onPatientSearchBlur"
+                  placeholder="Search patient by name…"
+                  class="fi"
+                  autocomplete="off"
+                />
+                <SuggestDropdown :items="patientSuggest.suggestions.value" :active-index="patientSuggest.activeIndex.value"
+                  :visible="patientSuggest.open.value" @pick="pickPatientSuggestion" @hover="i => patientSuggest.activeIndex.value = i" />
+>>>>>>> 8fcd7b2 (add 3 datasets)
               </div>
             </div>
             <div class="fg fg--full">
@@ -275,6 +291,8 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { useSearchSuggest } from '@/composables/useSearchSuggest'
+import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const auth   = useAuthStore()
 const route  = useRoute()
@@ -297,6 +315,7 @@ const formError    = ref('')
 const emptyForm = () => ({ patient_id: '', optometrist_id: '', appointment_date: '', type: 'eye_exam', reason: '' })
 const form = ref(emptyForm())
 
+<<<<<<< HEAD
 // ── Patient search picker ─────────────────────────────────────────────
 const patientSearchMode  = ref(false)
 const patientQuery       = ref('')
@@ -363,6 +382,40 @@ function pickPatient(p) {
 
 function onPatientSearchBlur() {
   setTimeout(closePatientSearch, 150)
+=======
+// ── Patient search (Book/Edit Appointment form) ───────────────────────────
+const patientSearchText = ref('')
+
+const patientSuggest = useSearchSuggest(async (q) => {
+  const query = q.toLowerCase()
+  return patients.value
+    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(query) || p.patient_code?.toLowerCase().includes(query))
+    .slice(0, 8)
+    .map(p => ({ id: p.id, label: `${p.first_name} ${p.last_name}`, sub: p.patient_code }))
+}, { delay: 120 })
+
+function onPatientSearchInput() {
+  form.value.patient_id = ''
+  patientSuggest.query(patientSearchText.value)
+}
+
+function onPatientSearchBlur() {
+  setTimeout(() => {
+    patientSuggest.close()
+    if (!form.value.patient_id) {
+      patientSearchText.value = ''
+      return
+    }
+    const p = patients.value.find(p => p.id === form.value.patient_id)
+    patientSearchText.value = p ? `${p.first_name} ${p.last_name}` : ''
+  }, 150)
+}
+
+function pickPatientSuggestion(item) {
+  patientSuggest.close()
+  form.value.patient_id = item.id
+  patientSearchText.value = item.label
+>>>>>>> 8fcd7b2 (add 3 datasets)
 }
 
 async function fetchStats() {
@@ -396,11 +449,14 @@ function openModal(appt = null) {
     editingId.value = appt.id
     selectedPatient.value = appt.patient ?? null
     form.value = { ...appt, appointment_date: appt.appointment_date?.replace(' ', 'T').slice(0, 16) }
+    patientSearchText.value = appt.patient ? `${appt.patient.first_name} ${appt.patient.last_name}` : ''
   } else {
     editingId.value = null
     selectedPatient.value = null
     form.value = emptyForm()
+    patientSearchText.value = ''
   }
+  patientSuggest.close()
   showModal.value = true
 }
 
@@ -412,7 +468,16 @@ function closeModal() {
 
 async function save() {
   formError.value = ''
+<<<<<<< HEAD
   if (!form.value.patient_id) { formError.value = 'Please select a patient.'; return }
+=======
+
+  if (!form.value.patient_id) {
+    formError.value = 'Please select a patient from the suggestions.'
+    return
+  }
+
+>>>>>>> 8fcd7b2 (add 3 datasets)
   saving.value = true
   try {
     if (editingId.value) await api.put(`/appointments/${editingId.value}`, form.value)
@@ -696,6 +761,7 @@ onMounted(async () => {
 .fi:focus  { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
 .fi--ta    { resize: vertical; min-height: 80px; }
 
+<<<<<<< HEAD
 /* Patient search picker */
 .patient-picker      { display: flex; align-items: stretch; gap: 6px; }
 .patient-picker .fi  { flex: 1; min-width: 0; }
@@ -708,6 +774,9 @@ onMounted(async () => {
 .patient-result  { padding: 8px 10px; font-size: 13px; color: #374151; border-radius: 7px; cursor: pointer; }
 .patient-result.active, .patient-result:hover { background: #eff6ff; color: #2563eb; }
 .patient-empty   { padding: 10px; font-size: 12px; color: #9ca3af; text-align: center; }
+=======
+.patient-search-wrap { position: relative; }
+>>>>>>> 8fcd7b2 (add 3 datasets)
 
 .error-msg {
   margin-top: 12px; padding: 10px 14px;

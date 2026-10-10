@@ -257,9 +257,20 @@
           </svg>
         </div>
         <span class="sel-label">Viewing product:</span>
-        <select v-model="selectedForecastProduct" class="sel-select">
-          <option v-for="r in results" :key="r.product.id" :value="r.product.id">{{ r.product.name }}</option>
-        </select>
+        <div class="product-search-wrap">
+          <input
+            v-model="productSearchText"
+            @input="onProductSearchInput"
+            @keydown="e => productSuggest.onKeydown(e, pickProductSuggestion)"
+            @focus="onProductSearchFocus"
+            @blur="onProductSearchBlur"
+            placeholder="Search product by name or SKU…"
+            class="sel-select"
+            autocomplete="off"
+          />
+          <SuggestDropdown :items="productSuggest.suggestions.value" :active-index="productSuggest.activeIndex.value"
+            :visible="productSuggest.open.value" @pick="pickProductSuggestion" @hover="i => productSuggest.activeIndex.value = i" />
+        </div>
         <span class="sel-hint">↑ controls ARIMA · EOQ · ROP charts</span>
       </div>
 
@@ -427,6 +438,15 @@
             </svg>
             <span class="results-title">Analytics Results</span>
             <span class="results-count">{{ results.length }} products</span>
+          </div>
+          <div class="results-search">
+            <svg class="results-search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input v-model="tableSearch" @input="tablePage = 1" placeholder="Search by product name or SKU…" class="results-search-input" />
+            <button v-if="tableSearch" @click="tableSearch = ''; tablePage = 1" class="results-search-clear" type="button">
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
           </div>
           <div class="results-header-right">
             <button @click="toggleFsnSort" class="fsn-sort-btn" :title="fsnSortDir === 'asc' ? 'Currently: Fast → Non-moving. Click to reverse.' : 'Currently: Non-moving → Fast. Click to reverse.'">
@@ -669,10 +689,12 @@
               <div class="sop-sec-body">
                 <div class="sop-kv"><span class="sop-k">Sales last 90 days</span><span class="sop-v">{{ selected.analytics?.result_data?.sales_90d ?? '—' }} units</span></div>
                 <div class="sop-kv"><span class="sop-k">Average daily sales</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
-                <template v-if="!selected.analytics?.result_data?.used_fallback">
-                  <div class="sop-kv"><span class="sop-k">AR parameter (φ₁)</span><span class="sop-v mono">{{ selected.analytics?.result_data?.ar_param ?? '—' }}</span></div>
-                  <div class="sop-kv"><span class="sop-k">MA parameter (θ₁)</span><span class="sop-v mono">{{ selected.analytics?.result_data?.ma_param ?? '—' }}</span></div>
-                </template>
+                <div class="sop-kv" v-if="selected.analytics?.result_data?.ar_param != null">
+                  <span class="sop-k">AR parameter (φ₁)</span><span class="sop-v mono">{{ selected.analytics.result_data.ar_param }}</span>
+                </div>
+                <div class="sop-kv" v-if="selected.analytics?.result_data?.ma_param != null">
+                  <span class="sop-k">MA parameter (θ₁)</span><span class="sop-v mono">{{ selected.analytics.result_data.ma_param }}</span>
+                </div>
                 <div class="sop-kv"><span class="sop-k">Forecast range (95% accuracy)</span><span class="sop-v dim">{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span></div>
                 <div class="sop-kv" v-if="wmapePct(selected.analytics?.result_data) != null">
                   <span class="sop-k">Forecast error rate (WMAPE — lower is better)</span>
@@ -859,6 +881,8 @@ import {
 } from 'chart.js'
 import api from '@/services/api'
 import { useFlashStore } from '@/stores/flash'
+import { useSearchSuggest } from '@/composables/useSearchSuggest'
+import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const flashStore = useFlashStore()
 
@@ -876,14 +900,72 @@ const selected                = ref(null)
 const selectedForecastProduct = ref(null)
 const monthlyForecast         = ref(null)
 
+// ── Product search (forecast chart selector) ──────────────────────────────
+const productSearchText = ref('')
+
+const productSuggest = useSearchSuggest(async (q) => {
+  const query = q.toLowerCase()
+  return results.value
+    .filter(r => r.product.name.toLowerCase().includes(query) || r.product.sku?.toLowerCase().includes(query))
+    .slice(0, 8)
+    .map(r => ({ id: r.product.id, label: r.product.name, sub: r.product.sku }))
+}, { delay: 120 })
+
+// Full alphabetical catalog shown before the user types anything — the
+// dropdown itself scrolls (see .sug-dropdown), so nothing is cut off.
+function defaultProductSuggestions() {
+  return [...results.value]
+    .sort((a, b) => a.product.name.localeCompare(b.product.name))
+    .map(r => ({ id: r.product.id, label: r.product.name, sub: r.product.sku }))
+}
+
+function onProductSearchFocus() {
+  if (!productSearchText.value) {
+    productSuggest.suggestions.value = defaultProductSuggestions()
+    productSuggest.open.value = productSuggest.suggestions.value.length > 0
+    productSuggest.activeIndex.value = -1
+  } else {
+    productSuggest.reopen()
+  }
+}
+
+function onProductSearchInput() {
+  if (!productSearchText.value) {
+    onProductSearchFocus()
+    return
+  }
+  productSuggest.query(productSearchText.value)
+}
+
+function onProductSearchBlur() {
+  setTimeout(() => {
+    productSuggest.close()
+    const r = results.value.find(row => row.product.id === selectedForecastProduct.value)
+    productSearchText.value = r ? r.product.name : ''
+  }, 150)
+}
+
+function pickProductSuggestion(item) {
+  productSuggest.close()
+  selectedForecastProduct.value = item.id
+}
+
 const tablePage     = ref(1)
 const tablePageSize = 20
 const fsnSortDir    = ref('asc') // 'asc' = Fast → Slow → Non-moving, 'desc' = reverse
+const tableSearch   = ref('')
 
 const fsnRank = { fast: 0, slow: 1, non_moving: 2 }
 
 const sortedResults = computed(() => {
-  const arr = [...results.value]
+  const query = tableSearch.value.trim().toLowerCase()
+  let arr = results.value
+  if (query) {
+    arr = arr.filter(r =>
+      r.product.name.toLowerCase().includes(query) || r.product.sku?.toLowerCase().includes(query)
+    )
+  }
+  arr = [...arr]
   arr.sort((a, b) => {
     const ra = fsnRank[a.analytics?.fsn_classification] ?? 3
     const rb = fsnRank[b.analytics?.fsn_classification] ?? 3
@@ -1637,6 +1719,11 @@ async function loadMonthlyAccuracy() {
   }
 }
 
+watch(selectedForecastProduct, (id) => {
+  const r = results.value.find(row => row.product.id === id)
+  productSearchText.value = r ? r.product.name : ''
+})
+
 onMounted(() => {
   loadSummary()
   loadMonthlyAccuracy()
@@ -1759,9 +1846,10 @@ onMounted(() => {
 .product-selector { display: flex; align-items: center; gap: 12px; background: #fff; border: 1.5px solid #dbeafe; border-radius: 12px; padding: 12px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.04); flex-wrap: wrap; }
 .sel-icon  { width: 28px; height: 28px; border-radius: 7px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .sel-label { font-size: 12px; font-weight: 700; color: #374151; }
-.sel-select { border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-family: inherit; color: #374151; background: #f9fafb; outline: none; cursor: pointer; min-width: 180px; transition: border-color .2s; }
+.sel-select { border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-family: inherit; color: #374151; background: #f9fafb; outline: none; width: 100%; min-width: 220px; transition: border-color .2s; }
 .sel-select:focus { border-color: #3b82f6; }
 .sel-hint  { font-size: 11px; color: #9ca3af; margin-left: auto; }
+.product-search-wrap { position: relative; min-width: 220px; }
 
 .chart-row   { display: grid; gap: 20px; }
 .chart-row-1 { grid-template-columns: 1fr 2fr; }
@@ -1835,7 +1923,13 @@ onMounted(() => {
 
 /* Results table */
 .results-card   { background: #fff; border-radius: 16px; border: 1.5px solid #f3f4f6; box-shadow: 0 2px 12px rgba(0,0,0,.05); overflow: hidden; }
-.results-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #f9fafb; border-bottom: 1.5px solid #f3f4f6; font-size: 13px; color: #4b5563; }
+.results-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 14px 20px; background: #f9fafb; border-bottom: 1.5px solid #f3f4f6; font-size: 13px; color: #4b5563; }
+.results-search { position: relative; display: flex; align-items: center; flex: 1 1 220px; max-width: 320px; }
+.results-search-icon { position: absolute; left: 10px; color: #9ca3af; pointer-events: none; }
+.results-search-input { width: 100%; padding: 7px 30px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 12.5px; font-family: inherit; color: #374151; background: #fff; outline: none; transition: border-color .2s; }
+.results-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+.results-search-clear { position: absolute; right: 6px; width: 18px; height: 18px; border: none; border-radius: 50%; background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; }
+.results-search-clear:hover { background: #fee2e2; color: #dc2626; }
 .stale-badge { font-size: 11px; font-weight: 700; margin-left: 8px; color: #d97706; }
 .stale-badge.fresh { color: #16a34a; }
 .stale-badge.refreshing { color: #3b82f6; animation: pulse 1.2s ease-in-out infinite; }

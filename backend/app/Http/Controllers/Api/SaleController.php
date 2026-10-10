@@ -54,22 +54,18 @@ class SaleController extends Controller
 
         // A linked prescription must actually belong to the patient on this sale —
         // otherwise the receipt would show someone else's eye exam details.
-        // The fee is read from the prescription itself here, server-side — the client
-        // never supplies it — so a sale can't be submitted with a tampered fee.
-        $prescriptionFee = 0;
         if (!empty($validated['prescription_id']) && !empty($validated['patient_id'])) {
-            $prescription = \App\Models\Prescription::where('id', $validated['prescription_id'])
+            $belongsToPatient = \App\Models\Prescription::where('id', $validated['prescription_id'])
                 ->where('patient_id', $validated['patient_id'])
-                ->first();
-            if (!$prescription) {
+                ->exists();
+            if (!$belongsToPatient) {
                 throw ValidationException::withMessages([
                     'prescription_id' => ['The selected prescription does not belong to this patient.'],
                 ]);
             }
-            $prescriptionFee = (float) $prescription->fee;
         }
 
-        return DB::transaction(function () use ($validated, $request, $prescriptionFee) {
+        return DB::transaction(function () use ($validated, $request) {
             // Lock all products first and validate stock before any writes
             $productMap = [];
             foreach ($validated['items'] as $item) {
@@ -98,7 +94,7 @@ class SaleController extends Controller
             }
 
             $discount = $validated['discount_amount'] ?? 0;
-            $total    = max(0, ($subtotal + $prescriptionFee) - $discount);
+            $total    = max(0, $subtotal - $discount);
             $change   = $validated['amount_paid'] - $total;
 
             if ($validated['amount_paid'] < $total) {
@@ -113,7 +109,6 @@ class SaleController extends Controller
                 'patient_id'      => $validated['patient_id'] ?? null,
                 'cashier_id'      => $request->user()->id,
                 'prescription_id' => $validated['prescription_id'] ?? null,
-                'prescription_fee' => $prescriptionFee,
                 'subtotal'        => $subtotal,
                 'discount_amount' => $discount,
                 'tax_amount'      => 0,

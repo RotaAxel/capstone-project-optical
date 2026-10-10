@@ -291,29 +291,77 @@ class AnalyticsController extends Controller
     /**
      * Choose forecasting algorithm based on demand sparsity (activity ratio).
      *
-     *   ≥ 40% active weeks → Auto-ARIMA  (regular / fast-moving)
-     *   10–40% active      → Croston's   (intermittent demand)
-     *   < 10% active       → Optimised SES (rare / non-moving)
+     * Auto-ARIMA is the system's primary forecasting method, used for any
+     * product with a reasonably regular sales pattern — regardless of how
+     * long it's been selling. It only steps aside for data ARIMA genuinely
+     * can't be fit to responsibly:
+     *
+     *   ≥ 20% active weeks → Auto-ARIMA (the default / primary method)
+     *   10–20% active      → Croston's  (true intermittent demand — ARIMA's
+     *                         differencing assumptions break down when most
+     *                         periods are zero)
+     *   < 10% active, or
+     *   < 30 units total   → Optimised SES (too little signal for any
+     *                         autoregressive model to learn from)
      */
     private function selectMethod(array $series): string
     {
-        $n       = count($series);
-        $nonZero = count(array_filter($series, fn($v) => $v > 0));
+        // buildWeeklySeriesFromAgg() always zero-pads every product out to the
+        // full 4-year window, regardless of how long it's actually been selling.
+        // Measuring activity ratio / length against that padded array dilutes
+        // both: a product that sells every single week it's existed would still
+        // show a low ratio if it only launched a few months ago. Restrict every
+        // calculation below to the real-history portion (since its first sale)
+        // instead.
+        $weeksOfHistory = $this->weeksOfHistory($series);
+        $relevant       = $weeksOfHistory > 0 ? array_slice($series, -$weeksOfHistory) : $series;
+
+        $n       = count($relevant);
+        $nonZero = count(array_filter($relevant, fn($v) => $v > 0));
         $ratio   = $n > 0 ? $nonZero / $n : 0.0;
 
-        $totalDemand = array_sum($series);
+        $totalDemand = array_sum($relevant);
 
         if ($totalDemand < 30) {
-            return 'ses'; // safer for very low-volume products
+            return 'ses'; // too little signal for any model to learn from
         }
 
-        if ($ratio >= 0.40) {
-            return $n >= 104 ? 'holt_winters' : 'auto_arima';
+        if ($ratio < 0.10) {
+            return 'ses';
         }
 
-        if ($ratio >= 0.10) return 'croston';
+        if ($ratio < 0.20) {
+            return 'croston'; // genuinely intermittent demand
+        }
 
-        return 'ses';
+        return 'auto_arima';
+    }
+
+    /** Weeks since this product's first recorded sale — the real-history portion of a zero-padded series. */
+    private function weeksOfHistory(array $series): int
+    {
+        foreach ($series as $i => $v) {
+            if ($v > 0) {
+                return count($series) - $i;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Drops the zero-padded weeks before a product's first recorded sale, so
+     * ARIMA fits against its actual history instead of years of irrelevant
+     * leading padding (which would otherwise dominate the autocovariance
+     * estimates and bias the fitted model).
+     */
+    private function trimLeadingZeros(array $series): array
+    {
+        foreach ($series as $i => $v) {
+            if ($v > 0) {
+                return array_values(array_slice($series, $i));
+            }
+        }
+        return $series;
     }
 
     /** Dispatch to the right algorithm. */
@@ -323,8 +371,11 @@ class AnalyticsController extends Controller
             'holt_winters' => $this->holtWinters($series, $steps),
             'croston'      => $this->crostonMethod($series, $steps),
             'ses'          => $this->optimizedSES($series, $steps),
-            'auto_arima'   => $this->autoARIMA($series, $steps),
-            default        => $this->runARIMA($series, 1, 1, 1, $steps),
+            // Trim leading zero-padding first — ARIMA otherwise fits against
+            // years of irrelevant padding for a product that just doesn't have
+            // that much real history yet (see weeksOfHistory() / selectMethod()).
+            'auto_arima'   => $this->autoARIMA($this->trimLeadingZeros($series), $steps),
+            default        => $this->runARIMA($this->trimLeadingZeros($series), 1, 1, 1, $steps),
         };
     }
 
@@ -986,6 +1037,12 @@ class AnalyticsController extends Controller
         $n   = count($centered);
         $eps = array_fill(0, $n, 0.0);
 
+        // estimateMAByCSS() only ever fits a single theta coefficient regardless
+        // of the requested $q (candidates like ARIMA(2,1,2) ask for q=2), so loop
+        // over what was actually estimated — looping to the requested $q instead
+        // reads past the end of $theta.
+        $qActual = count($theta);
+
         for ($t = max($p, $q); $t < $n; $t++) {
             $arPart = 0.0;
             for ($i = 0; $i < $p; $i++) {
@@ -994,7 +1051,7 @@ class AnalyticsController extends Controller
                 }
             }
             $maPart = 0.0;
-            for ($j = 0; $j < $q; $j++) {
+            for ($j = 0; $j < $qActual; $j++) {
                 if ($t - $j - 1 >= 0) {
                     $maPart += $theta[$j] * $eps[$t - $j - 1];
                 }
