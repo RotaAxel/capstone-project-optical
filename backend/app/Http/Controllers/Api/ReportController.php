@@ -7,6 +7,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Product;
 use App\Models\AnalyticsLog;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -156,12 +157,28 @@ class ReportController extends Controller
 
         $deadStockCount = $latestAnalytics->where('fsn_classification', 'non_moving')->count();
 
-        $products = Product::select(['id', 'sku', 'name', 'category_id', 'supplier_id', 'stock_quantity', 'reorder_point', 'cost_price', 'selling_price'])
+        // Aging is measured live from the most recent sale, not from the last analytics
+        // run, so "days since last sale" stays correct between runs.
+        $lastSaleMap = DB::table('sale_items')
+            ->selectRaw('product_id, MAX(created_at) AS last_sale_at')
+            ->where('created_at', '<=', now())
+            ->whereNull('deleted_at')
+            ->groupBy('product_id')
+            ->pluck('last_sale_at', 'product_id');
+
+        $products = Product::select(['id', 'sku', 'name', 'category_id', 'supplier_id', 'stock_quantity', 'reorder_point', 'cost_price', 'selling_price', 'created_at'])
             ->with(['category:id,name', 'supplier:id,name'])
             ->get()
-            ->map(function ($p) use ($latestAnalytics) {
-                $analytics = $latestAnalytics->get($p->id);
+            ->map(function ($p) use ($latestAnalytics, $lastSaleMap) {
+                $analytics  = $latestAnalytics->get($p->id);
+                $lastSaleAt = $lastSaleMap->get($p->id);
+                $lastSale   = $lastSaleAt ? Carbon::parse($lastSaleAt) : null;
+                // A product with no sales ages from the day it was added to inventory.
+                $agedFrom   = $lastSale ?? $p->created_at;
                 return [
+                    'last_sale_date'       => $lastSale?->toDateString(),
+                    'added_date'           => $p->created_at?->toDateString(),
+                    'days_since_last_sale' => $agedFrom ? (int) $agedFrom->copy()->startOfDay()->diffInDays(now()->startOfDay()) : 0,
                     'id'                 => $p->id,
                     'sku'                => $p->sku,
                     'name'               => $p->name,
@@ -178,7 +195,23 @@ class ReportController extends Controller
                 ];
             });
 
+        // Aging buckets for non-moving products: how long each has sat unsold (since its
+        // last sale, or since it was added if it has no sales), and the stock value tied up.
+        $bucketDefs = [
+            ['key' => 'd0_90',    'label' => '0–90 days',    'min' => 0,   'max' => 90],
+            ['key' => 'd91_180',  'label' => '91–180 days',  'min' => 91,  'max' => 180],
+            ['key' => 'd181_365', 'label' => '181–365 days', 'min' => 181, 'max' => 365],
+            ['key' => 'd365_up',  'label' => 'Over 1 year',  'min' => 366, 'max' => null],
+        ];
+        $nonMoving = $products->where('fsn_classification', 'non_moving');
+        $aging = collect($bucketDefs)->map(function ($b) use ($nonMoving) {
+            $items = $nonMoving->filter(fn ($p) => $p['days_since_last_sale'] >= $b['min']
+                && ($b['max'] === null || $p['days_since_last_sale'] <= $b['max']));
+            return ['key' => $b['key'], 'label' => $b['label'], 'count' => $items->count(), 'stock_value' => (float) $items->sum('stock_value')];
+        });
+
         return response()->json([
+            'non_moving_aging'  => $aging,
             'total_products'    => (int) $stats->total_products,
             'out_of_stock_count'=> (int) $stats->out_of_stock_count,
             'low_stock_count'   => (int) $stats->low_stock_count,

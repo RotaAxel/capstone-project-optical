@@ -192,74 +192,27 @@
           <div class="form-row-3">
             <div class="fg" style="grid-column: span 1;">
               <label class="fl">Patient *</label>
-<<<<<<< HEAD
-              <div class="patient-picker">
-
-                <!-- Dropdown mode -->
-                <select v-if="!patientSearchMode" v-model="form.patient_id" class="fi" required :disabled="!!editingId">
-                  <option value="">Select patient</option>
-                  <option v-if="selectedPatient && !patients.some(x => x.id === selectedPatient.id)" :value="selectedPatient.id">
-                    {{ selectedPatient.first_name }} {{ selectedPatient.last_name }}
-                  </option>
-                  <option v-for="p in patients" :key="p.id" :value="p.id">{{ p.first_name }} {{ p.last_name }}</option>
-                </select>
-
-                <!-- Search mode -->
-                <div v-else class="patient-search-wrap">
-                  <input
-                    ref="patientSearchInput"
-                    v-model="patientQuery"
-                    type="text"
-                    class="fi"
-                    :placeholder="selectedPatientName || 'Search patient name...'"
-                    autocomplete="off"
-                    @input="onPatientQueryInput"
-                    @keydown.down.prevent="movePatientActive(1)"
-                    @keydown.up.prevent="movePatientActive(-1)"
-                    @keydown.enter.prevent="pickActivePatient"
-                    @keydown.esc.prevent="closePatientSearch"
-                    @blur="onPatientSearchBlur"
-                  />
-                  <ul class="patient-results">
-                    <li
-                      v-for="(p, i) in filteredPatients"
-                      :key="p.id"
-                      class="patient-result"
-                      :class="{ active: i === patientActiveIdx }"
-                      @mousedown.prevent="pickPatient(p)"
-                      @mouseenter="patientActiveIdx = i"
-                    >{{ p.first_name }} {{ p.last_name }}</li>
-                    <li v-if="patientSearching" class="patient-empty">Searching…</li>
-                    <li v-else-if="!filteredPatients.length" class="patient-empty">No patients found</li>
-                  </ul>
-                </div>
-
-                <!-- Toggle button (hidden when editing, since patient can't be changed) -->
-                <button v-if="!editingId" type="button" class="patient-search-btn" :class="{ on: patientSearchMode }"
-                  :title="patientSearchMode ? 'Back to dropdown' : 'Search patients'" @click="togglePatientSearch">
-                  <svg v-if="!patientSearchMode" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="8" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35"/>
-                  </svg>
-                  <svg v-else width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-=======
               <div class="patient-search-wrap">
+                <svg class="patient-search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35"/>
+                </svg>
                 <input
                   v-model="patientSearchText"
-                  @input="onPatientSearchInput"
-                  @keydown="e => patientSuggest.onKeydown(e, pickPatientSuggestion)"
-                  @focus="patientSuggest.reopen"
-                  @blur="onPatientSearchBlur"
-                  placeholder="Search patient by name…"
+                  type="text"
                   class="fi"
+                  placeholder="Search patient name…"
                   autocomplete="off"
                   :disabled="!!editingId"
+                  @input="onPatientSearchInput"
+                  @keydown="e => patientSuggest.onKeydown(e, pickPatientSuggestion)"
+                  @focus="onPatientSearchFocus"
+                  @blur="onPatientSearchBlur"
                 />
+                <button v-if="form.patient_id && !editingId" type="button" class="patient-clear-btn" title="Clear patient" @mousedown.prevent="clearPatientSelection">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
                 <SuggestDropdown :items="patientSuggest.suggestions.value" :active-index="patientSuggest.activeIndex.value"
                   :visible="patientSuggest.open.value" @pick="pickPatientSuggestion" @hover="i => patientSuggest.activeIndex.value = i" />
->>>>>>> 8fcd7b2 (add 3 datasets)
               </div>
             </div>
             <div class="fg">
@@ -279,11 +232,11 @@
               <span class="eye-section-title">Right Eye</span>
             </div>
             <div class="form-row-5">
-              <div class="fg"><label class="fl">Sphere</label><input v-model="form.od_sphere" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
-              <div class="fg"><label class="fl">Cylinder</label><input v-model="form.od_cylinder" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">Sphere</label><input v-model="form.od_sphere" type="number" step="0.25" min="-20" max="20" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">Cylinder</label><input v-model="form.od_cylinder" type="number" step="0.25" min="-10" max="10" class="fi mono" placeholder="0.00" /></div>
               <div class="fg"><label class="fl">Axis</label><input v-model="form.od_axis" type="number" step="1" min="0" max="180" class="fi mono" placeholder="0" /></div>
-              <div class="fg"><label class="fl">Add</label><input v-model="form.od_add" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
-              <div class="fg"><label class="fl">PD</label><input v-model="form.od_pd" type="number" step="0.5" class="fi mono" placeholder="0.0" /></div>
+              <div class="fg"><label class="fl">Add</label><input v-model="form.od_add" type="number" step="0.25" min="0" max="4" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">PD</label><input v-model="form.od_pd" type="number" step="0.5" min="20" max="40" class="fi mono" placeholder="0.0" /></div>
             </div>
           </div>
 
@@ -294,11 +247,11 @@
               <span class="eye-section-title">Left Eye</span>
             </div>
             <div class="form-row-5">
-              <div class="fg"><label class="fl">Sphere</label><input v-model="form.os_sphere" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
-              <div class="fg"><label class="fl">Cylinder</label><input v-model="form.os_cylinder" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">Sphere</label><input v-model="form.os_sphere" type="number" step="0.25" min="-20" max="20" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">Cylinder</label><input v-model="form.os_cylinder" type="number" step="0.25" min="-10" max="10" class="fi mono" placeholder="0.00" /></div>
               <div class="fg"><label class="fl">Axis</label><input v-model="form.os_axis" type="number" step="1" min="0" max="180" class="fi mono" placeholder="0" /></div>
-              <div class="fg"><label class="fl">Add</label><input v-model="form.os_add" type="number" step="0.25" class="fi mono" placeholder="0.00" /></div>
-              <div class="fg"><label class="fl">PD</label><input v-model="form.os_pd" type="number" step="0.5" class="fi mono" placeholder="0.0" /></div>
+              <div class="fg"><label class="fl">Add</label><input v-model="form.os_add" type="number" step="0.25" min="0" max="4" class="fi mono" placeholder="0.00" /></div>
+              <div class="fg"><label class="fl">PD</label><input v-model="form.os_pd" type="number" step="0.5" min="20" max="40" class="fi mono" placeholder="0.0" /></div>
             </div>
           </div>
 
@@ -428,7 +381,6 @@ const router = useRouter()
 const highlightId = ref(null)
 
 const prescriptions = ref([])
-const patients      = ref([])
 const pagination    = ref({})
 const loading       = ref(true)
 const search        = ref('')
@@ -447,107 +399,54 @@ const emptyForm = () => ({
 })
 const form = ref(emptyForm())
 
-<<<<<<< HEAD
-// ── Patient search picker ─────────────────────────────────────────────
-const patientSearchMode  = ref(false)
-const patientQuery       = ref('')
-const patientActiveIdx   = ref(0)
-const patientSearchInput = ref(null)
-const patientResults     = ref([])
-const patientSearching   = ref(false)
-const selectedPatient    = ref(null)   // keeps the chosen patient even if not in the loaded list
-let patientTimer
-
-const selectedPatientName = computed(() =>
-  selectedPatient.value ? `${selectedPatient.value.first_name} ${selectedPatient.value.last_name}` : ''
-)
-
-const filteredPatients = computed(() => patientResults.value)
-
-// Searches the server so ALL patients are covered, not just the ones loaded up front.
-async function fetchPatientResults(q) {
-  patientSearching.value = true
-  try {
-    const { data } = await api.get('/patients', { params: { search: q, per_page: 10 } })
-    patientResults.value = data.data ?? []
-  } catch { patientResults.value = [] }
-  finally { patientSearching.value = false }
-}
-
-function onPatientQueryInput() {
-  patientActiveIdx.value = 0
-  clearTimeout(patientTimer)
-  patientTimer = setTimeout(() => fetchPatientResults(patientQuery.value.trim()), 300)
-}
-
-async function togglePatientSearch() {
-  if (patientSearchMode.value) return closePatientSearch()
-  patientSearchMode.value = true
-  patientQuery.value = ''
-  patientActiveIdx.value = 0
-  patientResults.value = patients.value.slice(0, 8)
-  await nextTick()
-  patientSearchInput.value?.focus()
-}
-
-function closePatientSearch() {
-  patientSearchMode.value = false
-  patientQuery.value = ''
-}
-
-function movePatientActive(step) {
-  const n = filteredPatients.value.length
-  if (!n) return
-  patientActiveIdx.value = (patientActiveIdx.value + step + n) % n
-}
-
-function pickActivePatient() {
-  const p = filteredPatients.value[patientActiveIdx.value]
-  if (p) pickPatient(p)
-}
-
-function pickPatient(p) {
-  selectedPatient.value = p || null
-  form.value.patient_id = p ? p.id : ''
-  closePatientSearch()
-}
-
-function onPatientSearchBlur() {
-  setTimeout(closePatientSearch, 150)
-=======
-// ── Patient search (New/Edit Prescription form) ───────────────────────────
+// ── Patient search bar ────────────────────────────────────────────────
 const patientSearchText = ref('')
+const selectedPatient   = ref(null)   // { id, label } of the chosen patient
 
+// Searches the server so ALL patients are covered, not just a preloaded page.
 const patientSuggest = useSearchSuggest(async (q) => {
-  const query = q.toLowerCase()
-  return patients.value
-    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(query) || p.patient_code?.toLowerCase().includes(query))
-    .slice(0, 8)
-    .map(p => ({ id: p.id, label: `${p.first_name} ${p.last_name}`, sub: p.patient_code }))
-}, { delay: 120 })
+  const { data } = await api.get('/patients', { params: { search: q, per_page: 8 } })
+  return (data.data ?? []).map(p => ({ id: p.id, label: `${p.first_name} ${p.last_name}`, sub: p.patient_code }))
+}, { minChars: 0, delay: 250 })
+
+// Syncs the bar with a patient record (or null) when the form opens or closes.
+function setSelectedPatient(p) {
+  selectedPatient.value = p ? { id: p.id, label: `${p.first_name} ${p.last_name}` } : null
+  patientSearchText.value = selectedPatient.value?.label ?? ''
+  patientSuggest.close()
+}
 
 function onPatientSearchInput() {
-  form.value.patient_id = ''
   patientSuggest.query(patientSearchText.value)
+}
+
+function onPatientSearchFocus(e) {
+  e.target.select()
+  // With a patient already chosen, list everyone again instead of re-searching their name.
+  patientSuggest.query(selectedPatient.value ? '' : patientSearchText.value)
 }
 
 function onPatientSearchBlur() {
   setTimeout(() => {
     patientSuggest.close()
-    if (!form.value.patient_id) {
-      patientSearchText.value = ''
-      return
-    }
-    const p = patients.value.find(p => p.id === form.value.patient_id)
-    patientSearchText.value = p ? `${p.first_name} ${p.last_name}` : ''
+    // Nothing was picked — snap the text back to whatever is actually selected
+    // so a half-typed name never lingers as if it were chosen.
+    patientSearchText.value = selectedPatient.value?.label ?? ''
   }, 150)
 }
 
 function pickPatientSuggestion(item) {
   patientSuggest.close()
+  selectedPatient.value = item
   form.value.patient_id = item.id
   patientSearchText.value = item.label
->>>>>>> 8fcd7b2 (add 3 datasets)
+}
+
+function clearPatientSelection() {
+  selectedPatient.value = null
+  form.value.patient_id = ''
+  patientSearchText.value = ''
+  patientSuggest.close()
 }
 
 const rxStats        = ref({})
@@ -607,10 +506,8 @@ async function fetchPage(page = 1) {
 
 function openModal(rx = null) {
   formError.value = ''
-  closePatientSearch()
   if (rx) {
     editingId.value = rx.id
-    selectedPatient.value = rx.patient ?? null
     form.value = {
       patient_id: rx.patient_id, exam_date: rx.exam_date, valid_until: rx.valid_until ?? '',
       od_sphere: rx.od_sphere ?? '', od_cylinder: rx.od_cylinder ?? '', od_axis: rx.od_axis ?? '',
@@ -620,36 +517,23 @@ function openModal(rx = null) {
       visual_acuity_od: rx.visual_acuity_od ?? '', visual_acuity_os: rx.visual_acuity_os ?? '',
       notes: rx.notes ?? '',
     }
-    patientSearchText.value = rx.patient ? `${rx.patient.first_name} ${rx.patient.last_name}` : ''
   } else {
     editingId.value = null
-    selectedPatient.value = null
     form.value = emptyForm()
-    patientSearchText.value = ''
   }
-  patientSuggest.close()
+  setSelectedPatient(rx?.patient ?? null)
   showModal.value = true
 }
 
 function closeModal() {
   showModal.value = false
-  selectedPatient.value = null
-  closePatientSearch()
+  setSelectedPatient(null)
 }
 function openView(rx) { viewing.value = rx }
 
 async function save() {
   formError.value = ''
-<<<<<<< HEAD
   if (!form.value.patient_id) { formError.value = 'Please select a patient.'; return }
-=======
-
-  if (!form.value.patient_id) {
-    formError.value = 'Please select a patient from the suggestions.'
-    return
-  }
-
->>>>>>> 8fcd7b2 (add 3 datasets)
   saving.value = true
   try {
     if (editingId.value) await api.put(`/prescriptions/${editingId.value}`, form.value)
@@ -792,11 +676,6 @@ watch(() => route.query.highlight, (newId) => {
 })
 
 onMounted(async () => {
-  try {
-    const { data } = await api.get('/patients', { params: { per_page: 500 } })
-    patients.value = data.data
-  } catch {}
-
   fetchStats()
   if (route.query.highlight) {
     activateHighlight(Number(route.query.highlight))
@@ -1037,22 +916,17 @@ onMounted(async () => {
 .fi.mono   { font-family: monospace; }
 .fi:disabled { background: #f9fafb; color: #9ca3af; cursor: not-allowed; }
 
-<<<<<<< HEAD
-/* Patient search picker */
-.patient-picker      { display: flex; align-items: stretch; gap: 6px; }
-.patient-picker .fi  { flex: 1; min-width: 0; }
-.patient-search-wrap { position: relative; flex: 1; min-width: 0; }
-.patient-search-btn  { width: 40px; flex-shrink: 0; border: 1.5px solid #ddd6fe; border-radius: 10px; background: #f3e8ff; color: #7c3aed; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; }
-.patient-search-btn:hover { background: #ede9fe; border-color: #7c3aed; }
-.patient-search-btn.on    { background: #7c3aed; border-color: #7c3aed; color: #fff; }
-
-.patient-results { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.12); max-height: 220px; overflow-y: auto; }
-.patient-result  { padding: 8px 10px; font-size: 13px; color: #374151; border-radius: 7px; cursor: pointer; }
-.patient-result.active, .patient-result:hover { background: #f3e8ff; color: #6d28d9; }
-.patient-empty   { padding: 10px; font-size: 12px; color: #9ca3af; text-align: center; }
-=======
+/* Patient search bar */
 .patient-search-wrap { position: relative; }
->>>>>>> 8fcd7b2 (add 3 datasets)
+.patient-search-wrap .fi { padding-left: 32px; padding-right: 32px; }
+.patient-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #9ca3af; pointer-events: none; }
+.patient-clear-btn {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; border: none; border-radius: 50%;
+  background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .15s;
+}
+.patient-clear-btn:hover { background: #fee2e2; color: #dc2626; }
 
 /* Eye sections */
 .eye-section {

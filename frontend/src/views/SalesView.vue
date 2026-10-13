@@ -234,80 +234,26 @@
           <div class="form-grid-2">
             <div class="fg">
               <label class="fl">Patient (optional)</label>
-<<<<<<< HEAD
-              <div class="patient-picker">
-
-                <!-- Dropdown mode -->
-                <select v-if="!patientSearchMode" v-model="saleForm.patient_id" class="fi" @change="onPatientChange">
-                  <option value="">Walk-in Customer</option>
-                  <option v-if="selectedPatient && !patients.some(x => x.id === selectedPatient.id)" :value="selectedPatient.id">
-                    {{ selectedPatient.first_name }} {{ selectedPatient.last_name }}
-                  </option>
-                  <option v-for="p in patients" :key="p.id" :value="p.id">{{ p.first_name }} {{ p.last_name }}</option>
-                </select>
-
-                <!-- Search mode -->
-                <div v-else class="patient-search-wrap">
-                  <input
-                    ref="patientSearchInput"
-                    v-model="patientQuery"
-                    type="text"
-                    class="fi"
-                    :placeholder="selectedPatientName || 'Search patient name...'"
-                    autocomplete="off"
-                    @input="onPatientQueryInput"
-                    @keydown.down.prevent="movePatientActive(1)"
-                    @keydown.up.prevent="movePatientActive(-1)"
-                    @keydown.enter.prevent="pickActivePatient"
-                    @keydown.esc.prevent="closePatientSearch"
-                    @blur="onPatientSearchBlur"
-                  />
-                  <ul class="patient-results">
-                    <li
-                      class="patient-result walkin"
-                      @mousedown.prevent="pickPatient(null)"
-                    >Walk-in Customer</li>
-                    <li
-                      v-for="(p, i) in filteredPatients"
-                      :key="p.id"
-                      class="patient-result"
-                      :class="{ active: i === patientActiveIdx }"
-                      @mousedown.prevent="pickPatient(p)"
-                      @mouseenter="patientActiveIdx = i"
-                    >{{ p.first_name }} {{ p.last_name }}</li>
-                    <li v-if="patientSearching" class="patient-empty">Searching…</li>
-                    <li v-else-if="!filteredPatients.length" class="patient-empty">No patients found</li>
-                  </ul>
-                </div>
-
-                <!-- Toggle button -->
-                <button type="button" class="patient-search-btn" :class="{ on: patientSearchMode }"
-                  :title="patientSearchMode ? 'Back to dropdown' : 'Search patients'" @click="togglePatientSearch">
-                  <svg v-if="!patientSearchMode" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="8" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35"/>
-                  </svg>
-                  <svg v-else width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-=======
               <div class="patient-search-wrap">
+                <svg class="patient-search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35"/>
+                </svg>
                 <input
                   v-model="patientSearchText"
+                  type="text"
+                  class="fi"
+                  placeholder="Walk-in Customer — search patient name…"
+                  autocomplete="off"
                   @input="onPatientSearchInput"
                   @keydown="e => patientSuggest.onKeydown(e, pickPatientSuggestion)"
-                  @focus="patientSuggest.reopen"
+                  @focus="onPatientSearchFocus"
                   @blur="onPatientSearchBlur"
-                  placeholder="Walk-in Customer — search by name…"
-                  class="fi"
-                  autocomplete="off"
                 />
-                <button v-if="saleForm.patient_id" type="button" class="patient-clear-btn" @mousedown.prevent="clearPatientSelection">
+                <button v-if="saleForm.patient_id" type="button" class="patient-clear-btn" title="Clear patient" @mousedown.prevent="clearPatientSelection">
                   <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
                 <SuggestDropdown :items="patientSuggest.suggestions.value" :active-index="patientSuggest.activeIndex.value"
                   :visible="patientSuggest.open.value" @pick="pickPatientSuggestion" @hover="i => patientSuggest.activeIndex.value = i" />
->>>>>>> 8fcd7b2 (add 3 datasets)
               </div>
             </div>
             <div class="fg">
@@ -527,13 +473,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
 import { useSearchSuggest } from '@/composables/useSearchSuggest'
 import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const sales      = ref([])
-const patients   = ref([])
 const products   = ref([])
 const pagination = ref({})
 const loading    = ref(true)
@@ -552,89 +497,24 @@ const totals   = ref({ subtotal: 0, total: 0, change: 0 })
 const patientPrescriptions = ref([])
 const loadingPrescriptions = ref(false)
 
-<<<<<<< HEAD
-// ── Patient search picker ─────────────────────────────────────────────
-const patientSearchMode  = ref(false)
-const patientQuery       = ref('')
-const patientActiveIdx   = ref(0)
-const patientSearchInput = ref(null)
-
-const patientResults   = ref([])
-const patientSearching = ref(false)
-const selectedPatient  = ref(null)   // keeps the chosen patient even if not in the first 200
-let patientTimer
-
-const selectedPatientName = computed(() =>
-  selectedPatient.value ? `${selectedPatient.value.first_name} ${selectedPatient.value.last_name}` : ''
-)
-
-const filteredPatients = computed(() => patientResults.value)
-
-// Searches the server so ALL patients are covered, not just the first 200 loaded.
-async function fetchPatientResults(q) {
-  patientSearching.value = true
-  try {
-    const { data } = await api.get('/patients', { params: { search: q, per_page: 10 } })
-    patientResults.value = data.data ?? []
-  } catch { patientResults.value = [] }
-  finally { patientSearching.value = false }
-}
-
-function onPatientQueryInput() {
-  patientActiveIdx.value = 0
-  clearTimeout(patientTimer)
-  patientTimer = setTimeout(() => fetchPatientResults(patientQuery.value.trim()), 300)
-}
-
-async function togglePatientSearch() {
-  if (patientSearchMode.value) return closePatientSearch()
-  patientSearchMode.value = true
-  patientQuery.value = ''
-  patientActiveIdx.value = 0
-  patientResults.value = patients.value.slice(0, 8)
-  await nextTick()
-  patientSearchInput.value?.focus()
-}
-
-function closePatientSearch() {
-  patientSearchMode.value = false
-  patientQuery.value = ''
-}
-
-function movePatientActive(step) {
-  const n = filteredPatients.value.length
-  if (!n) return
-  patientActiveIdx.value = (patientActiveIdx.value + step + n) % n
-}
-
-function pickActivePatient() {
-  const p = filteredPatients.value[patientActiveIdx.value]
-  if (p) pickPatient(p)
-}
-
-function pickPatient(p) {
-  selectedPatient.value = p || null
-  saleForm.value.patient_id = p ? p.id : ''
-  closePatientSearch()
-  onPatientChange()   // reloads that patient's prescriptions
-}
-
-function onPatientSearchBlur() {
-  setTimeout(closePatientSearch, 150)
-=======
-// ── Patient search (New Sale form) ────────────────────────────────────────
+// ── Patient search (New Sale form) ────────────────────────────────────
 const patientSearchText = ref('')
+const selectedPatient   = ref(null)   // { id, label } of the chosen patient; null = walk-in
 
+// Searches the server so ALL patients are covered, not just a preloaded page.
 const patientSuggest = useSearchSuggest(async (q) => {
-  const query = q.toLowerCase()
-  return patients.value
-    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(query) || p.patient_code?.toLowerCase().includes(query))
-    .slice(0, 8)
-    .map(p => ({ id: p.id, label: `${p.first_name} ${p.last_name}`, sub: p.patient_code }))
-}, { delay: 120 })
+  const { data } = await api.get('/patients', { params: { search: q, per_page: 8 } })
+  return (data.data ?? []).map(p => ({ id: p.id, label: `${p.first_name} ${p.last_name}`, sub: p.patient_code }))
+}, { minChars: 0, delay: 250 })
 
 function onPatientSearchInput() {
   patientSuggest.query(patientSearchText.value)
+}
+
+function onPatientSearchFocus(e) {
+  e.target.select()
+  // With a patient already chosen, list everyone again instead of re-searching their name.
+  patientSuggest.query(selectedPatient.value ? '' : patientSearchText.value)
 }
 
 function onPatientSearchBlur() {
@@ -642,28 +522,24 @@ function onPatientSearchBlur() {
     patientSuggest.close()
     // Nothing was picked — snap the text back to whatever is actually selected
     // (walk-in = blank) so a half-typed name never lingers as if it were chosen.
-    if (!saleForm.value.patient_id) {
-      patientSearchText.value = ''
-      return
-    }
-    const p = patients.value.find(p => p.id === saleForm.value.patient_id)
-    patientSearchText.value = p ? `${p.first_name} ${p.last_name}` : ''
+    patientSearchText.value = selectedPatient.value?.label ?? ''
   }, 150)
 }
 
 function pickPatientSuggestion(item) {
   patientSuggest.close()
+  selectedPatient.value = item
   saleForm.value.patient_id = item.id
   patientSearchText.value = item.label
-  onPatientChange()
+  onPatientChange()   // reloads that patient's prescriptions
 }
 
 function clearPatientSelection() {
+  selectedPatient.value = null
   saleForm.value.patient_id = ''
   patientSearchText.value = ''
   patientSuggest.close()
   onPatientChange()
->>>>>>> 8fcd7b2 (add 3 datasets)
 }
 
 // Prescriptions are patient-specific — reload the list (and clear any
@@ -741,12 +617,11 @@ function closeSaleModal() {
   showSaleModal.value = false
   saleForm.value = { patient_id: '', prescription_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] }
   patientPrescriptions.value = []
-  patientSearchText.value = ''
-  patientSuggest.close()
-  totals.value   = { subtotal: 0, total: 0, change: 0 }
+  totals.value  = { subtotal: 0, total: 0, change: 0 }
   saleError.value = ''
   selectedPatient.value = null
-  closePatientSearch()
+  patientSearchText.value = ''
+  patientSuggest.close()
 }
 
 async function viewSale(sale) {
@@ -916,11 +791,7 @@ function printReceipt(sale) {
 
 onMounted(async () => {
   try {
-    const [pts, prods] = await Promise.all([
-      api.get('/patients', { params: { per_page: 200 } }),
-      api.get('/products', { params: { per_page: 200 } }),
-    ])
-    patients.value = pts.data.data
+    const prods = await api.get('/products', { params: { per_page: 200 } })
     products.value = prods.data.data
     fetchPage(); fetchStats()
   } catch { loading.value = false }
@@ -1050,23 +921,10 @@ onMounted(async () => {
 .fi:disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
 .rx-empty-hint { font-size: 11.5px; color: #9ca3af; margin: 2px 0 0; }
 
-<<<<<<< HEAD
-/* Patient search picker */
-.patient-picker      { display: flex; align-items: stretch; gap: 6px; }
-.patient-picker .fi  { flex: 1; min-width: 0; }
-.patient-search-wrap { position: relative; flex: 1; min-width: 0; }
-.patient-search-btn  { width: 40px; flex-shrink: 0; border: 1.5px solid #d1fae5; border-radius: 9px; background: #ecfdf5; color: #059669; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; }
-.patient-search-btn:hover { background: #d1fae5; border-color: #10b981; }
-.patient-search-btn.on    { background: #059669; border-color: #059669; color: #fff; }
-
-.patient-results { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.12); max-height: 220px; overflow-y: auto; }
-.patient-result  { padding: 8px 10px; font-size: 13px; color: #374151; border-radius: 7px; cursor: pointer; }
-.patient-result.active, .patient-result:hover { background: #ecfdf5; color: #059669; }
-.patient-result.walkin { color: #6b7280; font-style: italic; }
-.patient-empty   { padding: 10px; font-size: 12px; color: #9ca3af; text-align: center; }
-=======
+/* Patient search bar */
 .patient-search-wrap { position: relative; }
-.patient-search-wrap .fi { padding-right: 32px; }
+.patient-search-wrap .fi { padding-left: 32px; padding-right: 32px; }
+.patient-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #9ca3af; pointer-events: none; }
 .patient-clear-btn {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   width: 20px; height: 20px; border: none; border-radius: 50%;
@@ -1074,7 +932,6 @@ onMounted(async () => {
   cursor: pointer; transition: all .15s;
 }
 .patient-clear-btn:hover { background: #fee2e2; color: #dc2626; }
->>>>>>> 8fcd7b2 (add 3 datasets)
 
 .add-item-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1.5px solid #d1fae5; border-radius: 7px; background: #ecfdf5; color: #059669; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all .2s; }
 .add-item-btn:hover { background: #d1fae5; }

@@ -467,6 +467,23 @@
           </div>
         </div>
 
+        <div class="table-card aging-card">
+          <div class="table-heading">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7v5l3 2"/>
+            </svg>
+            Non-Moving Stock Aging
+            <span class="range-note">Time unsold ·{{ inventoryData.dead_stock_count }} non-moving product{{ inventoryData.dead_stock_count !== 1 ? 's' : '' }}</span>
+          </div>
+          <div class="aging-grid">
+            <div v-for="b in inventoryData.non_moving_aging" :key="b.key" class="aging-bucket" :class="'aging-' + b.key">
+              <p class="aging-lbl">{{ b.label }}</p>
+              <p class="aging-count">{{ b.count }}</p>
+              <p class="aging-value">₱{{ fmt(b.stock_value) }} in stock</p>
+            </div>
+          </div>
+        </div>
+
         <div class="table-card">
           <div class="table-heading">
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -476,7 +493,7 @@
           </div>
           <div class="table-wrap">
             <table class="rep-table">
-              <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Sales Speed</th><th>Turnover</th><th>Stock Value</th></tr></thead>
+              <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Sales Speed</th><th>Unsold For</th><th>Turnover</th><th>Stock Value</th></tr></thead>
               <tbody>
                 <tr v-for="p in inventoryData.products" :key="p.id" :class="{ 'row-warn': p.is_low_stock || p.is_out_of_stock }">
                   <td><span class="mono-badge">{{ p.sku }}</span></td>
@@ -498,11 +515,14 @@
                       {{ fsnLabel(p.fsn_classification) }}
                     </span>
                   </td>
+                  <td :title="agingTitle(p)">
+                    <span class="age-val">{{ agingLabel(p.days_since_last_sale) }}</span>
+                  </td>
                   <td><span class="rop-val">{{ turnoverLabel(p.turnover_ratio) }}</span></td>
                   <td><span class="amount-val">₱{{ fmt(p.stock_value) }}</span></td>
                 </tr>
                 <tr v-if="!inventoryData.products?.length">
-                  <td colspan="9" class="empty-row">No products found.</td>
+                  <td colspan="10" class="empty-row">No products found.</td>
                 </tr>
               </tbody>
             </table>
@@ -779,6 +799,16 @@ function fsnLabel(cls) {
 function fsnPillClass(cls) {
   return 'status-pill ' + ({ fast: 'green', slow: 'amber', non_moving: 'red' }[cls] ?? 'gray')
 }
+function agingLabel(days) {
+  if (days === null || days === undefined) return '—'
+  const plural = (n, unit) => `${n} ${unit}${n !== 1 ? 's' : ''}`
+  if (days < 365) return plural(days, 'day')
+  const years = Math.floor(days / 365), rest = days % 365
+  return rest ? `${plural(years, 'year')} ${plural(rest, 'day')}` : plural(years, 'year')
+}
+function agingTitle(p) {
+  return p.last_sale_date ? `Last sold ${fmtDate(p.last_sale_date)}` : `No sales yet — counted from the day it was added (${fmtDate(p.added_date)})`
+}
 function turnoverLabel(ratio) {
   if (ratio === null || ratio === undefined) return '—'
   return `${Number(ratio).toFixed(1)}x/yr`
@@ -934,12 +964,17 @@ function exportInventoryPdf() {
     const status = p.is_out_of_stock ? '<span class="badge" style="background:#fee2e2;color:#991b1b">Out of Stock</span>'
       : p.is_low_stock ? '<span class="badge" style="background:#fef3c7;color:#92400e">Low Stock</span>'
       : '<span class="badge" style="background:#dcfce7;color:#15803d">In Stock</span>'
-    return `<tr><td><span class="mono">${p.sku}</span></td><td style="font-weight:600;">${p.name}</td><td><span class="badge">${p.category}</span></td><td>${p.stock_quantity}</td><td>${p.reorder_point}</td><td>${status}</td><td>${fsnBadge(p.fsn_classification)}</td><td>${turnoverLabel(p.turnover_ratio)}</td><td><span class="amt">₱${fmt(p.stock_value)}</span></td></tr>`
+    return `<tr><td><span class="mono">${p.sku}</span></td><td style="font-weight:600;">${p.name}</td><td><span class="badge">${p.category}</span></td><td>${p.stock_quantity}</td><td>${p.reorder_point}</td><td>${status}</td><td>${fsnBadge(p.fsn_classification)}</td><td>${agingLabel(p.days_since_last_sale)}</td><td>${turnoverLabel(p.turnover_ratio)}</td><td><span class="amt">₱${fmt(p.stock_value)}</span></td></tr>`
   }).join('')
-  const totalsRow = `<tr class="totals-row"><td colspan="8">TOTAL — ${d.total_products} products &nbsp;·&nbsp; ${d.low_stock_count} low stock &nbsp;·&nbsp; ${d.out_of_stock_count} out of stock &nbsp;·&nbsp; ${d.dead_stock_count} dead stock</td><td class="amt">₱${fmt(d.total_stock_value)}</td></tr>`
-  const table = `<div class="section">Product Inventory</div>
-  <table><thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Sales Speed</th><th>Turnover</th><th>Value</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="9" style="text-align:center;padding:24px 0;color:#9ca3af;">No products.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
+  const totalsRow = `<tr class="totals-row"><td colspan="9">TOTAL — ${d.total_products} products &nbsp;·&nbsp; ${d.low_stock_count} low stock &nbsp;·&nbsp; ${d.out_of_stock_count} out of stock &nbsp;·&nbsp; ${d.dead_stock_count} dead stock</td><td class="amt">₱${fmt(d.total_stock_value)}</td></tr>`
+  const agingRows = (d.non_moving_aging ?? []).map(b =>
+    `<tr><td style="font-weight:600;">${b.label}</td><td>${b.count}</td><td><span class="amt">₱${fmt(b.stock_value)}</span></td></tr>`
+  ).join('')
+  const agingTable = `<div class="section">Non-Moving Stock Aging (time unsold)</div>
+  <table><thead><tr><th>Age</th><th>Products</th><th>Stock Value</th></tr></thead><tbody>${agingRows}</tbody></table>`
+  const table = `${agingTable}<div class="section">Product Inventory</div>
+  <table><thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th>Stock</th><th>Reorder Point</th><th>Status</th><th>Sales Speed</th><th>Unsold For</th><th>Turnover</th><th>Value</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="10" style="text-align:center;padding:24px 0;color:#9ca3af;">No products.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
   incrementControlNumber()
   openPdf(pdfShell('Inventory Report', `As of ${new Date().toLocaleDateString('en-PH', { dateStyle: 'long' })}`, table, controlNumber.value))
 }
@@ -1045,6 +1080,19 @@ function exportTopPdf() {
 .stock-ok    { font-weight: 700; color: #059669; }
 .stock-low   { font-weight: 700; color: #dc2626; }
 .rop-val     { color: #9ca3af; }
+.age-val     { font-weight: 600; color: #374151; white-space: nowrap; }
+
+/* Non-moving stock aging */
+.aging-card   { margin-bottom: 20px; }
+.aging-grid   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 16px 20px; }
+.aging-bucket { border: 1.5px solid #f3f4f6; border-left-width: 4px; border-radius: 10px; padding: 12px 14px; }
+.aging-lbl    { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; margin: 0; }
+.aging-count  { font-size: 1.4rem; font-weight: 800; color: #111827; line-height: 1.2; margin: 6px 0 2px; }
+.aging-value  { font-size: 11.5px; color: #9ca3af; margin: 0; }
+.aging-d0_90    { border-left-color: #fbbf24; }
+.aging-d91_180  { border-left-color: #f59e0b; }
+.aging-d181_365 { border-left-color: #f97316; }
+.aging-d365_up  { border-left-color: #dc2626; }
 .empty-row   { text-align: center; padding: 48px 20px; color: #9ca3af; font-size: 13px; }
 
 /* Status pill */
@@ -1098,6 +1146,6 @@ function exportTopPdf() {
 .empty-sub   { font-size: 13px; color: #9ca3af; }
 
 @media (max-width: 1200px) { .stats-row { grid-template-columns: repeat(2, 1fr); } .stats-3 { grid-template-columns: repeat(3, 1fr); } .stats-2 { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 768px)  { .stats-row { grid-template-columns: repeat(2, 1fr); } .stats-3 { grid-template-columns: repeat(2, 1fr); } .stats-2 { grid-template-columns: 1fr; } }
+@media (max-width: 768px)  { .aging-grid { grid-template-columns: repeat(2, 1fr); } .stats-row { grid-template-columns: repeat(2, 1fr); } .stats-3 { grid-template-columns: repeat(2, 1fr); } .stats-2 { grid-template-columns: 1fr; } }
 @media (max-width: 640px)  { .stats-row { grid-template-columns: 1fr; } .stats-3 { grid-template-columns: 1fr; } .rep-page { padding: 16px; } .tab-nav { flex-wrap: wrap; } }
 </style>

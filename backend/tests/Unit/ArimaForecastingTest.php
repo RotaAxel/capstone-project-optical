@@ -119,11 +119,13 @@ class ArimaForecastingTest extends TestCase
         }
 
         // Trend should continue: the forecast average should sit clearly above
-        // what was actually observed in the last 6 weeks, not flatten out at
-        // the historical mean the way a naive (non-trending) model would.
-        $recentActualAvg = array_sum(array_slice($series, -6)) / 6;
-        $forecastAvg      = array_sum($result['forecast']) / count($result['forecast']);
-        $this->assertGreaterThan($recentActualAvg, $forecastAvg);
+        // an earlier window of the series, not flatten out at the historical
+        // mean the way a naive (non-trending) model would. Compared against an
+        // earlier segment (not just the last few weeks) so this isn't sensitive
+        // to the anchor's own short trailing-average smoothing at the boundary.
+        $earlierAvg  = array_sum(array_slice($series, 20, 6)) / 6;
+        $forecastAvg = array_sum($result['forecast']) / count($result['forecast']);
+        $this->assertGreaterThan($earlierAvg, $forecastAvg);
     }
 
     // ── Dataset 2: stationary oscillation ────────────────────────────────

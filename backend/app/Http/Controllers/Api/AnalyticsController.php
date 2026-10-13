@@ -908,8 +908,17 @@ class AnalyticsController extends Controller
             return $this->exponentialSmoothing($series, $steps);
         }
 
-        $origLast = (float) end($series);
-        $diffed   = $series;
+        // Anchor undifferencing on a short trailing average rather than the
+        // single literal last observation. Demand is lumpy — a lone zero week
+        // (data not yet caught up to "now," a genuinely slow week, a product
+        // that simply doesn't sell every week) would otherwise become the
+        // entire forecast's starting point, and once every diff after it gets
+        // added onto that zero and clamped non-negative, the whole 6-month
+        // forecast can collapse to zero even though the product sells
+        // healthily overall.
+        $anchorWindow = min(4, count($series));
+        $origLast     = array_sum(array_slice($series, -$anchorWindow)) / $anchorWindow;
+        $diffed       = $series;
         for ($i = 0; $i < $d; $i++) {
             $diffed = $this->difference($diffed);
         }
@@ -958,7 +967,14 @@ class AnalyticsController extends Controller
         $result = [];
         $prev   = $lastOriginal;
         foreach ($diffForecast as $diff) {
-            $prev     += $diff;
+            // Floor at each step, not just on the final array. A single large
+            // negative MA correction (one outsized recent swing combined with
+            // a strong theta) can push the first forecasted step sharply
+            // negative; since this is a cumulative sum, leaving it negative
+            // would permanently drag every later step down too, and a single
+            // end-of-array clamp would then zero out the ENTIRE forecast
+            // instead of just the one bad step.
+            $prev     = max(0.0, $prev + $diff);
             $result[]  = $prev;
         }
         return $result;
