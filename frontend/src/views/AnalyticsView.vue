@@ -156,7 +156,7 @@
           </svg>
         </div>
         <div>
-          <p class="algo-label">Holt-Winters / ARIMA</p>
+          <p class="algo-label">ARIMA</p>
           <p class="algo-name">Demand Forecast</p>
           <p class="algo-desc">Captures seasonal peaks (Christmas, back-to-school) plus trend for 95% CI forecasts</p>
         </div>
@@ -449,14 +449,6 @@
             </button>
           </div>
           <div class="results-header-right">
-            <button @click="toggleFsnSort" class="fsn-sort-btn" :title="fsnSortDir === 'asc' ? 'Currently: Fast → Non-moving. Click to reverse.' : 'Currently: Non-moving → Fast. Click to reverse.'">
-              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h10a1 1 0 010 2H4a1 1 0 01-1-1zm0 8a1 1 0 011-1h6a1 1 0 010 2H4a1 1 0 01-1-1z"/>
-              </svg>
-              <span v-if="fsnSortDir === 'asc'">Fast → Non-moving</span>
-              <span v-else>Non-moving → Fast</span>
-              <span class="sort-arrow-icon">{{ fsnSortDir === 'asc' ? '↑' : '↓' }}</span>
-            </button>
             <span class="results-computed">
               Computed: {{ computedAt }}
               <span v-if="running" class="stale-badge refreshing">● Refreshing…</span>
@@ -469,16 +461,34 @@
           <table class="res-table">
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Current Stock</th>
-                <th>Expected Sales <span class="th-note">(30 days)</span></th>
-                <th>Best Order Qty</th>
-                <th>Reorder When</th>
-                <th class="th-sortable" @click="toggleFsnSort" title="Sort by Sales Speed">
-                  Sales Speed
-                  <span class="col-sort-arrow">{{ fsnSortDir === 'asc' ? '↑' : '↓' }}</span>
+                <th class="th-sortable" @click="setSort('product')" title="Sort by Product">
+                  Product
+                  <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'product' }">{{ sortIcon('product') }}</span>
                 </th>
-                <th>Alert</th>
+                <th class="th-sortable" @click="setSort('stock')" title="Sort by Current Stock">
+                  Current Stock
+                  <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'stock' }">{{ sortIcon('stock') }}</span>
+                </th>
+                <th class="th-sortable" @click="setSort('demand')" title="Sort by Expected Sales">
+                  Expected Sales <span class="th-note">(30 days)</span>
+                  <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'demand' }">{{ sortIcon('demand') }}</span>
+                </th>
+                <th class="th-sortable" @click="setSort('eoq')" title="Sort by Best Order Qty">
+                  Best Order Qty
+                  <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'eoq' }">{{ sortIcon('eoq') }}</span>
+                </th>
+                <th class="th-sortable" @click="setSort('rop')" title="Sort by Reorder point">
+                  Reorder When
+                  <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'rop' }">{{ sortIcon('rop') }}</span>
+                </th>
+                <th class="th-sortable" @click="setSort('fsn')" title="Sort by Sales Speed">
+                  Sales Speed
+                  <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'fsn' }">{{ sortIcon('fsn') }}</span>
+                </th>
+                <th class="th-sortable" @click="setSort('alert')" title="Sort by Alert">
+                  Alert
+                  <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'alert' }">{{ sortIcon('alert') }}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -950,12 +960,36 @@ function pickProductSuggestion(item) {
   selectedForecastProduct.value = item.id
 }
 
+// ── Results table: search, sort, pagination ────────────────────────────────
 const tablePage     = ref(1)
 const tablePageSize = 20
-const fsnSortDir    = ref('asc') // 'asc' = Fast → Slow → Non-moving, 'desc' = reverse
 const tableSearch   = ref('')
 
+// Column sorting — click a header to sort asc, click again to reverse.
+const sortKey = ref('fsn')   // default: Fast → Slow → Non-moving (same as before)
+const sortDir = ref('asc')
+
 const fsnRank = { fast: 0, slow: 1, non_moving: 2 }
+
+const toNum = v => {
+  const n = parseFloat(v)
+  return Number.isFinite(n) ? n : null
+}
+
+// Each column's sortable value. Return null for "no data" so it always sinks to the bottom.
+const sortAccessors = {
+  product: r => r.product.name?.toLowerCase() ?? '',
+  stock:   r => toNum(r.product.stock_quantity),
+  demand:  r => toNum(r.analytics?.predicted_demand),
+  eoq:     r => toNum(r.analytics?.eoq_value),
+  rop:     r => toNum(r.analytics?.rop_value),
+  fsn:     r => fsnRank[r.analytics?.fsn_classification] ?? 3,
+  alert:   r => {
+    if (r.product.stock_quantity <= r.product.reorder_point) return 0          // Reorder Now
+    if (r.analytics?.predicted_demand > r.product.stock_quantity) return 1     // Stock Forecast
+    return 2                                                                   // OK
+  },
+}
 
 const sortedResults = computed(() => {
   const query = tableSearch.value.trim().toLowerCase()
@@ -965,13 +999,16 @@ const sortedResults = computed(() => {
       r.product.name.toLowerCase().includes(query) || r.product.sku?.toLowerCase().includes(query)
     )
   }
-  arr = [...arr]
-  arr.sort((a, b) => {
-    const ra = fsnRank[a.analytics?.fsn_classification] ?? 3
-    const rb = fsnRank[b.analytics?.fsn_classification] ?? 3
-    return fsnSortDir.value === 'asc' ? ra - rb : rb - ra
+  const get = sortAccessors[sortKey.value]
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  return [...arr].sort((a, b) => {
+    const va = get(a), vb = get(b)
+    if (va === null && vb === null) return 0
+    if (va === null) return 1      // missing values always last
+    if (vb === null) return -1
+    if (typeof va === 'string') return va.localeCompare(vb) * dir
+    return (va - vb) * dir
   })
-  return arr
 })
 
 const tableLastPage  = computed(() => Math.max(1, Math.ceil(sortedResults.value.length / tablePageSize)))
@@ -982,9 +1019,19 @@ const pagedResults   = computed(() => {
 const tablePageFrom  = computed(() => sortedResults.value.length === 0 ? 0 : (tablePage.value - 1) * tablePageSize + 1)
 const tablePageTo    = computed(() => Math.min(tablePage.value * tablePageSize, sortedResults.value.length))
 
-function toggleFsnSort() {
-  fsnSortDir.value = fsnSortDir.value === 'asc' ? 'desc' : 'asc'
-  tablePage.value  = 1
+function setSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = 'asc'
+  }
+  tablePage.value = 1
+}
+
+function sortIcon(key) {
+  if (sortKey.value !== key) return '↕'
+  return sortDir.value === 'asc' ? '↑' : '↓'
 }
 
 // ── Monthly forecast accuracy ────────────────────────────────────────────────
@@ -1938,17 +1985,13 @@ onMounted(() => {
 .results-count  { font-size: 11px; font-weight: 600; color: #6366f1; background: #eef2ff; border-radius: 20px; padding: 2px 9px; }
 .results-computed { font-size: 11px; color: #9ca3af; }
 .results-header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
-.fsn-sort-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px;
-  background: #fff; font-size: 12px; font-weight: 700; font-family: inherit;
-  color: #374151; cursor: pointer; transition: all .2s; white-space: nowrap;
-}
-.fsn-sort-btn:hover { background: #eff6ff; border-color: #3b82f6; color: #2563eb; }
-.sort-arrow-icon { font-size: 14px; font-weight: 900; color: #2563eb; line-height: 1; flex-shrink: 0; }
-.th-sortable { cursor: pointer; user-select: none; }
+
+/* Sortable column headers */
+.th-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 .th-sortable:hover { color: #2563eb; }
 .col-sort-arrow { font-size: 13px; font-weight: 900; color: #2563eb; margin-left: 5px; vertical-align: middle; }
+.col-sort-arrow.inactive { color: #d1d5db; font-weight: 600; }
+.th-sortable:hover .col-sort-arrow.inactive { color: #93c5fd; }
 .table-wrap     { overflow-x: visible; }
 
 .res-pagination {
