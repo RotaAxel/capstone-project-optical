@@ -170,6 +170,11 @@
 
         <!-- Prescriptions -->
         <div v-if="activeTab === 'prescriptions'" class="tab-body space-y-4">
+          <div class="rx-tab-actions">
+            <button type="button" class="btn-new-rx" @click="router.push({ path: '/prescriptions', query: { new_for: patient.id } })">
+              + New Prescription
+            </button>
+          </div>
           <div v-if="patient.prescriptions?.length">
             <div v-for="rx in patient.prescriptions" :key="rx.id" class="rx-card">
               <div class="flex items-start justify-between mb-3">
@@ -656,4 +661,8 @@ onMounted(async () => {
   .stat-item { min-width: 50%; border-bottom: 1.5px solid #f3f4f6; }
   .stat-divider { display: none; }
 }
+
+.rx-tab-actions { display: flex; justify-content: flex-end; }
+.btn-new-rx { padding: 8px 16px; border: none; border-radius: 9px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-new-rx:hover { filter: brightness(1.07); }
 </style>

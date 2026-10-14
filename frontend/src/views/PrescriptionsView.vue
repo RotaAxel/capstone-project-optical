@@ -531,9 +531,50 @@ function closeModal() {
 }
 function openView(rx) { viewing.value = rx }
 
+// ── OD (right eye) / OS (left eye) validation ──────────────────────────
+// Ranges follow the form inputs: Sphere ±20 D, Cylinder ±10 D (both in 0.25 steps),
+// Axis 1–180°, Add 0–4 D, PD 20–40 mm. An axis is mandatory whenever a cylinder
+// is entered, and an eye with no cylinder must not carry an axis.
+const isBlank = v => v === '' || v === null || v === undefined
+const onQuarter = v => Math.abs(v * 4 - Math.round(v * 4)) < 1e-9
+
+function validateEye(label, f, p) {
+  const errs = []
+  const num = k => (isBlank(f[`${p}_${k}`]) ? null : Number(f[`${p}_${k}`]))
+  const sph = num('sphere'), cyl = num('cylinder'), axis = num('axis'), add = num('add'), pd = num('pd')
+
+  if (sph !== null && (!Number.isFinite(sph) || sph < -20 || sph > 20 || !onQuarter(sph))) errs.push(`${label} sphere must be between -20.00 and +20.00 in 0.25 steps.`)
+  if (cyl !== null && (!Number.isFinite(cyl) || cyl < -10 || cyl > 10 || !onQuarter(cyl))) errs.push(`${label} cylinder must be between -10.00 and +10.00 in 0.25 steps.`)
+  if (cyl !== null && cyl !== 0 && (axis === null || axis < 1 || axis > 180)) errs.push(`${label} axis (1–180) is required when a cylinder is entered.`)
+  if ((cyl === null || cyl === 0) && axis !== null && axis !== 0) errs.push(`${label} has an axis but no cylinder. Enter the cylinder or clear the axis.`)
+  if (axis !== null && (axis < 0 || axis > 180)) errs.push(`${label} axis must be between 0 and 180.`)
+  if (add !== null && (add < 0 || add > 4 || !onQuarter(add))) errs.push(`${label} add must be between 0.00 and +4.00 in 0.25 steps.`)
+  if (pd !== null && (pd < 20 || pd > 40)) errs.push(`${label} PD must be between 20 and 40 mm.`)
+  return errs
+}
+
+function validateRx(f) {
+  if (!f.patient_id) return ['Please select a patient.']
+  const errs = []
+  if (!f.exam_date) errs.push('Exam date is required.')
+  else if (new Date(f.exam_date) > new Date(new Date().toDateString() + ' 23:59:59')) errs.push('Exam date cannot be in the future.')
+  if (f.valid_until && f.exam_date && new Date(f.valid_until) < new Date(f.exam_date)) errs.push('"Valid until" must be on or after the exam date.')
+
+  const hasOd = ['sphere', 'cylinder'].some(k => !isBlank(f[`od_${k}`]))
+  const hasOs = ['sphere', 'cylinder'].some(k => !isBlank(f[`os_${k}`]))
+  if (!hasOd && !hasOs) errs.push('Enter the sphere or cylinder for at least one eye (OD or OS).')
+
+  errs.push(...validateEye('OD (right eye)', f, 'od'), ...validateEye('OS (left eye)', f, 'os'))
+  for (const [label, k] of [['OD (right eye)', 'visual_acuity_od'], ['OS (left eye)', 'visual_acuity_os']]) {
+    if (!isBlank(f[k]) && (Number(f[k]) < 0 || Number(f[k]) > 2)) errs.push(`${label} visual acuity must be between 0.00 and 2.00.`)
+  }
+  return errs
+}
+
 async function save() {
   formError.value = ''
-  if (!form.value.patient_id) { formError.value = 'Please select a patient.'; return }
+  const problems = validateRx(form.value)
+  if (problems.length) { formError.value = problems.join(' '); return }
   saving.value = true
   try {
     if (editingId.value) await api.put(`/prescriptions/${editingId.value}`, form.value)
@@ -677,6 +718,18 @@ watch(() => route.query.highlight, (newId) => {
 
 onMounted(async () => {
   fetchStats()
+  // Arrived from a patient's page ("+ New Prescription"): open the form for that patient.
+  const newFor = Number(route.query.new_for)
+  if (newFor) {
+    try {
+      const { data } = await api.get(`/patients/${newFor}`)
+      const patient = data.data ?? data
+      openModal()
+      form.value.patient_id = patient.id
+      setSelectedPatient(patient)
+    } catch { /* patient not found — fall through to the normal list */ }
+    router.replace({ path: route.path })   // a refresh must not reopen the form
+  }
   if (route.query.highlight) {
     activateHighlight(Number(route.query.highlight))
   } else {

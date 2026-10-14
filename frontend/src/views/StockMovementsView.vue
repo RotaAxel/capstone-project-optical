@@ -145,12 +145,14 @@
               <tr>
                 <th>Date & Time</th>
                 <th>Product</th>
+                <th>Type</th>
                 <th class="mv-center">Stock In Qty</th>
                 <th class="mv-center">Stock Out Qty</th>
                 <th class="mv-center">Adjustment / Damage / Loss</th>
                 <th class="mv-center">Total Stock</th>
                 <th>Reference</th>
-                <th>Recorded By</th>
+                <th>Reason / Notes</th>
+                <th>Authorized By</th>
               </tr>
             </thead>
             <tbody>
@@ -163,6 +165,7 @@
                   <p class="mv-product">{{ m.product?.name ?? '—' }}</p>
                   <p class="mv-sku">{{ m.product?.sku ?? '' }}</p>
                 </td>
+                <td><span class="mv-type" :class="'mv-type--' + m.type">{{ typeLabel(m.type) }}</span></td>
                 <td class="mv-center">
                   <span v-if="isStockIn(m.type)" class="qty-val qty-pos">{{ m.quantity }}</span>
                   <span v-else class="mv-dash">—</span>
@@ -179,6 +182,7 @@
                   <span class="mv-after">{{ m.quantity_after ?? '—' }}</span>
                 </td>
                 <td class="mv-ref">{{ m.reference_number ?? '—' }}</td>
+                <td class="mv-reason" :title="m.notes || ''">{{ m.notes || '—' }}</td>
                 <td>
                   <div class="mv-user">
                     <div class="user-avatar">{{ userInitials(m.user?.name) }}</div>
@@ -280,6 +284,9 @@ function fmtDay(d)  { return d ? new Date(d).toLocaleDateString('en-PH',  { mont
 function fmtTime(d) { return d ? new Date(d).toLocaleTimeString('en-PH',  { hour: '2-digit', minute: '2-digit' }) : '' }
 
 function isStockIn(t)    { return ['stock_in', 'return'].includes(t) }
+function typeLabel(t) {
+  return { stock_in: 'Stock In', sale: 'Sale', adjustment: 'Adjustment', damage: 'Damage', loss: 'Loss', return: 'Return' }[t] ?? t
+}
 function isAdjustment(t) { return ['adjustment', 'damage', 'loss'].includes(t) }
 
 function userInitials(name) {
@@ -394,4 +401,12 @@ onMounted(() => { fetchPage(); fetchSummary() })
 @media (max-width: 1200px) { .stats-row { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 1024px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 640px)  { .stats-row { grid-template-columns: 1fr; } .sm-page { padding: 16px; } }
+
+.mv-type { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #f3f4f6; color: #4b5563; white-space: nowrap; }
+.mv-type--stock_in   { background: #dcfce7; color: #15803d; }
+.mv-type--sale       { background: #dbeafe; color: #1d4ed8; }
+.mv-type--adjustment { background: #fef3c7; color: #b45309; }
+.mv-type--damage     { background: #ffedd5; color: #c2410c; }
+.mv-type--loss       { background: #fee2e2; color: #b91c1c; }
+.mv-reason { max-width: 240px; font-size: 12px; color: #4b5563; }
 </style>

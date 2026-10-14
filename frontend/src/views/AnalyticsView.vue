@@ -158,7 +158,7 @@
         <div>
           <p class="algo-label">ARIMA</p>
           <p class="algo-name">Demand Forecast</p>
-          <p class="algo-desc">Captures seasonal peaks (Christmas, back-to-school) plus trend for 95% CI forecasts</p>
+          <p class="algo-desc">Forecasts weekly sales from each product's own sales pattern, with a 95% confidence range</p>
         </div>
       </div>
 
@@ -200,7 +200,7 @@
         <div>
           <p class="algo-label">FSN</p>
           <p class="algo-name">Sales Speed</p>
-          <p class="algo-desc">Rates products by how fast they sell (last 208 weeks)</p>
+          <p class="algo-desc">Rates products by how fast they sell (since each product's first sale)</p>
         </div>
       </div>
 
@@ -246,6 +246,21 @@
       </div>
     </div>
 
+    <!-- ── Aging of non-moving products ─────────────────────────── -->
+    <div v-if="results.length && nonMovingTotal" class="aging-card">
+      <div class="aging-head">
+        <p class="aging-title">Aging of Non-Moving Products</p>
+        <p class="aging-sub">Time since each non-moving product last sold — the older it is, the more likely it is dead stock</p>
+      </div>
+      <div class="aging-grid">
+        <div v-for="b in agingBuckets" :key="b.label" class="aging-cell" :class="b.tone">
+          <p class="aging-count">{{ b.count }}</p>
+          <p class="aging-lbl">{{ b.label }}</p>
+          <p class="aging-pct">{{ nonMovingTotal ? (b.count / nonMovingTotal * 100).toFixed(1) : '0.0' }}% of non-moving</p>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Charts ──────────────────────────────────────────────── -->
     <div v-if="results.length" class="charts-section">
 
@@ -283,7 +298,7 @@
             <div class="ch-dot emerald"></div>
             <div>
               <p class="ch-title">How Often Products Sell</p>
-              <p class="ch-sub">How frequently each product sold over the last 4 years</p>
+              <p class="ch-sub">How frequently each product sold since its first sale (up to 4 years)</p>
             </div>
           </div>
           <div class="chart-body" style="min-height:240px">
@@ -469,7 +484,7 @@
                   Current Stock
                   <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'stock' }">{{ sortIcon('stock') }}</span>
                 </th>
-                <th class="th-sortable" @click="setSort('demand')" title="Sort by Expected Sales">
+                <th class="th-sortable" @click="setSort('demand')" title="Expected Sales (30 days) = sum of the next 4 weekly forecasts × 30 ÷ 28. Click to sort.">
                   Expected Sales <span class="th-note">(30 days)</span>
                   <span class="col-sort-arrow" :class="{ inactive: sortKey !== 'demand' }">{{ sortIcon('demand') }}</span>
                 </th>
@@ -498,7 +513,7 @@
                   <p class="res-sku">{{ r.product.sku }}</p>
                 </td>
                 <td>
-                  <span :class="r.product.stock_quantity <= r.product.reorder_point ? 'stock-low' : 'stock-ok'">
+                  <span :class="needsReorder(r) ? 'stock-low' : 'stock-ok'">
                     {{ r.product.stock_quantity }}
                   </span>
                 </td>
@@ -518,8 +533,7 @@
                 </td>
                 <td>
                   <div class="alert-cell">
-                    <span v-if="r.product.stock_quantity <= r.product.reorder_point" class="alert-pill danger">⚠ Reorder Now</span>
-                    <span v-else-if="r.analytics?.predicted_demand > r.product.stock_quantity" class="alert-pill warn">⚠ Stock Forecast</span>
+                    <span v-if="needsReorder(r)" class="alert-pill danger" title="Current stock is at or below the Reorder Point (ROP)">⚠ Reorder Now</span>
                     <span v-else class="alert-pill ok">✓ OK</span>
                     <span class="view-hint">
                       View details
@@ -596,7 +610,7 @@
                   'sop-fsn-badge non-moving': selected.analytics?.fsn_classification === 'non_moving',
                   'sop-fsn-badge unknown':    !selected.analytics?.fsn_classification,
                 }">{{ fsnLabel(selected.analytics?.fsn_classification) }}</span>
-                <span v-if="selected.product.stock_quantity <= selected.product.reorder_point"
+                <span v-if="needsReorder(selected)"
                   class="sop-stock-badge danger">⚠ Below Reorder Point</span>
                 <span v-else class="sop-stock-badge ok">✓ Stock OK</span>
               </div>
@@ -612,12 +626,12 @@
           <div class="sop-body">
 
             <!-- Stock warning banner -->
-            <div v-if="selected.product.stock_quantity <= selected.product.reorder_point" class="sop-alert-banner">
+            <div v-if="needsReorder(selected)" class="sop-alert-banner">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
               </svg>
-              Stock is at or below the reorder point. Consider placing an order now.
+              Stock is at or below the Reorder Point (ROP). Consider placing an order now.
             </div>
 
             <!-- ── Key Metrics ──────────────────────────────────── -->
@@ -628,7 +642,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                   </svg>
                 </div>
-                <p class="sop-metric-val" :class="selected.product.stock_quantity <= selected.product.reorder_point ? 'red' : ''">
+                <p class="sop-metric-val" :class="needsReorder(selected) ? 'red' : ''">
                   {{ selected.product.stock_quantity }}
                 </p>
                 <p class="sop-metric-lbl">Current Stock</p>
@@ -699,11 +713,32 @@
               <div class="sop-sec-body">
                 <div class="sop-kv"><span class="sop-k">Sales last 90 days</span><span class="sop-v">{{ selected.analytics?.result_data?.sales_90d ?? '—' }} units</span></div>
                 <div class="sop-kv"><span class="sop-k">Average daily sales</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
-                <div class="sop-kv" v-if="selected.analytics?.result_data?.ar_param != null">
-                  <span class="sop-k">AR parameter (φ₁)</span><span class="sop-v mono">{{ selected.analytics.result_data.ar_param }}</span>
+                <div class="sop-kv" v-for="(v, i) in (selected.analytics?.result_data?.ar_params ?? [])" :key="'ar' + i">
+                  <span class="sop-k">AR coefficient (φ{{ i + 1 }})</span><span class="sop-v mono">{{ v }}</span>
                 </div>
-                <div class="sop-kv" v-if="selected.analytics?.result_data?.ma_param != null">
-                  <span class="sop-k">MA parameter (θ₁)</span><span class="sop-v mono">{{ selected.analytics.result_data.ma_param }}</span>
+                <div class="sop-kv" v-for="(v, i) in (selected.analytics?.result_data?.ma_params ?? [])" :key="'ma' + i">
+                  <span class="sop-k">MA coefficient (θ{{ i + 1 }})</span><span class="sop-v mono">{{ v }}</span>
+                </div>
+                <div class="sop-kv" v-if="selected.analytics?.method === 'auto_arima' && !selected.analytics?.result_data?.used_fallback">
+                  <span class="sop-k">Mean weekly change (μ) · residual SD</span>
+                  <span class="sop-v mono">{{ selected.analytics.result_data.diff_mean }} · {{ selected.analytics.result_data.resid_sd ?? '—' }}</span>
+                </div>
+                <div class="sop-kv" v-if="selected.analytics?.result_data?.aic_table?.length">
+                  <span class="sop-k">History used for the model</span>
+                  <span class="sop-v">{{ selected.analytics.result_data.total_weeks }} weeks (since first sale)</span>
+                </div>
+                <div v-if="selected.analytics?.result_data?.aic_table?.length" class="sop-mini">
+                  <p class="sop-mini-title">Candidate orders and AIC — lowest AIC is selected</p>
+                  <table class="sop-mini-table">
+                    <thead><tr><th>Order (p,d,q)</th><th>AIC</th><th></th></tr></thead>
+                    <tbody>
+                      <tr v-for="a in selected.analytics.result_data.aic_table" :key="a.order.join()"
+                        :class="{ 'sop-mini-best': a.order.join() === (selected.analytics.result_data.arima_order ?? []).join() }">
+                        <td>({{ a.order.join(',') }})</td><td>{{ a.aic }}</td>
+                        <td>{{ a.order.join() === (selected.analytics.result_data.arima_order ?? []).join() ? '← selected' : '' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
                 <div class="sop-kv"><span class="sop-k">Forecast range (95% accuracy)</span><span class="sop-v dim">{{ selected.analytics?.result_data?.conf_lower_30d ?? '—' }} – {{ selected.analytics?.result_data?.conf_upper_30d ?? '—' }} units</span></div>
                 <div class="sop-kv" v-if="wmapePct(selected.analytics?.result_data) != null">
@@ -713,9 +748,31 @@
                     <span class="mape-detail">{{ wmapePct(selected.analytics.result_data) <= 30 ? '● Good' : wmapePct(selected.analytics.result_data) <= 60 ? '● Fair' : '● Poor' }}</span>
                   </span>
                 </div>
+                <div class="sop-kv" v-else-if="selected.analytics?.method === 'auto_arima'">
+                  <span class="sop-k">Forecast error rate</span>
+                  <span class="sop-v dim">N/A — needs at least 36 four-week periods of sales history and more than 30 units in the last 12 periods</span>
+                </div>
                 <div class="sop-kv" v-else-if="selected.analytics?.fsn_classification === 'slow' || selected.analytics?.fsn_classification === 'non_moving'">
                   <span class="sop-k">Forecast error rate</span>
                   <span class="sop-v dim">Not measured — intermittent demand makes percentage error unreliable for {{ selected.analytics.fsn_classification === 'slow' ? 'slow' : 'non-moving' }} items</span>
+                </div>
+                <div v-if="selected.analytics?.result_data?.wmape_holdout?.length" class="sop-mini">
+                  <p class="sop-mini-title">Hold-out test — 12 withheld four-week periods (predicted vs actual)</p>
+                  <p v-if="selected.analytics.result_data.wmape_model" class="sop-mini-note">
+                    Hold-out model (fitted on {{ selected.analytics.result_data.wmape_model.train_periods }} four-week totals):
+                    ARIMA({{ (selected.analytics.result_data.wmape_model.order ?? []).join(',') }}),
+                    AR [{{ (selected.analytics.result_data.wmape_model.ar ?? []).join(', ') }}],
+                    MA [{{ (selected.analytics.result_data.wmape_model.ma ?? []).join(', ') }}],
+                    μ = {{ selected.analytics.result_data.wmape_model.mean }}
+                  </p>
+                  <table class="sop-mini-table">
+                    <thead><tr><th>#</th><th>Weeks</th><th>Actual</th><th>Predicted</th></tr></thead>
+                    <tbody>
+                      <tr v-for="h in selected.analytics.result_data.wmape_holdout" :key="h.period">
+                        <td>{{ h.period }}</td><td>{{ h.from }} to {{ h.to }}</td><td>{{ h.actual }}</td><td>{{ h.forecast }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
                 <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
                   <span class="sop-v" :class="daysRemaining(selected) < 14 ? 'danger-val' : 'ok-val'">{{ daysRemaining(selected) }} days</span>
@@ -971,6 +1028,33 @@ const sortDir = ref('asc')
 
 const fsnRank = { fast: 0, slow: 1, non_moving: 2 }
 
+// Restocking alert rule (one rule everywhere): current stock <= Reorder Point (ROP).
+// ROP is the one computed by Run Analytics; the product's own reorder_point is only
+// used when analytics have not been run for that product yet.
+function needsReorder(r) {
+  const rop = Number(r?.analytics?.rop_value)
+  const stock = Number(r?.product?.stock_quantity ?? 0)
+  if (r?.analytics && Number.isFinite(rop)) return stock <= rop
+  return stock <= Number(r?.product?.reorder_point ?? 0)
+}
+
+// Aging of non-moving products: days since the last sale.
+const nonMovingRows = computed(() => results.value.filter(r => r.analytics?.fsn_classification === 'non_moving'))
+const nonMovingTotal = computed(() => nonMovingRows.value.length)
+const agingBuckets = computed(() => {
+  const days = r => {
+    const w = Number(r.analytics?.result_data?.weeks_no_sale)
+    return Number.isFinite(w) ? w * 7 : Infinity   // never sold = oldest bucket
+  }
+  const defs = [
+    { label: 'Sold within 90 days', tone: 'a-ok',   test: d => d <= 90 },
+    { label: '91 – 180 days',       tone: 'a-warn', test: d => d > 90 && d <= 180 },
+    { label: '181 – 365 days',      tone: 'a-old',  test: d => d > 180 && d <= 365 },
+    { label: 'Over 365 days',       tone: 'a-dead', test: d => d > 365 },
+  ]
+  return defs.map(b => ({ ...b, count: nonMovingRows.value.filter(r => b.test(days(r))).length }))
+})
+
 const toNum = v => {
   const n = parseFloat(v)
   return Number.isFinite(n) ? n : null
@@ -985,9 +1069,7 @@ const sortAccessors = {
   rop:     r => toNum(r.analytics?.rop_value),
   fsn:     r => fsnRank[r.analytics?.fsn_classification] ?? 3,
   alert:   r => {
-    if (r.product.stock_quantity <= r.product.reorder_point) return 0          // Reorder Now
-    if (r.analytics?.predicted_demand > r.product.stock_quantity) return 1     // Stock Forecast
-    return 2                                                                   // OK
+    return needsReorder(r) ? 0 : 1      // 0 = Reorder Now (stock <= ROP), 1 = OK
   },
 }
 
@@ -1254,10 +1336,6 @@ function fsnLabel(cls) {
 
 function methodLabel(rd) {
   if (!rd) return 'ARIMA(1,1,1)'
-  if (rd.method_used === 'holt_winters') {
-    const v = rd.hw_variant === 'multiplicative' ? 'Multiplicative' : 'Additive'
-    return `Holt-Winters ${v} (γ=${rd.hw_gamma ?? '—'})`
-  }
   if (rd.method_used === 'croston')      return "Croston's Method (intermittent demand)"
   if (rd.method_used === 'ses')          return 'Optimised SES (non-moving)'
   if (rd.method_used === 'auto_arima') {
@@ -1284,9 +1362,9 @@ function fsnThresholds(rd) {
 function fsnDescription(cls, rd) {
   const t = fsnThresholds(rd)
   return {
-    fast:       `Active in ≥${t.fast}% of the last 4 years or ≥${t.minDaily} unit/day average. Prioritise replenishment and maintain higher safety stock.`,
-    slow:       `Active in ${t.nonMoving}–${t.fast}% of the last 4 years. Monitor levels regularly and avoid over-ordering.`,
-    non_moving: `Active in <${t.nonMoving}% of the last 4 years or no sale in ≥${t.deadWeeks} weeks. Review for dead stock — consider promotions or clearance.`,
+    fast:       `Active in ≥${t.fast}% of the weeks since its first sale or ≥${t.minDaily} unit/day average. Prioritise replenishment and maintain higher safety stock.`,
+    slow:       `Active in ${t.nonMoving}–${t.fast}% of the weeks since its first sale. Monitor levels regularly and avoid over-ordering.`,
+    non_moving: `Active in <${t.nonMoving}% of the weeks since its first sale or no sale in ≥${t.deadWeeks} weeks. Review for dead stock — consider promotions or clearance.`,
   }[cls] ?? ''
 }
 
@@ -1638,7 +1716,7 @@ const fsnActivityOptions = {
   scales: {
     x: { ticks: { font: { size: 10 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
     y: { beginAtZero: true, max: 105, ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#f3f4f6' },
-         title: { display: true, text: '% of weeks with sales activity (last 4 years)', font: { size: 10 }, color: '#9ca3af' } },
+         title: { display: true, text: '% of weeks with sales activity (since first sale)', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
 
@@ -2822,4 +2900,28 @@ onMounted(() => {
   .running-card { flex-wrap: wrap; }
   .so-panel { max-width: 100%; }
 }
+
+/* ── Non-moving aging ─────────────────────────────────────────────── */
+.aging-card { background: #fff; border: 1.5px solid #f3f4f6; border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+.aging-title { font-size: 14px; font-weight: 800; color: #111827; margin: 0; }
+.aging-sub { font-size: 12px; color: #6b7280; margin: 2px 0 14px; }
+.aging-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.aging-cell { border-radius: 12px; padding: 12px 14px; border: 1.5px solid transparent; }
+.aging-count { font-size: 24px; font-weight: 800; margin: 0; }
+.aging-lbl { font-size: 12px; font-weight: 700; margin: 2px 0 0; }
+.aging-pct { font-size: 11px; opacity: .75; margin: 2px 0 0; }
+.aging-cell.a-ok   { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.aging-cell.a-warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.aging-cell.a-old  { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.aging-cell.a-dead { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+@media (max-width: 768px) { .aging-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── Detail modal: AIC and hold-out tables ────────────────────────── */
+.sop-mini { margin: 10px 0 6px; }
+.sop-mini-title { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; margin: 0 0 6px; }
+.sop-mini-note { font-size: 11px; color: #6b7280; margin: 0 0 6px; }
+.sop-mini-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sop-mini-table th { text-align: left; font-weight: 700; color: #6b7280; padding: 4px 6px; border-bottom: 1.5px solid #e5e7eb; }
+.sop-mini-table td { padding: 4px 6px; border-bottom: 1px solid #f3f4f6; font-variant-numeric: tabular-nums; }
+.sop-mini-best td { background: #eff6ff; font-weight: 700; color: #1d4ed8; }
 </style>

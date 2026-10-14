@@ -210,7 +210,7 @@
             </div>
             <div class="fg">
               <label class="fl">Date &amp; Time *</label>
-              <input v-model="form.appointment_date" type="datetime-local" class="fi" required />
+              <input v-model="form.appointment_date" type="datetime-local" class="fi" required :min="editingId ? undefined : minBookingDateTime" />
             </div>
             <div class="fg">
               <label class="fl">Type *</label>
@@ -240,7 +240,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
@@ -359,9 +359,20 @@ function closeModal() {
   setSelectedPatient(null)
 }
 
+// Earliest bookable moment (local time) in the format datetime-local expects.
+const minBookingDateTime = computed(() => {
+  const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+  return d.toISOString().slice(0, 16)
+})
+
 async function save() {
   formError.value = ''
   if (!form.value.patient_id) { formError.value = 'Please select a patient.'; return }
+  if (!form.value.appointment_date) { formError.value = 'Please choose the appointment date and time.'; return }
+  if (!editingId.value && new Date(form.value.appointment_date) < new Date()) {
+    formError.value = 'The appointment date and time cannot be in the past.'
+    return
+  }
   saving.value = true
   try {
     if (editingId.value) await api.put(`/appointments/${editingId.value}`, form.value)

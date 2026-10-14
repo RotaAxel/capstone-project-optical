@@ -7,16 +7,33 @@ use App\Models\Product;
 use App\Models\AnalyticsLog;
 use App\Models\AppSetting;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Predictive analytics: Auto-ARIMA demand forecasting (Croston's Method and SES
+ * for sparse products), EOQ, ROP, FSN classification and turnover ratio.
+ *
+ * Every formula and value below is the one declared in Chapter III of the paper.
+ */
 class AnalyticsController extends Controller
 {
-    private float $orderCost   = 500.0;
-    private float $holdingRate = 0.20;
-    private float $serviceZ    = 1.645;
-    private int   $leadTime    = 7;
-    private int   $weekWindow  = 208; // 4 years — gives HW 4 full seasonal cycles to learn from
-    private int   $dayWindow   = 1460;
+    // ── Inventory parameters (Table 3) ────────────────────────────────────
+    private float $orderCost   = 500.0;   // S: ordering cost per order (PHP)
+    private float $holdingRate = 0.20;    // H = max(0.01, cost price x 0.20)
+    private float $serviceZ    = 1.645;   // Z for a 95% service level
+    private int   $leadTime    = 7;       // L: supplier lead time (days)
+    private int   $weekWindow  = 208;     // weekly series length (4 years)
+    private int   $dayWindow   = 1460;    // daily series length (4 years)
+
+    // ── Forecast / accuracy parameters ────────────────────────────────────
+    private const FORECAST_WEEKS        = 24;   // forecast horizon (weeks)
+    private const PERIOD_WEEKS          = 4;    // one accuracy "month" = 4 consecutive weeks (28 days)
+    private const WMAPE_HOLDOUT_PERIODS = 12;   // last 12 four-week periods are withheld
+    private const WMAPE_MIN_PERIODS     = 36;   // at least 36 four-week periods of REAL sales history
+    private const WMAPE_MIN_UNITS       = 30;   // more than 30 units sold in the holdout
+    private const MONTHLY_MIN_TRAIN     = 24;   // portfolio card: months of history before ARIMA is used
+    private const MONTHLY_SHOWN         = 18;   // portfolio card: months displayed
 
     // ─── Public Endpoints ─────────────────────────────────────────────────
 
@@ -25,25 +42,19 @@ class AnalyticsController extends Controller
         set_time_limit(300);
         ini_set('memory_limit', '512M');
 
-        $products = Product::select(['id', 'name', 'sku', 'cost_price', 'selling_price', 'stock_quantity', 'reorder_point'])->get();
-        $results  = [];
-
+        $products    = Product::select(['id', 'name', 'sku', 'cost_price', 'selling_price', 'stock_quantity', 'reorder_point'])->get();
+        $results     = [];
         $fsnSettings = AppSetting::current();
 
-        // Keep all data up to the current moment.
-        // Do NOT exclude the current year. We only exclude future dates.
-        // This ensures the next-30-day forecast can still be generated.
-        $forecastCutoff = $this->forecastTrainingCutoff();
-
+        // The weekly series ends at the last COMPLETED week, so the week in
+        // progress never counts as a week of low demand. Sales are read up to now.
         $weeklySince = now()->subWeeks($this->weekWindow)->startOfWeek();
         $dailySince  = now()->subDays($this->dayWindow - 1)->startOfDay();
 
-        // Pre-aggregate in SQL — includes current-year partial data up to now,
-        // but never includes future dates.
         $weeklyAgg = DB::table('sale_items')
             ->selectRaw('product_id, DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY)) AS week_start, SUM(quantity) AS qty')
             ->where('created_at', '>=', $weeklySince)
-            ->where('created_at', '<=', $forecastCutoff)
+            ->where('created_at', '<=', now())
             ->whereNull('deleted_at')
             ->groupBy('product_id', 'week_start')
             ->get()
@@ -52,7 +63,7 @@ class AnalyticsController extends Controller
         $dailyAgg = DB::table('sale_items')
             ->selectRaw('product_id, DATE(created_at) AS sale_date, SUM(quantity) AS qty')
             ->where('created_at', '>=', $dailySince)
-            ->where('created_at', '<=', $forecastCutoff)
+            ->where('created_at', '<=', now())
             ->whereNull('deleted_at')
             ->groupBy('product_id', 'sale_date')
             ->get()
@@ -61,66 +72,52 @@ class AnalyticsController extends Controller
         $lastSaleMap = DB::table('sale_items')
             ->selectRaw('product_id, MAX(created_at) AS last_sale_at')
             ->where('created_at', '>=', $weeklySince)
-            ->where('created_at', '<=', $forecastCutoff)
+            ->where('created_at', '<=', now())
             ->whereNull('deleted_at')
             ->groupBy('product_id')
             ->pluck('last_sale_at', 'product_id');
 
         foreach ($products as $product) {
-            $weeklySeries = $this->buildWeeklySeriesFromAgg(
-                $weeklyAgg->get($product->id, collect()), $this->weekWindow
-            );
-            $dailySeries = $this->buildDailySeriesFromAgg(
-                $dailyAgg->get($product->id, collect()), $this->dayWindow
-            );
+            $weeklySeries = $this->buildWeeklySeriesFromAgg($weeklyAgg->get($product->id, collect()), $this->weekWindow);
+            $dailySeries  = $this->buildDailySeriesFromAgg($dailyAgg->get($product->id, collect()), $this->dayWindow);
 
-            $n        = count($dailySeries);
-            $avgDaily = $n > 0 ? array_sum($dailySeries) / $n : 0.0;
-            $stdDaily = $this->sampleStdDev($dailySeries);
+            // Daily demand statistics, EOQ and ROP (Equations 8-11)
+            $inv      = $this->inventoryMetrics($dailySeries, (float) $product->cost_price);
+            $avgDaily = $inv['avg_daily'];
+            $stdDaily = $inv['std_daily'];
 
-            // ── Method selection based on demand sparsity ───────────────────
+            // ── Method selection (Table 4) and 24-week forecast ─────────────
             $method         = $this->selectMethod($weeklySeries);
-            $forecastResult = $this->forecast($weeklySeries, $method, 24); // 24 weeks = 6 months
+            $forecastResult = $this->forecast($weeklySeries, $method, self::FORECAST_WEEKS);
 
-            // Aggregate 24 weekly values into 6 monthly buckets (4 weeks each)
-            $forecastMonthly  = [];
-            $lowerMonthly     = [];
-            $upperMonthly     = [];
+            // 24 weekly values -> 6 buckets of 4 weeks
+            $forecastMonthly = [];
+            $lowerMonthly    = [];
+            $upperMonthly    = [];
             for ($m = 0; $m < 6; $m++) {
                 $forecastMonthly[] = round(array_sum(array_slice($forecastResult['forecast'], $m * 4, 4)), 2);
-                $lowerMonthly[]    = round(max(0, array_sum(array_slice($forecastResult['lower'],   $m * 4, 4))), 2);
-                $upperMonthly[]    = round(array_sum(array_slice($forecastResult['upper'],   $m * 4, 4)), 2);
+                $lowerMonthly[]    = round(max(0, array_sum(array_slice($forecastResult['lower'], $m * 4, 4))), 2);
+                $upperMonthly[]    = round(array_sum(array_slice($forecastResult['upper'], $m * 4, 4)), 2);
             }
 
-            // 30-day predicted demand = first month (4 weeks) scaled to 30 days
-            $predictedMonthly = array_sum(array_slice($forecastResult['forecast'], 0, 4)) * (30.0 / 7.0);
+            // Expected Sales (30 days) = (sum of the first 4 weekly forecasts) x 30 / 28
+            $scale30         = 30.0 / 28.0;
+            $expectedSales30 = $this->expectedSales30($forecastResult['forecast']);
 
-            // ── WMAPE via hold-out with the same method ─────────────────────
-            $mape = $this->computeWMAPE($weeklySeries, $method);
+            // ── WMAPE (12 four-week periods withheld, real history only) ────
+            $wm = $this->computeWMAPE($weeklySeries, $method, $weeklySince);
 
-            // ── EOQ: √(2·D·S / H) ────────────────────────────────────────
-            $annualDemand = $avgDaily * 365.0;
-            $holdingCost  = max(0.01, $product->cost_price * $this->holdingRate);
-            $eoq = $annualDemand > 0
-                ? sqrt((2.0 * $annualDemand * $this->orderCost) / $holdingCost)
-                : 0.0;
+            $annualDemand = $inv['annual_demand'];
+            $holdingCost  = $inv['holding_cost'];
+            $eoq          = $inv['eoq'];
+            $safetyStock  = $inv['safety_stock'];
+            $rop          = $inv['rop'];
 
-            // ── ROP: d̄·L + Z·σ·√L ───────────────────────────────────────
-            $safetyStock = $this->serviceZ * $stdDaily * sqrt($this->leadTime);
-            $rop         = ($avgDaily * $this->leadTime) + $safetyStock;
-
-            // ── FSN classification ────────────────────────────────────────
-            $fsn    = $this->classifyFSN($weeklyAgg->get($product->id, collect()), $avgDaily, $lastSaleMap->get($product->id), $fsnSettings);
+            // ── FSN over the product's REAL sales history (Equation 1) ──────
+            $fsn    = $this->classifyFSN($weeklySeries, $avgDaily, $lastSaleMap->get($product->id), $fsnSettings);
             $params = $forecastResult['params'];
 
-            // ── Turnover Ratio: Annual Demand / Average Inventory ─────────
-            // How many times this product's stock fully sells through and gets
-            // replaced per year. No return/refund data is involved — it is purely
-            // units sold vs. units held, so the client's no-return policy has no
-            // bearing on this metric. Current stock_quantity is used as the proxy
-            // for average inventory (no historical stock-level snapshots exist).
-            // Null when there is no stock to divide by (can't compute a ratio for
-            // an out-of-stock item); 0 when neither sales nor stock exist.
+            // Turnover = annual demand / current stock (null when out of stock but selling)
             $turnoverRatio = $product->stock_quantity > 0
                 ? round($annualDemand / $product->stock_quantity, 2)
                 : ($annualDemand > 0 ? null : 0.0);
@@ -136,21 +133,26 @@ class AnalyticsController extends Controller
                         // Method metadata
                         'method_used'     => $method,
                         'arima_order'     => $forecastResult['arima_order_selected'] ?? null,
+                        'aic_table'       => $forecastResult['aic_table'] ?? null,
                         'ar_param'        => isset($params['phi'][0])   ? round($params['phi'][0],   4) : null,
                         'ma_param'        => isset($params['theta'][0]) ? round($params['theta'][0], 4) : null,
+                        'ar_params'       => array_map(fn($v) => round($v, 4), $params['phi'] ?? []),
+                        'ma_params'       => array_map(fn($v) => round($v, 4), $params['theta'] ?? []),
                         'diff_mean'       => round($params['mean'] ?? 0, 4),
+                        'resid_sd'        => isset($params['sigma']) ? round($params['sigma'], 4) : null,
                         'used_fallback'   => $forecastResult['fallback'],
-                        'hw_gamma'        => isset($params['gamma'])   ? round($params['gamma'], 4) : null,
-                        'hw_variant'      => $params['variant'] ?? 'additive',
-                        // Forecast outputs (6-month monthly aggregation)
+                        // Forecast outputs
+                        'forecast_weekly'     => array_map(fn($v) => round($v, 4), array_slice($forecastResult['forecast'], 0, self::FORECAST_WEEKS)),
                         'forecast_monthly'    => $forecastMonthly,
                         'conf_lower_monthly'  => $lowerMonthly,
                         'conf_upper_monthly'  => $upperMonthly,
-                        'conf_lower_30d'      => round($lowerMonthly[0] * (30.0 / 7.0), 2),
-                        'conf_upper_30d'      => round($upperMonthly[0] * (30.0 / 7.0), 2),
-                        'wmape_pct'       => $mape >= 0 ? $mape : null,
-                        'weekly_series'   => $weeklySeries,
-                        // Demand statistics (last 90 days for display, full window for computation)
+                        'conf_lower_30d'      => round($lowerMonthly[0] * $scale30, 2),
+                        'conf_upper_30d'      => round($upperMonthly[0] * $scale30, 2),
+                        'wmape_pct'           => $wm['wmape'] >= 0 ? $wm['wmape'] : null,
+                        'wmape_holdout'       => $wm['holdout'],
+                        'wmape_model'         => $wm['model'],
+                        'weekly_series'       => $weeklySeries,
+                        // Demand statistics
                         'sales_90d'       => (int) array_sum(array_slice($dailySeries, -90)),
                         'avg_daily'       => round($avgDaily, 4),
                         'std_daily'       => round($stdDaily, 4),
@@ -161,7 +163,9 @@ class AnalyticsController extends Controller
                         // EOQ components
                         'annual_demand'   => round($annualDemand, 2),
                         'order_cost'      => $this->orderCost,
-                        'holding_cost'    => round($holdingCost,  2),
+                        'holding_cost'    => round($holdingCost, 2),
+                        // Restocking alert rule: current stock <= ROP
+                        'restock_alert'   => $this->isRestockAlert((float) $product->stock_quantity, $rop),
                         // FSN detail
                         'active_weeks'    => $fsn['active_weeks'],
                         'total_weeks'     => $fsn['total_weeks'],
@@ -169,9 +173,6 @@ class AnalyticsController extends Controller
                         'last_sale_date'  => $fsn['last_sale_date'],
                         'months_no_sale'  => $fsn['months_no_sale'],
                         'weeks_no_sale'   => $fsn['weeks_no_sale'],
-                        // FSN thresholds actually applied for this run (admin-configurable —
-                        // see AppSetting / the Settings page). Stamped per-row so the UI
-                        // never has to guess what was in effect when this was computed.
                         'fsn_fast_threshold_percent'      => $fsnSettings->fsn_fast_threshold_percent,
                         'fsn_nonmoving_threshold_percent' => $fsnSettings->fsn_nonmoving_threshold_percent,
                         'fsn_dead_stock_weeks'            => $fsnSettings->fsn_dead_stock_weeks,
@@ -179,7 +180,7 @@ class AnalyticsController extends Controller
                         // Turnover ratio components
                         'turnover_avg_inventory' => $product->stock_quantity,
                     ],
-                    'predicted_demand'   => round($predictedMonthly, 2),
+                    'predicted_demand'   => round($expectedSales30, 2),
                     'eoq_value'          => round($eoq, 2),
                     'rop_value'          => round($rop, 2),
                     'fsn_classification' => $fsn['classification'],
@@ -194,14 +195,6 @@ class AnalyticsController extends Controller
         }
 
         return response()->json(['results' => $results, 'computed_at' => now()]);
-    }
-
-    private function forecastTrainingCutoff(): Carbon
-    {
-        // Include all historical data up to the current moment.
-        // Never include future dates. This keeps the short-horizon forecast alive
-        // while the WMAPE still ignores incomplete current-period buckets.
-        return now();
     }
 
     public function summary()
@@ -219,74 +212,131 @@ class AnalyticsController extends Controller
         $lastRun = $latest->max('computed_at');
         $isStale = !$lastRun || $lastRun < now()->toDateString();
 
-        // New: portfolio-level monthly WMAPE value for the dashboard card
-        $monthlyWmape = $this->portfolioMonthlyWMAPE();
-
         return response()->json([
-            'fsn_summary' => compact('fast', 'slow', 'nonMoving'),
-            'is_stale'    => $isStale,
-            'last_run'    => $lastRun,
-            'monthly_wmape' => $monthlyWmape,
-            'items'       => $latest,
+            'fsn_summary'   => compact('fast', 'slow', 'nonMoving'),
+            'is_stale'      => $isStale,
+            'last_run'      => $lastRun,
+            'monthly_wmape' => $this->computeMonthlyAccuracy()['wmape'],
+            'items'         => $latest,
         ]);
     }
 
-    private function portfolioMonthlyWMAPE(): float
+    public function monthlyAccuracy()
     {
-        $start = now()->copy()->subMonths(11)->startOfMonth();
-        $end   = now()->copy()->endOfMonth();
+        $r = $this->computeMonthlyAccuracy();
 
-        $monthMap = [];
-        $cursor = $start->copy();
-        while ($cursor <= $end) {
-            $monthMap[$cursor->format('Y-m')] = 0.0;
-            $cursor->addMonth();
-        }
-
-        $rows = DB::table('sale_items')
-            ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") AS month_key, SUM(quantity) AS total_qty')
-            ->where('created_at', '>=', $start)
-            ->where('created_at', '<=', $end)
-            ->whereNull('deleted_at')
-            ->groupBy(DB::raw('DATE_FORMAT(created_at, "%Y-%m")'))
-            ->get();
-
-        foreach ($rows as $row) {
-            $monthMap[$row->month_key] = (float) $row->total_qty;
-        }
-
-        $actual = array_values($monthMap);
-        $n = count($actual);
-
-        if ($n < 2) return 0.0;
-
-        $forecast = [];
-        foreach ($actual as $i => $value) {
-            if ($i === 0) {
-                $forecast[] = $value;
-                continue;
-            }
-
-            $prev = $actual[$i - 1] ?? 0;
-            $slope = $i > 1 ? ($actual[$i - 1] - $actual[$i - 2]) : 0;
-            $forecast[] = max(0.0, $prev + $slope);
-        }
-
-        $evalActual = array_slice($actual, -6);
-        $evalForecast = array_slice($forecast, -6);
-
-        $sumActual = array_sum($evalActual);
-        if ($sumActual <= 0) return 0.0;
-
-        $totalAbsError = 0.0;
-        foreach ($evalActual as $i => $value) {
-            $totalAbsError += abs($value - ($evalForecast[$i] ?? $value));
-        }
-
-        return round(($totalAbsError / $sumActual) * 100, 2);
+        return response()->json([
+            'labels'       => $r['labels'],
+            'actual'       => $r['actual'],
+            'forecast'     => array_map(fn($v) => round($v, 2), $r['forecast']),
+            'wmape_series' => $r['wmape_series'],   // one error value per month
+            'wmape'        => $r['wmape'],          // WMAPE of the last 6 COMPLETE months
+        ]);
     }
 
-    // ─── Method Selection ─────────────────────────────────────────────────
+    // ─── Portfolio-level monthly accuracy ─────────────────────────────────
+
+    /**
+     * Clinic-wide monthly sales (calendar months, the unfinished current month
+     * excluded) forecast ONE month ahead with Auto-ARIMA, using only the months
+     * before it. Until MONTHLY_MIN_TRAIN months exist the previous month is used.
+     * Headline WMAPE = WMAPE of the last 6 complete months (Equation 15).
+     */
+    private function computeMonthlyAccuracy(): array
+    {
+        $cacheKey = 'analytics.monthly_accuracy.' . md5(
+            now()->format('Y-m') . '|' . (string) DB::table('sale_items')->max('id')
+        );
+
+        return Cache::remember($cacheKey, 3600, fn() => $this->buildMonthlyAccuracy());
+    }
+
+    private function buildMonthlyAccuracy(): array
+    {
+        $evalMonths = 6;
+        $min        = DB::table('sale_items')->whereNull('deleted_at')->min('created_at');
+        $end        = now()->startOfMonth();                       // exclusive: current month is incomplete
+        $start      = $min ? Carbon::parse($min)->startOfMonth() : $end->copy();
+
+        $labels = [];
+        $actual = [];
+
+        if ($start < $end) {
+            $rows = DB::table('sale_items')
+                ->selectRaw('DATE_FORMAT(created_at, "%Y-%m-01") AS month, SUM(quantity) AS actual_units')
+                ->where('created_at', '>=', $start)
+                ->where('created_at', '<', $end)
+                ->whereNull('deleted_at')
+                ->groupBy(DB::raw('DATE_FORMAT(created_at, "%Y-%m-01")'))
+                ->get();
+
+            $byMonth = [];
+            foreach ($rows as $row) {
+                $byMonth[$row->month] = (float) $row->actual_units;
+            }
+
+            $cursor = $start->copy();
+            while ($cursor < $end) {
+                $key      = $cursor->format('Y-m-01');
+                $labels[] = $key;
+                $actual[] = $byMonth[$key] ?? 0.0;
+                $cursor->addMonth();
+            }
+        }
+
+        $forecast = $this->buildMonthlyArimaForecast($actual);
+
+        // Show the most recent months only
+        $shown   = min(count($actual), self::MONTHLY_SHOWN);
+        $labels  = array_slice($labels,   -$shown);
+        $actual  = array_slice($actual,   -$shown);
+        $forecast = array_slice($forecast, -$shown);
+
+        $evalStart     = max(0, count($actual) - $evalMonths);
+        $wmapeSeries   = [];
+        $totalActual   = 0.0;
+        $totalAbsError = 0.0;
+
+        foreach ($actual as $i => $a) {
+            $err           = abs($a - $forecast[$i]);
+            $wmapeSeries[] = $a > 0 ? round(($err / $a) * 100, 2) : null;
+
+            if ($i >= $evalStart) {
+                $totalActual   += $a;
+                $totalAbsError += $err;
+            }
+        }
+
+        return [
+            'labels'       => $labels,
+            'actual'       => $actual,
+            'forecast'     => $forecast,
+            'wmape_series' => $wmapeSeries,
+            'wmape'        => $totalActual > 0 ? round(($totalAbsError / $totalActual) * 100, 2) : 0.0,
+        ];
+    }
+
+    /** forecast[i] uses months 0..i-1 only (walk-forward). */
+    private function buildMonthlyArimaForecast(array $actual): array
+    {
+        $n = count($actual);
+        if ($n === 0) return [];
+
+        $forecast = [$actual[0]];
+        for ($i = 1; $i < $n; $i++) {
+            // Only the months that are displayed need a model; older ones use the previous month.
+            if ($i < self::MONTHLY_MIN_TRAIN || $i < $n - self::MONTHLY_SHOWN) {
+                $forecast[] = $actual[$i - 1];
+                continue;
+            }
+            $res        = $this->autoARIMA(array_slice($actual, 0, $i), 1);
+            $forecast[] = max(0.0, $res['forecast'][0]);
+        }
+
+        return $forecast;
+    }
+
+    // ─── Method Selection (Table 4) ───────────────────────────────────────
 
     /**
      * Choose forecasting algorithm based on demand sparsity (activity ratio).
@@ -364,28 +414,70 @@ class AnalyticsController extends Controller
         return $series;
     }
 
-    /** Dispatch to the right algorithm. */
+
+    // ─── Declared formulas ────────────────────────────────────────────────
+
+    /** Expected Sales (30 days) = (sum of the next 4 weekly forecasts) x 30 / 28. */
+    private function expectedSales30(array $weeklyForecast): float
+    {
+        return array_sum(array_slice($weeklyForecast, 0, 4)) * (30.0 / 28.0);
+    }
+
+    /** Restocking alert rule: raised when current stock is at or below the Reorder Point. */
+    private function isRestockAlert(float $stock, float $rop): bool
+    {
+        return $stock <= $rop;
+    }
+
+    /**
+     * Daily demand statistics, EOQ and ROP.
+     *   d̄ = mean(daily units)      σ = sample standard deviation of daily units
+     *   D  = d̄ x 365              H = max(0.01, cost price x 0.20)
+     *   EOQ = sqrt(2·D·S / H)      SS = Z·σ·sqrt(L)      ROP = d̄·L + SS
+     */
+    private function inventoryMetrics(array $dailySeries, float $costPrice): array
+    {
+        $n       = count($dailySeries);
+        $avg     = $n > 0 ? array_sum($dailySeries) / $n : 0.0;
+        $std     = $this->sampleStdDev($dailySeries);
+        $annual  = $avg * 365.0;
+        $holding = max(0.01, $costPrice * $this->holdingRate);
+        $eoq     = $annual > 0 ? sqrt((2.0 * $annual * $this->orderCost) / $holding) : 0.0;
+        $safety  = $this->serviceZ * $std * sqrt($this->leadTime);
+
+        return [
+            'avg_daily'     => $avg,
+            'std_daily'     => $std,
+            'annual_demand' => $annual,
+            'holding_cost'  => $holding,
+            'eoq'           => $eoq,
+            'safety_stock'  => $safety,
+            'rop'           => ($avg * $this->leadTime) + $safety,
+        ];
+    }
+
+    // ─── Forecast dispatch ────────────────────────────────────────────────
+
+    /**
+     * Dispatch to the assigned method. ARIMA is fitted on the product's REAL
+     * sales history only (leading zero-weeks before its first sale removed).
+     */
     private function forecast(array $series, string $method, int $steps): array
     {
         return match ($method) {
-            'holt_winters' => $this->holtWinters($series, $steps),
-            'croston'      => $this->crostonMethod($series, $steps),
-            'ses'          => $this->optimizedSES($series, $steps),
-            // Trim leading zero-padding first — ARIMA otherwise fits against
-            // years of irrelevant padding for a product that just doesn't have
-            // that much real history yet (see weeksOfHistory() / selectMethod()).
-            'auto_arima'   => $this->autoARIMA($this->trimLeadingZeros($series), $steps),
-            default        => $this->runARIMA($this->trimLeadingZeros($series), 1, 1, 1, $steps),
+            'croston'    => $this->crostonMethod($series, $steps),
+            'ses'        => $this->optimizedSES($series, $steps),
+            'auto_arima' => $this->autoARIMA($this->trimLeadingZeros($series), $steps),
+            default      => $this->runARIMA($this->trimLeadingZeros($series), 1, 1, 1, $steps),
         };
     }
 
     // ─── Auto-ARIMA ───────────────────────────────────────────────────────
 
     /**
-     * Tests 5 candidate ARIMA orders, selects the one with the lowest AIC,
-     * and returns that model's forecast.
-     *
-     * Candidates: (0,1,0), (1,1,0), (0,1,1), (1,1,1), (2,1,1)
+     * Fits the seven candidate orders (0,1,0) (1,1,0) (0,1,1) (1,1,1) (2,1,1)
+     * (1,1,2) (2,1,2), keeps the one with the lowest AIC (Equation 3) and
+     * forecasts with it. All AICs are computed on the same observations.
      */
     private function autoARIMA(array $series, int $steps): array
     {
@@ -401,12 +493,16 @@ class AnalyticsController extends Controller
 
         $bestOrder = [1, 1, 1];
         $bestAIC   = PHP_FLOAT_MAX;
+        $table     = [];
 
         foreach ($candidates as [$p, $d, $q]) {
             $minObs = $p + $d + max($q, 1) + 4;
             if (count($series) < $minObs) continue;
 
             $aic = $this->computeAIC($series, $p, $d, $q);
+            if ($aic >= PHP_FLOAT_MAX) continue;
+
+            $table[] = ['order' => [$p, $d, $q], 'aic' => round($aic, 3)];
             if ($aic < $bestAIC) {
                 $bestAIC   = $aic;
                 $bestOrder = [$p, $d, $q];
@@ -416,17 +512,18 @@ class AnalyticsController extends Controller
         [$p, $d, $q] = $bestOrder;
         $result = $this->runARIMA($series, $p, $d, $q, $steps);
         $result['arima_order_selected'] = $bestOrder;
+        $result['aic_table']            = $table;
         return $result;
     }
 
     /**
-     * Akaike Information Criterion for ARIMA(p,d,q).
-     * AIC ≈ n · ln(RSS/n) + 2·k   where k = p + q + 1.
+     * AIC = n·ln(RSS/n) + 2k, k = p + q + 1 (Equation 3).
+     * The first two residuals are dropped for EVERY candidate so that n (and
+     * therefore the AIC) is comparable between orders.
      */
     private function computeAIC(array $series, int $p, int $d, int $q): float
     {
-        $minReq = $p + $d + max($q, 1) + 2;
-        if (count($series) < $minReq) return PHP_FLOAT_MAX;
+        if (count($series) < $p + $d + max($q, 1) + 2) return PHP_FLOAT_MAX;
 
         $diffed = $series;
         for ($i = 0; $i < $d; $i++) {
@@ -439,20 +536,300 @@ class AnalyticsController extends Controller
         $theta    = $this->estimateMAByCSS($centered, $phi, $p, $q);
         $eps      = $this->computeARMAResiduals($centered, $phi, $theta, $p, $q);
 
-        $start    = max($p, $q);
-        $validEps = array_slice($eps, $start);
-        $n        = count($validEps);
-
+        $valid = array_slice($eps, 2);
+        $n     = count($valid);
         if ($n < 2) return PHP_FLOAT_MAX;
 
-        $rss = array_sum(array_map(fn($r) => $r ** 2, $validEps));
+        $rss = array_sum(array_map(fn($r) => $r ** 2, $valid));
         if ($rss <= 0.0) return PHP_FLOAT_MAX;
 
-        $k = max(1, $p + $q + 1);
-        return $n * log($rss / $n) + 2.0 * $k;
+        return $n * log($rss / $n) + 2.0 * ($p + $q + 1);
     }
 
-    // ─── Croston's Method ─────────────────────────────────────────────────
+    // ─── WMAPE (Equation 15) ──────────────────────────────────────────────
+
+    /**
+     * Hold-out WMAPE for Auto-ARIMA products.
+     *
+     *   • Only the product's REAL sales history is used (weeks before its first
+     *     sale are removed) and it must cover at least 36 four-week periods.
+     *   • One "month" = 4 consecutive weeks (28 days). Periods are aligned to the
+     *     newest completed week, so all 12 held-out periods are complete.
+     *   • The last 12 periods are withheld, ARIMA is refitted on the earlier
+     *     periods and forecasts the 12 withheld ones.
+     *   • The holdout must contain more than 30 units, otherwise "N/A".
+     *
+     * @return array{wmape: float, holdout: array}  wmape = -1 means N/A
+     */
+    private function computeWMAPE(array $weeklySeries, string $method, Carbon $weeklySince): array
+    {
+        $none = ['wmape' => -1.0, 'holdout' => [], 'model' => null];
+        if ($method !== 'auto_arima') return $none;
+
+        $real    = $this->trimLeadingZeros($weeklySeries);
+        $leading = count($weeklySeries) - count($real);
+        $monthly = $this->toMonthlySeries($real);
+        $n       = count($monthly);
+        $hold    = self::WMAPE_HOLDOUT_PERIODS;
+
+        if ($n < self::WMAPE_MIN_PERIODS) return $none;
+
+        $train   = array_slice($monthly, 0, $n - $hold);
+        $actuals = array_slice($monthly, $n - $hold);
+
+        if (array_sum($actuals) <= self::WMAPE_MIN_UNITS) return $none;
+
+        $fit       = $this->autoARIMA($train, $hold);       // fitted on the 4-week totals before the holdout
+        $forecasts = $fit['forecast'];
+
+        $offset        = count($real) % self::PERIOD_WEEKS;    // oldest leftover weeks dropped
+        $totalAbsError = 0.0;
+        $totalActual   = 0.0;
+        $rows          = [];
+
+        for ($i = 0; $i < $hold; $i++) {
+            $totalAbsError += abs($actuals[$i] - $forecasts[$i]);
+            $totalActual   += $actuals[$i];
+
+            $weekIdx = $leading + $offset + ($n - $hold + $i) * self::PERIOD_WEEKS;
+            $from    = $weeklySince->copy()->addWeeks($weekIdx);
+            $rows[]  = [
+                'period'   => $i + 1,
+                'from'     => $from->toDateString(),
+                'to'       => $from->copy()->addWeeks(self::PERIOD_WEEKS)->subDay()->toDateString(),
+                'actual'   => round($actuals[$i], 2),
+                'forecast' => round($forecasts[$i], 2),
+            ];
+        }
+
+        if ($totalActual <= 0.0) return $none;
+
+        return [
+            'wmape'   => round(min(($totalAbsError / $totalActual) * 100, 999.9), 2),
+            'holdout' => $rows,
+            // The holdout model is fitted on 4-week totals, so its order and coefficients
+            // can differ from the weekly forecasting model - they are reported separately.
+            'model'   => [
+                'order'         => $fit['arima_order_selected'] ?? null,
+                'ar'            => array_map(fn($v) => round($v, 4), $fit['params']['phi'] ?? []),
+                'ma'            => array_map(fn($v) => round($v, 4), $fit['params']['theta'] ?? []),
+                'mean'          => round($fit['params']['mean'] ?? 0, 4),
+                'train_periods' => count($train),
+            ],
+        ];
+    }
+
+    /** Collapse weekly sales into 4-week periods, aligned to the NEWEST week. */
+    private function toMonthlySeries(array $weeklySeries): array
+    {
+        $monthly = [];
+        $n       = count($weeklySeries);
+
+        for ($i = $n % self::PERIOD_WEEKS; $i + self::PERIOD_WEEKS <= $n; $i += self::PERIOD_WEEKS) {
+            $monthly[] = array_sum(array_slice($weeklySeries, $i, self::PERIOD_WEEKS));
+        }
+
+        return $monthly;
+    }
+
+    // ─── ARIMA(p, d, q) ───────────────────────────────────────────────────
+
+    /**
+     * Fits ARIMA(p,d,q), d = 1, and forecasts $steps weeks ahead.
+     *
+     *   w(t)  = y(t) - y(t-1)                                           (Equation 2)
+     *   w(t+1) = mu + sum_i phi_i (w(t+1-i) - mu) + sum_j theta_j e(t+1-j)   (Equation 4)
+     *   y(t+h) = y(t) + sum_{k=1..h} w(t+k)   (y(t) = LAST observed week)   (Equation 5)
+     *   band   = y(t+h) +/- 1.96 · s_e · sqrt(h)   (h = weeks ahead, 1..24) (Equation 6)
+     *
+     * Future errors have expected value 0, so MA terms only act on the first q
+     * forecast steps. Falls back to SES when the series is too short.
+     */
+    private function runARIMA(array $series, int $p, int $d, int $q, int $steps): array
+    {
+        if (count($series) < $p + $d + max($q, 1) + 2) {
+            return $this->exponentialSmoothing($series, $steps);
+        }
+
+        $origLast = (float) end($series);          // Equation 5 starts from the last observation
+        $diffed   = $series;
+        for ($i = 0; $i < $d; $i++) {
+            $diffed = $this->difference($diffed);
+        }
+
+        $mean     = array_sum($diffed) / count($diffed);
+        $centered = array_map(fn($x) => $x - $mean, $diffed);
+
+        $phi   = $this->yuleWalker($centered, $p);
+        $theta = $this->estimateMAByCSS($centered, $phi, $p, $q);
+        $eps   = $this->computeARMAResiduals($centered, $phi, $theta, $p, $q);
+
+        $forecastDiff = $this->forecastSteps($diffed, $eps, $phi, $theta, $mean, $steps);
+        $forecast     = $this->undifference($forecastDiff, $origLast, $d);
+        $forecast     = array_map(fn($v) => max(0.0, $v), $forecast);
+
+        $resSd = $this->sampleStdDev(array_slice($eps, max($p, $q)));
+        $lower = [];
+        $upper = [];
+        foreach ($forecast as $h => $f) {
+            $margin  = 1.96 * $resSd * sqrt($h + 1);     // $h is 0-based, weeks ahead = $h + 1
+            $lower[] = max(0.0, $f - $margin);
+            $upper[] = $f + $margin;
+        }
+
+        return [
+            'forecast' => $forecast,
+            'lower'    => $lower,
+            'upper'    => $upper,
+            'params'   => ['phi' => $phi, 'theta' => $theta, 'mean' => $mean, 'd' => $d, 'sigma' => $resSd],
+            'fallback' => false,
+        ];
+    }
+
+    /**
+     * MA coefficients by conditional sum of squares (CSS).
+     *
+     *   q = 1 : grid theta1 = -0.99 ... 0.99, step 0.01 -> smallest CSS.
+     *   q = 2 : the same grid is searched one coefficient at a time (theta1 with
+     *           theta2 fixed, then theta2 with theta1 fixed), repeated for two
+     *           sweeps; only invertible pairs are accepted.
+     */
+    private function estimateMAByCSS(array $centered, array $phi, int $p, int $q): array
+    {
+        if ($q === 0) return [];
+
+        $theta = array_fill(0, $q, 0.0);
+        $best  = $this->cssValue($centered, $phi, $theta, $p, $q);
+        $sweeps = $q === 1 ? 1 : 2;
+
+        for ($sweep = 0; $sweep < $sweeps; $sweep++) {
+            for ($j = 0; $j < $q; $j++) {
+                for ($ti = -99; $ti <= 99; $ti++) {
+                    $cand     = $theta;
+                    $cand[$j] = $ti / 100.0;
+                    if (!$this->isInvertible($cand)) continue;
+                    $v = $this->cssValue($centered, $phi, $cand, $p, $q);
+                    if ($v < $best - 1e-12) {
+                        $best  = $v;
+                        $theta = $cand;
+                    }
+                }
+            }
+        }
+
+        return $theta;
+    }
+
+    private function cssValue(array $centered, array $phi, array $theta, int $p, int $q): float
+    {
+        $eps = $this->computeARMAResiduals($centered, $phi, $theta, $p, $q);
+        $sum = 0.0;
+        for ($t = max($p, $q), $n = count($eps); $t < $n; $t++) {
+            $sum += $eps[$t] ** 2;
+        }
+        return $sum;
+    }
+
+    /** MA invertibility: the roots of 1 + theta1·z (+ theta2·z²) lie outside the unit circle. */
+    private function isInvertible(array $theta): bool
+    {
+        if (count($theta) === 1) return abs($theta[0]) < 1.0;
+        if (count($theta) === 2) {
+            return abs($theta[1]) < 1.0
+                && ($theta[1] + $theta[0]) > -1.0
+                && ($theta[1] - $theta[0]) > -1.0;
+        }
+        return true;
+    }
+
+    /**
+     * Recursive forecast of the differenced series (Equation 4). Residuals of
+     * future weeks are 0, so a theta term only contributes while it still
+     * reaches back into the observed residuals.
+     */
+    private function forecastSteps(
+        array $diffed,
+        array $eps,
+        array $phi,
+        array $theta,
+        float $mean,
+        int   $steps
+    ): array {
+        $p   = count($phi);
+        $q   = count($theta);
+        $ext = $diffed;
+        $e   = $eps;
+        $out = [];
+
+        for ($h = 0; $h < $steps; $h++) {
+            $t      = count($ext);
+            $arPart = 0.0;
+            for ($i = 0; $i < $p; $i++) {
+                $idx = $t - $i - 1;
+                if ($idx >= 0) $arPart += $phi[$i] * ($ext[$idx] - $mean);
+            }
+            $maPart = 0.0;
+            for ($j = 0; $j < $q; $j++) {
+                $idx = $t - $j - 1;
+                if ($idx >= 0) $maPart += $theta[$j] * ($e[$idx] ?? 0.0);
+            }
+            $val   = $mean + $arPart + $maPart;
+            $out[] = $val;
+            $ext[] = $val;
+            $e[]   = 0.0;
+        }
+
+        return $out;
+    }
+
+    // ─── FSN Classification ────────────────────────────────────────────────
+
+    /**
+     * FSN over the product's REAL sales history (Equation 1):
+     *
+     *   activity ratio = weeks with sales / weeks since its first sale
+     *
+     *   Non-moving : weeks since last sale >= dead-stock weeks  OR  ratio < non-moving %
+     *   Fast       : ratio >= fast %  OR  average daily demand >= fast minimum
+     *   Slow       : everything else
+     *
+     * The four thresholds are administrator settings (Settings page).
+     */
+    private function classifyFSN(array $weeklySeries, float $avgDailyDemand, ?string $lastSaleAt, AppSetting $settings): array
+    {
+        $fastRatio       = $settings->fsn_fast_threshold_percent / 100.0;
+        $nonMovingRatio  = $settings->fsn_nonmoving_threshold_percent / 100.0;
+        $deadStockWeeks  = $settings->fsn_dead_stock_weeks;
+        $fastMinDaily    = $settings->fsn_fast_min_daily_avg;
+
+        $weeksOfHistory = $this->weeksOfHistory($weeklySeries);
+        $relevant       = $weeksOfHistory > 0 ? array_slice($weeklySeries, -$weeksOfHistory) : [];
+        $totalWeeks     = count($relevant);
+        $activeWeeks    = count(array_filter($relevant, fn($v) => $v > 0));
+        $activityRatio  = $totalWeeks > 0 ? $activeWeeks / $totalWeeks : 0.0;
+
+        $lastSaleDate = $lastSaleAt ? Carbon::parse($lastSaleAt)->toDateString() : null;
+        $weeksNoSale  = $lastSaleAt ? round(Carbon::parse($lastSaleAt)->diffInDays(now()) / 7, 1) : 999.0;
+        $monthsNoSale = $lastSaleAt ? round(Carbon::parse($lastSaleAt)->diffInDays(now()) / 30.44, 1) : 999.0;
+
+        $classification = match (true) {
+            $weeksNoSale >= $deadStockWeeks || $activityRatio < $nonMovingRatio => 'non_moving',
+            $activityRatio >= $fastRatio || $avgDailyDemand >= $fastMinDaily    => 'fast',
+            default => 'slow',
+        };
+
+        return [
+            'classification' => $classification,
+            'active_weeks'   => $activeWeeks,
+            'total_weeks'    => $totalWeeks,
+            'activity_ratio' => $activityRatio,
+            'last_sale_date' => $lastSaleDate,
+            'weeks_no_sale'  => $weeksNoSale,
+            'months_no_sale' => $monthsNoSale,
+        ];
+    }
+
+    // ─── Croston and SES (sparse products) ────────────────────────────────
 
     /**
      * Croston's method for intermittent demand.
@@ -539,8 +916,6 @@ class AnalyticsController extends Controller
         return empty($errors) ? PHP_FLOAT_MAX : array_sum($errors) / count($errors);
     }
 
-    // ─── Optimised SES ────────────────────────────────────────────────────
-
     /**
      * Simple Exponential Smoothing with alpha found by minimising
      * one-step-ahead in-sample MSE (grid search 0.05 – 0.95).
@@ -577,380 +952,7 @@ class AnalyticsController extends Controller
         return array_sum($errors) / count($errors);
     }
 
-    // ─── Holt-Winters Triple Exponential Smoothing ───────────────────────
-
-    /**
-     * Detects annual seasonality using the normalised ACF at lag 52
-     * computed on the **first-differenced** series so that a plain
-     * upward trend cannot be mistaken for seasonality.
-     * Threshold: normalised ACF > 0.12.
-     */
-    private function hasSeasonal(array $series, int $period = 52): bool
-    {
-        if (count($series) < 2 * $period + 1) return false;
-        $diffed = $this->difference($series);   // removes linear trend
-        $var    = $this->autocovariance($diffed, 0);
-        if ($var < 1e-10) return false;
-        return abs($this->autocovariance($diffed, $period)) / $var > 0.12;
-    }
-
-    /**
-     * Holt-Winters Additive (level + trend + seasonal).
-     * Seasonal period m = 52 weeks (annual cycle).
-     * Alpha and beta are fixed at literature defaults;
-     * gamma (seasonal smoothing) is tuned via grid search.
-     */
-    /**
-     * Holt-Winters with full (α, β, γ) grid search and automatic selection
-     * between the additive and multiplicative seasonal variants.
-     *
-     * Additive:        F = (L + b·h) + S_h          — absolute seasonal swings
-     * Multiplicative:  F = (L + b·h) × S_h          — proportional seasonal swings
-     *
-     * Multiplicative is tried when ≥ 80 % of the series is non-zero (avoids
-     * division-by-zero); zeros are floored to 0.01 inside the mult. methods.
-     * The variant with the lower in-sample MSE wins.
-     */
-    private function holtWinters(array $series, int $steps, int $m = 52): array
-    {
-        $n = count($series);
-        if ($n < 2 * $m) return $this->optimizedSES($series, $steps);
-
-        $alphas = [0.05, 0.10, 0.15, 0.25];
-        $betas  = [0.02, 0.05, 0.10];
-        $gammas = [0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50];
-
-        $nonZeroRatio = count(array_filter($series, fn($v) => $v > 0)) / $n;
-        $variants     = $nonZeroRatio >= 0.80 ? ['additive', 'multiplicative'] : ['additive'];
-
-        $best = ['alpha' => 0.15, 'beta' => 0.05, 'gamma' => 0.10,
-                 'variant' => 'additive', 'mse' => PHP_FLOAT_MAX];
-
-        foreach ($variants as $variant) {
-            foreach ($alphas as $alpha) {
-                foreach ($betas as $beta) {
-                    foreach ($gammas as $gamma) {
-                        $mse = $variant === 'additive'
-                            ? $this->hwInSampleMSE($series, $alpha, $beta, $gamma, $m)
-                            : $this->hwMultInSampleMSE($series, $alpha, $beta, $gamma, $m);
-                        if ($mse < $best['mse']) {
-                            $best = ['alpha' => $alpha, 'beta' => $beta,
-                                     'gamma' => $gamma, 'variant' => $variant, 'mse' => $mse];
-                        }
-                    }
-                }
-            }
-        }
-
-        return $best['variant'] === 'additive'
-            ? $this->runHoltWinters($series, $steps, $best['alpha'], $best['beta'], $best['gamma'], $m)
-            : $this->runHoltWintersMultiplicative($series, $steps, $best['alpha'], $best['beta'], $best['gamma'], $m);
-    }
-
-    private function hwInSampleMSE(array $series, float $alpha, float $beta, float $gamma, int $m): float
-    {
-        $n = count($series);
-        if ($n < $m + 1) return PHP_FLOAT_MAX;
-
-        $initL = array_sum(array_slice($series, 0, $m)) / $m;
-        $initB = 0.0;
-        if ($n >= 2 * $m) {
-            $l2    = array_sum(array_slice($series, $m, $m)) / $m;
-            $initB = ($l2 - $initL) / $m;
-        }
-
-        $s = [];
-        for ($i = 0; $i < $m; $i++) $s[$i] = $series[$i] - $initL;
-        $sAvg = array_sum($s) / $m;
-        for ($i = 0; $i < $m; $i++) $s[$i] -= $sAvg;
-
-        $l = $initL; $b = $initB; $sse = 0.0;
-
-        for ($t = 0; $t < $n; $t++) {
-            $si    = $t % $m;
-            $yhat  = $l + $b + $s[$si];
-            $sse  += ($series[$t] - $yhat) ** 2;
-            $prevL = $l;
-            $l     = $alpha * ($series[$t] - $s[$si]) + (1.0 - $alpha) * ($l + $b);
-            $b     = $beta  * ($l - $prevL)            + (1.0 - $beta)  * $b;
-            $s[$si] = $gamma * ($series[$t] - $l)      + (1.0 - $gamma) * $s[$si];
-        }
-
-        return $sse / $n;
-    }
-
-    private function runHoltWinters(array $series, int $steps, float $alpha, float $beta, float $gamma, int $m): array
-    {
-        $n = count($series);
-
-        $initL = array_sum(array_slice($series, 0, $m)) / $m;
-        $initB = 0.0;
-        if ($n >= 2 * $m) {
-            $l2    = array_sum(array_slice($series, $m, $m)) / $m;
-            $initB = ($l2 - $initL) / $m;
-        }
-
-        $s = [];
-        for ($i = 0; $i < $m; $i++) $s[$i] = $series[$i] - $initL;
-        $sAvg = array_sum($s) / $m;
-        for ($i = 0; $i < $m; $i++) $s[$i] -= $sAvg;
-
-        $l = $initL; $b = $initB; $residuals = [];
-
-        for ($t = 0; $t < $n; $t++) {
-            $si          = $t % $m;
-            $yhat        = $l + $b + $s[$si];
-            $residuals[] = $series[$t] - $yhat;
-            $prevL       = $l;
-            $l           = $alpha * ($series[$t] - $s[$si]) + (1.0 - $alpha) * ($l + $b);
-            $b           = $beta  * ($l - $prevL)                  + (1.0 - $beta)  * $b;
-            $s[$si]      = $gamma * ($series[$t] - $l)       + (1.0 - $gamma) * $s[$si];
-        }
-
-        $forecast = [];
-        for ($h = 1; $h <= $steps; $h++) {
-            $si         = ($n + $h - 1) % $m;
-            $forecast[] = max(0.0, $l + $b * $h + $s[$si]);
-        }
-
-        $resSd = $this->sampleStdDev($residuals);
-        $lower = $upper = [];
-        foreach ($forecast as $h => $f) {
-            $margin  = 1.96 * $resSd * sqrt($h + 1);
-            $lower[] = max(0.0, $f - $margin);
-            $upper[] = $f + $margin;
-        }
-
-        return [
-            'forecast' => $forecast,
-            'lower'    => $lower,
-            'upper'    => $upper,
-            'params'   => ['phi' => [], 'theta' => [], 'mean' => round($l, 4), 'd' => 0,
-                           'alpha' => $alpha, 'beta' => $beta, 'gamma' => $gamma],
-            'fallback' => false,
-        ];
-    }
-
-    private function hwMultInSampleMSE(array $series, float $alpha, float $beta, float $gamma, int $m): float
-    {
-        $n = count($series);
-        if ($n < $m + 1) return PHP_FLOAT_MAX;
-
-        $series = array_map(fn($v) => max(0.01, $v), $series);
-
-        $initL = array_sum(array_slice($series, 0, $m)) / $m;
-        if ($initL <= 0) return PHP_FLOAT_MAX;
-
-        $initB = 0.0;
-        if ($n >= 2 * $m) {
-            $l2    = array_sum(array_slice($series, $m, $m)) / $m;
-            $initB = ($l2 - $initL) / $m;
-        }
-
-        $s = [];
-        for ($i = 0; $i < $m; $i++) $s[$i] = $series[$i] / $initL;
-        $sAvg = array_sum($s) / $m;
-        if ($sAvg > 0) for ($i = 0; $i < $m; $i++) $s[$i] /= $sAvg;
-
-        $l = $initL; $b = $initB; $sse = 0.0;
-
-        for ($t = 0; $t < $n; $t++) {
-            $si    = $t % $m;
-            $sVal  = max(0.01, $s[$si]);
-            $yhat  = ($l + $b) * $sVal;
-            $sse  += ($series[$t] - $yhat) ** 2;
-            $prevL = $l;
-            $l     = $alpha * ($series[$t] / $sVal)          + (1.0 - $alpha) * ($l + $b);
-            $b     = $beta  * ($l - $prevL)                  + (1.0 - $beta)  * $b;
-            $s[$si] = $gamma * ($series[$t] / max($l, 0.01))  + (1.0 - $gamma) * $sVal;
-        }
-
-        return $sse / $n;
-    }
-
-    private function runHoltWintersMultiplicative(array $series, int $steps, float $alpha, float $beta, float $gamma, int $m): array
-    {
-        $n      = count($series);
-        $series = array_map(fn($v) => max(0.01, $v), $series);
-
-        $initL = array_sum(array_slice($series, 0, $m)) / $m;
-        $initB = 0.0;
-        if ($n >= 2 * $m) {
-            $l2    = array_sum(array_slice($series, $m, $m)) / $m;
-            $initB = ($l2 - $initL) / $m;
-        }
-
-        $s = [];
-        for ($i = 0; $i < $m; $i++) $s[$i] = $series[$i] / max($initL, 0.01);
-        $sAvg = array_sum($s) / $m;
-        if ($sAvg > 0) for ($i = 0; $i < $m; $i++) $s[$i] /= $sAvg;
-
-        $l = $initL; $b = $initB; $residuals = [];
-
-        for ($t = 0; $t < $n; $t++) {
-            $si          = $t % $m;
-            $sVal        = max(0.01, $s[$si]);
-            $yhat        = ($l + $b) * $sVal;
-            $residuals[] = $series[$t] - $yhat;
-            $prevL       = $l;
-            $l           = $alpha * ($series[$t] / $sVal)          + (1.0 - $alpha) * ($l + $b);
-            $b           = $beta  * ($l - $prevL)                  + (1.0 - $beta)  * $b;
-            $s[$si]      = $gamma * ($series[$t] / max($l, 0.01))  + (1.0 - $gamma) * $sVal;
-        }
-
-        $forecast = [];
-        for ($h = 1; $h <= $steps; $h++) {
-            $si         = ($n + $h - 1) % $m;
-            $forecast[] = max(0.0, ($l + $b * $h) * max(0.01, $s[$si]));
-        }
-
-        $resSd = $this->sampleStdDev($residuals);
-        $lower = $upper = [];
-        foreach ($forecast as $h => $f) {
-            $margin  = 1.96 * $resSd * sqrt($h + 1);
-            $lower[] = max(0.0, $f - $margin);
-            $upper[] = $f + $margin;
-        }
-
-        return [
-            'forecast' => $forecast,
-            'lower'    => $lower,
-            'upper'    => $upper,
-            'params'   => ['phi' => [], 'theta' => [], 'mean' => round($l, 4), 'd' => 0,
-                           'alpha' => $alpha, 'beta' => $beta, 'gamma' => $gamma,
-                           'variant' => 'multiplicative'],
-            'fallback' => false,
-        ];
-    }
-
-    // ─── WMAPE ────────────────────────────────────────────────────────────
-
-    /**
-     * Weighted Mean Absolute Percentage Error via hold-out validation.
-     * Trains on first (n − 4) weeks, forecasts last 4.
-     *
-     * WMAPE = Σ|actual − forecast| / Σactual × 100
-     *
-     * Unlike MAPE, the denominator is the total actual demand over the
-     * holdout window, so zero-demand weeks are handled naturally and
-     * high-volume periods are weighted more — a better fit for
-     * slow/intermittent optical inventory.
-     */
-    private function computeWMAPE(array $weeklySeries, string $method): float
-    {
-        if (!in_array($method, ['holt_winters', 'auto_arima'])) {
-            return -1.0;
-        }
-
-        $monthly = $this->toMonthlySeries($weeklySeries);
-        $n       = count($monthly);
-
-        if ($n < 36) {
-            return -1.0; // not enough history
-        }
-
-        $holdOut = 12;
-        $train   = array_slice($monthly, 0, $n - $holdOut);
-        $actuals = array_slice($monthly, $n - $holdOut);
-
-        $actualSum = array_sum($actuals);
-
-        if ($actualSum < 30) {
-            return -1.0; // low-volume SKU => WMAPE is meaningless
-        }
-
-        $result = $method === 'holt_winters'
-            ? $this->holtWinters($train, $holdOut, 12)
-            : $this->autoARIMA($train, $holdOut);
-
-        $forecasts = $result['forecast'];
-
-        $totalAbsError = 0.0;
-        $totalActual   = 0.0;
-        for ($i = 0; $i < $holdOut; $i++) {
-            $totalAbsError += abs($actuals[$i] - $forecasts[$i]);
-            $totalActual   += $actuals[$i];
-        }
-
-        if ($totalActual <= 0.0) {
-            return -1.0;
-        }
-
-        return round(min(($totalAbsError / $totalActual) * 100, 999.9), 2);
-    }
-
-    /**
-     * Collapse a weekly series into monthly totals.
-     * Only full 4-week buckets are used, so the current partial month is ignored.
-     */
-    private function toMonthlySeries(array $weeklySeries): array
-    {
-        $monthly = [];
-        $n       = count($weeklySeries);
-
-        for ($i = 0; $i + 4 <= $n; $i += 4) {
-            $monthly[] = array_sum(array_slice($weeklySeries, $i, 4));
-        }
-
-        return $monthly;
-    }
-
-    // ─── ARIMA(p, d, q) ───────────────────────────────────────────────────
-
-    /**
-     * Fits ARIMA(p,d,q) and returns $steps-step-ahead forecasts.
-     * Falls back to SES when the series is too short.
-     */
-    private function runARIMA(array $series, int $p, int $d, int $q, int $steps): array
-    {
-        $minRequired = $p + $d + max($q, 1) + 2;
-        if (count($series) < $minRequired) {
-            return $this->exponentialSmoothing($series, $steps);
-        }
-
-        // Anchor undifferencing on a short trailing average rather than the
-        // single literal last observation. Demand is lumpy — a lone zero week
-        // (data not yet caught up to "now," a genuinely slow week, a product
-        // that simply doesn't sell every week) would otherwise become the
-        // entire forecast's starting point, and once every diff after it gets
-        // added onto that zero and clamped non-negative, the whole 6-month
-        // forecast can collapse to zero even though the product sells
-        // healthily overall.
-        $anchorWindow = min(4, count($series));
-        $origLast     = array_sum(array_slice($series, -$anchorWindow)) / $anchorWindow;
-        $diffed       = $series;
-        for ($i = 0; $i < $d; $i++) {
-            $diffed = $this->difference($diffed);
-        }
-
-        $mean     = array_sum($diffed) / count($diffed);
-        $centered = array_map(fn($x) => $x - $mean, $diffed);
-
-        $phi       = $this->yuleWalker($centered, $p);
-        $residuals = $this->computeARResiduals($centered, $phi, $p);
-        $theta     = $this->estimateMAByCSS($centered, $phi, $p, $q);
-
-        $forecastDiff = $this->forecastSteps($diffed, $residuals, $phi, $theta, $mean, $steps);
-        $forecast     = $this->undifference($forecastDiff, $origLast, $d);
-        $forecast     = array_map(fn($v) => max(0.0, $v), $forecast);
-
-        $resSd = $this->sampleStdDev($residuals);
-        $lower = [];
-        $upper = [];
-        foreach ($forecast as $h => $f) {
-            $margin  = 1.96 * $resSd * sqrt($h + 1);
-            $lower[] = max(0.0, $f - $margin);
-            $upper[] = $f + $margin;
-        }
-
-        return [
-            'forecast' => $forecast,
-            'lower'    => $lower,
-            'upper'    => $upper,
-            'params'   => ['phi' => $phi, 'theta' => $theta, 'mean' => $mean, 'd' => $d],
-            'fallback' => false,
-        ];
-    }
+    // ─── ARIMA helpers ────────────────────────────────────────────────────
 
     private function difference(array $series): array
     {
@@ -1033,20 +1035,6 @@ class AnalyticsController extends Controller
         return $sum / $n;
     }
 
-    private function computeARResiduals(array $centered, array $phi, int $p): array
-    {
-        $n     = count($centered);
-        $resid = array_fill(0, $p, 0.0);
-        for ($t = $p; $t < $n; $t++) {
-            $pred = 0.0;
-            for ($i = 0; $i < $p; $i++) {
-                $pred += $phi[$i] * $centered[$t - $i - 1];
-            }
-            $resid[] = $centered[$t] - $pred;
-        }
-        return $resid;
-    }
-
     /** Full ARMA residuals (AR + MA terms) — used for AIC computation. */
     private function computeARMAResiduals(array $centered, array $phi, array $theta, int $p, int $q): array
     {
@@ -1078,73 +1066,6 @@ class AnalyticsController extends Controller
         return $eps;
     }
 
-    private function estimateMAByCSS(array $centered, array $phi, int $p, int $q): array
-    {
-        if ($q === 0) return [];
-
-        $n         = count($centered);
-        $bestTheta = array_fill(0, $q, 0.0);
-        $bestCSS   = PHP_FLOAT_MAX;
-        $start     = max($p, $q);
-
-        for ($ti = -99; $ti <= 99; $ti++) {
-            $t1  = $ti / 100.0;
-            $css = 0.0;
-            $eps = array_fill(0, $n, 0.0);
-
-            for ($t = $start; $t < $n; $t++) {
-                $arPart = 0.0;
-                for ($i = 0; $i < $p; $i++) {
-                    $arPart += $phi[$i] * $centered[$t - $i - 1];
-                }
-                $maPart  = $t1 * $eps[$t - 1];
-                $eps[$t] = $centered[$t] - $arPart - $maPart;
-                $css    += $eps[$t] ** 2;
-            }
-
-            if ($css < $bestCSS) {
-                $bestCSS   = $css;
-                $bestTheta = [$t1];
-            }
-        }
-
-        return $bestTheta;
-    }
-
-    private function forecastSteps(
-        array $diffed,
-        array $residuals,
-        array $phi,
-        array $theta,
-        float $mean,
-        int   $steps
-    ): array {
-        $p   = count($phi);
-        $q   = count($theta);
-        $ext = $diffed;
-        $eps = $residuals;
-        $out = [];
-
-        for ($h = 0; $h < $steps; $h++) {
-            $arPart = 0.0;
-            for ($i = 0; $i < $p; $i++) {
-                $idx     = count($ext) - $i - 1;
-                $arPart += $phi[$i] * ($ext[$idx] - $mean);
-            }
-            $maPart = 0.0;
-            if ($h === 0 && $q > 0) {
-                $idx    = count($eps) - 1;
-                $maPart = $theta[0] * ($idx >= 0 ? $eps[$idx] : 0.0);
-            }
-            $val   = $mean + $arPart + $maPart;
-            $out[] = $val;
-            $ext[] = $val;
-            $eps[] = 0.0;
-        }
-
-        return $out;
-    }
-
     /**
      * Simple Exponential Smoothing fallback used when a series is too
      * short for ARIMA. Alpha defaults to 0.3 unless overridden.
@@ -1171,7 +1092,7 @@ class AnalyticsController extends Controller
         ];
     }
 
-    // ─── Time Series Builders ──────────────────────────────────────────────
+    // ─── Time series builders and statistics ──────────────────────────────
 
     private function buildWeeklySeriesFromAgg(\Illuminate\Support\Collection $aggRows, int $weeks): array
     {
@@ -1211,60 +1132,6 @@ class AnalyticsController extends Controller
         return $series;
     }
 
-    // ─── FSN Classification ────────────────────────────────────────────────
-
-    /**
-     * Activity-based FSN classification over the full 52-week window.
-     *
-     * Rules (applied in order):
-     *   Non-moving : no sale in ≥ 6 months  OR  active in < 10% of weeks
-     *   Fast       : active in ≥ 50% of weeks  OR  avg demand ≥ 1 unit/day
-     *   Slow       : everything else (10–50% activity)
-     */
-    private function classifyFSN(\Illuminate\Support\Collection $weeklyAggRows, float $avgDailyDemand, ?string $lastSaleAt, AppSetting $settings): array
-    {
-        $weeksToCheck = $this->weekWindow;
-        $weekSet      = [];
-
-        foreach ($weeklyAggRows as $row) {
-            $weekSet[$row->week_start] = true;
-        }
-
-        // Admin-configurable thresholds (see AppSetting / the Settings page).
-        $fastRatio       = $settings->fsn_fast_threshold_percent / 100.0;
-        $nonMovingRatio  = $settings->fsn_nonmoving_threshold_percent / 100.0;
-        $deadStockWeeks  = $settings->fsn_dead_stock_weeks;
-        $fastMinDaily    = $settings->fsn_fast_min_daily_avg;
-
-        $activeWeeks   = count($weekSet);
-        $activityRatio = $activeWeeks / $weeksToCheck;
-        $lastSaleDate  = $lastSaleAt ? Carbon::parse($lastSaleAt)->toDateString() : null;
-        $weeksNoSale   = $lastSaleAt
-            ? round(Carbon::parse($lastSaleAt)->diffInDays(now()) / 7, 1)
-            : 999.0;
-        $monthsNoSale  = $lastSaleAt
-            ? round(Carbon::parse($lastSaleAt)->diffInDays(now()) / 30.44, 1)
-            : 999.0;
-
-        $classification = match (true) {
-            $weeksNoSale >= $deadStockWeeks || $activityRatio < $nonMovingRatio => 'non_moving',
-            $activityRatio >= $fastRatio || $avgDailyDemand >= $fastMinDaily    => 'fast',
-            default => 'slow',
-        };
-
-        return [
-            'classification' => $classification,
-            'active_weeks'   => $activeWeeks,
-            'total_weeks'    => $weeksToCheck,
-            'activity_ratio' => $activityRatio,
-            'last_sale_date' => $lastSaleDate,
-            'weeks_no_sale'  => $weeksNoSale,
-            'months_no_sale' => $monthsNoSale,
-        ];
-    }
-
-    // ─── Statistics ───────────────────────────────────────────────────────
-
     private function sampleStdDev(array $data): float
     {
         $n = count($data);
@@ -1275,94 +1142,5 @@ class AnalyticsController extends Controller
             $variance += ($v - $mean) ** 2;
         }
         return sqrt($variance / ($n - 1));
-    }
-
-    public function monthlyAccuracy()
-    {
-        $monthsBack = 18; // months of history used to warm up the forecast
-        $evalMonths = 6;  // months shown in the card AND used for the headline WMAPE
-        $start = now()->subMonths($monthsBack - 1)->startOfMonth();
- 
-        $rows = DB::table('sale_items')
-            ->selectRaw('DATE_FORMAT(created_at, "%Y-%m-01") as month, SUM(quantity) as actual_units')
-            ->where('created_at', '>=', $start)
-            ->where('created_at', '<=', now())
-            ->whereNull('deleted_at') // same filter run() uses, so soft-deleted rows aren't counted
-            ->groupBy(DB::raw('DATE_FORMAT(created_at, "%Y-%m-01")'))
-            ->orderBy('month')
-            ->get();
- 
-        $actualByMonth = [];
-        foreach ($rows as $row) {
-            $actualByMonth[$row->month] = (float) $row->actual_units;
-        }
- 
-        $labels = [];
-        $actual = [];
- 
-        $cursor = Carbon::parse($start)->copy();
-        $end    = now()->copy()->endOfMonth();
- 
-        while ($cursor <= $end) {
-            $key      = $cursor->copy()->startOfMonth()->format('Y-m-01');
-            $labels[] = $key;
-            $actual[] = $actualByMonth[$key] ?? 0.0;
-            $cursor->addMonth();
-        }
- 
-        // Walk-forward forecast: each month is predicted using ONLY earlier months.
-        $forecast = $this->buildMonthlyTrendForecast($actual);
- 
-        // Per-month error + headline WMAPE over the same months the card displays.
-        $evalStart     = max(0, count($actual) - $evalMonths);
-        $wmapeSeries   = [];
-        $totalActual   = 0.0;
-        $totalAbsError = 0.0;
- 
-        foreach ($actual as $i => $a) {
-            $err           = abs($a - $forecast[$i]);
-            $wmapeSeries[] = $a > 0 ? round(($err / $a) * 100, 2) : null;
- 
-            if ($i >= $evalStart) {
-                $totalActual   += $a;
-                $totalAbsError += $err;
-            }
-        }
- 
-        $wmape = $totalActual > 0 ? ($totalAbsError / $totalActual) * 100 : 0.0;
- 
-        return response()->json([
-            'labels'       => $labels,
-            'actual'       => $actual,
-            'forecast'     => array_map(fn($v) => round($v, 2), $forecast),
-            'wmape_series' => $wmapeSeries,          // <-- new: one value per month
-            'wmape'        => round($wmape, 2),      // now covers the last 6 months
-        ]);
-    }
-
-     private function buildMonthlyTrendForecast(array $actual): array
-    {
-        $n = count($actual);
- 
-        if ($n === 0) return [];
-        if ($n === 1) return [$actual[0]];
- 
-        $alpha = 0.5;
-        $beta  = 0.3;
- 
-        $level = $actual[0];
-        $trend = $actual[1] - $actual[0];
- 
-        $forecast = [$actual[0]]; // month 0 has nothing to learn from
- 
-        for ($i = 1; $i < $n; $i++) {
-            $forecast[] = max(0.0, $level + $trend); // prediction made BEFORE seeing actual[i]
- 
-            $prevLevel = $level;
-            $level     = $alpha * $actual[$i] + (1 - $alpha) * ($level + $trend);
-            $trend     = $beta * ($level - $prevLevel) + (1 - $beta) * $trend;
-        }
- 
-        return $forecast;
     }
 }
