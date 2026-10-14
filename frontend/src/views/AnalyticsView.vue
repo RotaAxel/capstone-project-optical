@@ -158,7 +158,7 @@
         <div>
           <p class="algo-label">ARIMA</p>
           <p class="algo-name">Demand Forecast</p>
-          <p class="algo-desc">Captures seasonal peaks (Christmas, back-to-school) plus trend for 95% CI forecasts</p>
+          <p class="algo-desc">Auto-ARIMA forecast of weekly demand for the next 6 months, with a 95% confidence band</p>
         </div>
       </div>
 
@@ -200,7 +200,7 @@
         <div>
           <p class="algo-label">FSN</p>
           <p class="algo-name">Sales Speed</p>
-          <p class="algo-desc">Rates products by how fast they sell (last 208 weeks)</p>
+          <p class="algo-desc">Rates products by how often they sell since their first sale</p>
         </div>
       </div>
 
@@ -283,7 +283,7 @@
             <div class="ch-dot emerald"></div>
             <div>
               <p class="ch-title">How Often Products Sell</p>
-              <p class="ch-sub">How frequently each product sold over the last 4 years</p>
+              <p class="ch-sub">% of weeks with sales since each product's first sale</p>
             </div>
           </div>
           <div class="chart-body" style="min-height:240px">
@@ -380,7 +380,7 @@
           <div class="ch-dot gray"></div>
           <div>
             <p class="ch-title">Monthly Forecast Accuracy</p>
-            <p class="ch-sub">Actual vs forecast over the last 6 months</p>
+            <p class="ch-sub">Actual vs forecast over the last 6 complete months</p>
           </div>
           <div class="ch-legend">
             <span class="leg-item"><span class="leg-bar blue-bar"></span>Actual Sales</span>
@@ -713,9 +713,11 @@
                     <span class="mape-detail">{{ wmapePct(selected.analytics.result_data) <= 30 ? '● Good' : wmapePct(selected.analytics.result_data) <= 60 ? '● Fair' : '● Poor' }}</span>
                   </span>
                 </div>
-                <div class="sop-kv" v-else-if="selected.analytics?.fsn_classification === 'slow' || selected.analytics?.fsn_classification === 'non_moving'">
-                  <span class="sop-k">Forecast error rate</span>
-                  <span class="sop-v dim">Not measured — intermittent demand makes percentage error unreliable for {{ selected.analytics.fsn_classification === 'slow' ? 'slow' : 'non-moving' }} items</span>
+                <div class="sop-kv" v-else-if="selected.analytics">
+                  <span class="sop-k">Forecast error rate (WMAPE)</span>
+                  <span class="sop-v dim">N/A — {{ selected.analytics.result_data?.method_used === 'auto_arima'
+                    ? 'needs at least 36 months of sales history and more than 30 units sold in the last 12 months'
+                    : 'only measured for products forecast with Auto-ARIMA' }}</span>
                 </div>
                 <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
                   <span class="sop-v" :class="daysRemaining(selected) < 14 ? 'danger-val' : 'ok-val'">{{ daysRemaining(selected) }} days</span>
@@ -741,7 +743,7 @@
               </div>
               <div class="sop-sec-body">
                 <div class="sop-kv"><span class="sop-k">Expected annual sales</span><span class="sop-v">{{ Math.round(selected.analytics?.result_data?.annual_demand ?? (selected.analytics?.result_data?.avg_daily ?? 0) * 365) }} units/yr</span></div>
-                <div class="sop-kv"><span class="sop-k">Cost per order</span><span class="sop-v">₱{{ selected.analytics?.result_data?.order_cost ?? 500 }}.00 / order</span></div>
+                <div class="sop-kv"><span class="sop-k">Cost per order</span><span class="sop-v">₱{{ selected.analytics?.result_data?.order_cost ?? 350 }}.00 / order</span></div>
                 <div class="sop-kv"><span class="sop-k">Storage cost per unit/year</span><span class="sop-v">₱{{ selected.analytics?.result_data?.holding_cost ?? holdingCost(selected) }} / unit / yr</span></div>
                 <div class="sop-result purple">
                   <span>Best quantity to order at once</span>
@@ -765,7 +767,7 @@
               <div class="sop-sec-body">
                 <div class="sop-kv"><span class="sop-k">Average daily sales</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.avg_daily ?? 0).toFixed(4) }} units/day</span></div>
                 <div class="sop-kv"><span class="sop-k">Sales variability</span><span class="sop-v">{{ Number(selected.analytics?.result_data?.std_daily ?? 0).toFixed(4) }} units/day</span></div>
-                <div class="sop-kv"><span class="sop-k">Delivery wait time</span><span class="sop-v">{{ selected.analytics?.result_data?.lead_time ?? 7 }} days</span></div>
+                <div class="sop-kv"><span class="sop-k">Delivery wait time</span><span class="sop-v">{{ selected.analytics?.result_data?.lead_time ?? 14 }} days</span></div>
                 <div class="sop-kv"><span class="sop-k">Stock reliability target</span><span class="sop-v">1.645 → {{ selected.analytics?.result_data?.service_level ?? '95%' }}</span></div>
                 <div class="sop-kv"><span class="sop-k">Extra buffer stock</span><span class="sop-v orange-val">{{ selected.analytics?.result_data?.safety_stock ?? '—' }} units</span></div>
                 <div class="sop-kv"><span class="sop-k">Current stock vs reorder point</span>
@@ -825,10 +827,9 @@
                   </div>
                 </div>
                 <div class="sop-kv">
-                  <span class="sop-k">Weeks with sales</span>
+                  <span class="sop-k">Weeks with sales (since first sale)</span>
                   <span class="sop-v">
-                    {{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? 52 }} weeks
-                    <span v-if="selected.analytics?.result_data?.total_weeks != null && selected.analytics.result_data.total_weeks < 52" class="stale-badge">Stale — re-run analytics</span>
+                    {{ selected.analytics?.result_data?.active_weeks ?? '—' }} / {{ selected.analytics?.result_data?.total_weeks ?? '—' }} weeks
                   </span>
                 </div>
                 <div class="sop-kv"><span class="sop-k">Last sale date</span><span class="sop-v">{{ selected.analytics?.result_data?.last_sale_date ?? 'No sales recorded' }}</span></div>
@@ -1284,9 +1285,9 @@ function fsnThresholds(rd) {
 function fsnDescription(cls, rd) {
   const t = fsnThresholds(rd)
   return {
-    fast:       `Active in ≥${t.fast}% of the last 4 years or ≥${t.minDaily} unit/day average. Prioritise replenishment and maintain higher safety stock.`,
-    slow:       `Active in ${t.nonMoving}–${t.fast}% of the last 4 years. Monitor levels regularly and avoid over-ordering.`,
-    non_moving: `Active in <${t.nonMoving}% of the last 4 years or no sale in ≥${t.deadWeeks} weeks. Review for dead stock — consider promotions or clearance.`,
+    fast:       `Sold in ≥${t.fast}% of weeks since its first sale or ≥${t.minDaily} unit/day average. Prioritise replenishment and maintain higher safety stock.`,
+    slow:       `Sold in ${t.nonMoving}–${t.fast}% of weeks since its first sale. Monitor levels regularly and avoid over-ordering.`,
+    non_moving: `Sold in <${t.nonMoving}% of weeks since its first sale or no sale in ≥${t.deadWeeks} weeks. Review for dead stock — consider promotions or clearance.`,
   }[cls] ?? ''
 }
 
@@ -1519,7 +1520,7 @@ const eoqCurveData = computed(() => {
 
   const rd  = r.analytics.result_data
   const D   = rd.annual_demand ?? 0
-  const S   = rd.order_cost   ?? 500
+  const S   = rd.order_cost   ?? 350
   const H   = rd.holding_cost ?? 1
   const eoq = parseFloat(r.analytics.eoq_value ?? 0)
 
@@ -1570,7 +1571,7 @@ const ropSimData = computed(() => {
   const rop      = parseFloat(r.analytics.rop_value ?? 0)
   const ss       = rd.safety_stock ?? 0
   const eoq      = parseFloat(r.analytics.eoq_value ?? 1) || 1
-  const lt       = rd.lead_time    ?? 7
+  const lt       = rd.lead_time    ?? 14
   let   stock    = r.product.stock_quantity ?? 0
 
   if (!avgDaily) return { labels: [], datasets: [] }
@@ -1638,7 +1639,7 @@ const fsnActivityOptions = {
   scales: {
     x: { ticks: { font: { size: 10 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
     y: { beginAtZero: true, max: 105, ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#f3f4f6' },
-         title: { display: true, text: '% of weeks with sales activity (last 4 years)', font: { size: 10 }, color: '#9ca3af' } },
+         title: { display: true, text: '% of weeks with sales since first sale', font: { size: 10 }, color: '#9ca3af' } },
   },
 }
 

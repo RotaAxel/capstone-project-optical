@@ -143,8 +143,11 @@ class ReportController extends Controller
 
     public function inventoryReport()
     {
+        // The inventory report covers the clinic's catalog, so the demo validation
+        // datasets (ARIMA-DEMO-*) are left out of every figure below.
         $stats = DB::table('products')
             ->whereNull('deleted_at')
+            ->where('sku', 'not like', Product::DEMO_SKU_PREFIX . '%')
             ->selectRaw('COUNT(*) as total_products, SUM(CASE WHEN stock_quantity = 0 THEN 1 ELSE 0 END) as out_of_stock_count, SUM(CASE WHEN stock_quantity > 0 AND stock_quantity <= reorder_point THEN 1 ELSE 0 END) as low_stock_count, COALESCE(SUM(stock_quantity * cost_price), 0) as total_stock_value')
             ->first();
 
@@ -152,6 +155,7 @@ class ReportController extends Controller
         $latestAnalytics = AnalyticsLog::whereIn('id', function ($q) {
                 $q->selectRaw('MAX(id)')->from('analytics_logs')->groupBy('product_id');
             })
+            ->whereNotIn('product_id', Product::demoIdsQuery())
             ->get(['product_id', 'fsn_classification', 'turnover_ratio'])
             ->keyBy('product_id');
 
@@ -168,6 +172,7 @@ class ReportController extends Controller
 
         $products = Product::select(['id', 'sku', 'name', 'category_id', 'supplier_id', 'stock_quantity', 'reorder_point', 'cost_price', 'selling_price', 'created_at'])
             ->with(['category:id,name', 'supplier:id,name'])
+            ->excludingDemo()
             ->get()
             ->map(function ($p) use ($latestAnalytics, $lastSaleMap) {
                 $analytics  = $latestAnalytics->get($p->id);

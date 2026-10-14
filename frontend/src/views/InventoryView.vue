@@ -361,8 +361,9 @@
               <select v-model="adjustForm.type" class="fi" required>
                 <option value="adjustment">Adjustment — manual stock correction</option>
                 <option value="damage">Damage — items damaged, unusable</option>
-                <option value="loss">Loss — theft, expiry, or unexplained loss</option>
+                <option value="loss" :disabled="!auth.isAdmin">Loss — lost or missing items{{ auth.isAdmin ? '' : ' (Admin only)' }}</option>
               </select>
+              <span v-if="!auth.isAdmin" class="fi-hint">Lost or missing items must be confirmed and recorded by the Admin — report them to the Admin.</span>
             </div>
             <div class="adjust-info-row" :class="adjustForm.type">
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
@@ -384,6 +385,7 @@
               <textarea v-model="adjustForm.notes" class="fi fi--ta" rows="2" placeholder="Describe the reason for this adjustment…" required></textarea>
             </div>
           </div>
+          <div v-if="adjustError" class="error-msg">{{ adjustError }}</div>
           <div class="modal-footer">
             <button type="button" @click="showAdjustModal = false" class="btn-cancel">Cancel</button>
             <button type="submit" class="btn-save orange-btn" :disabled="saving">{{ saving ? 'Processing…' : 'Confirm Adjustment' }}</button>
@@ -398,12 +400,15 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 import { useAlerts } from '@/composables/useAlerts'
 import { useSearchSuggest } from '@/composables/useSearchSuggest'
 import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const route  = useRoute()
 const router = useRouter()
+const auth   = useAuthStore()
+const adjustError = ref('')
 
 const { alerts } = useAlerts(false)
 
@@ -558,15 +563,20 @@ async function doStockIn() {
 function openAdjust(product) {
   adjustProduct.value = product
   adjustForm.value = { type: 'adjustment', quantity: 1, reference_number: '', notes: '' }
+  adjustError.value = ''
   showAdjustModal.value = true
 }
 
 async function doAdjust() {
   saving.value = true
+  adjustError.value = ''
   try {
     await api.post(`/products/${adjustProduct.value.id}/adjust`, adjustForm.value)
     showAdjustModal.value = false
     fetchPage(pagination.value.current_page ?? 1); fetchStats()
+  } catch (e) {
+    adjustError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ')
+      || e.response?.data?.message || 'Failed to record the adjustment.'
   } finally { saving.value = false }
 }
 

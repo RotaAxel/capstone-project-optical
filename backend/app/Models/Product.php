@@ -22,6 +22,24 @@ class Product extends Model
         'is_active' => 'boolean',
     ];
 
+    /**
+     * SKU prefix of the synthetic ARIMA validation datasets (database/seeders/ArimaDemoSeeder.php).
+     * They stay in the Analytics results table, but are kept out of clinic-wide
+     * figures: the monthly forecast accuracy card, FSN counts and the inventory report.
+     */
+    public const DEMO_SKU_PREFIX = 'ARIMA-DEMO-';
+
+    public function scopeExcludingDemo($query)
+    {
+        return $query->where('sku', 'not like', self::DEMO_SKU_PREFIX . '%');
+    }
+
+    /** Subquery of demo product IDs, for filtering sale_items / analytics_logs by product_id. */
+    public static function demoIdsQuery(): \Closure
+    {
+        return fn ($q) => $q->select('id')->from('products')->where('sku', 'like', self::DEMO_SKU_PREFIX . '%');
+    }
+
     public function getIsLowStockAttribute(): bool
     {
         return $this->stock_quantity <= $this->reorder_point;

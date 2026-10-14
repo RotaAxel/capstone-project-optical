@@ -111,5 +111,9 @@ class AnalyticsEngineRunTest extends TestCase
         // Predicted 30-day demand should be a positive, finite figure derived
         // from the same forecast (not a leftover/placeholder zero).
         $this->assertGreaterThan(0, (float) $log->predicted_demand);
+
+        // ...and it is exactly the first 4 forecast weeks (28 days) scaled to 30
+        // days. forecast_monthly[0] is that same 4-week sum, rounded to 2 dp.
+        $this->assertEqualsWithDelta($rd['forecast_monthly'][0] * 30 / 28, (float) $log->predicted_demand, 0.02);
     }
 }

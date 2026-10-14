@@ -11,10 +11,12 @@ use Illuminate\Support\Facades\DB;
 
 class AnalyticsController extends Controller
 {
-    private float $orderCost   = 500.0;
+    // Ordering cost and supplier lead time as given by the clinic owner (Oct 2026):
+    // PHP 350 per order, deliveries take about two weeks.
+    private float $orderCost   = 350.0;
     private float $holdingRate = 0.20;
     private float $serviceZ    = 1.645;
-    private int   $leadTime    = 7;
+    private int   $leadTime    = 14;
     private int   $weekWindow  = 208; // 4 years — gives HW 4 full seasonal cycles to learn from
     private int   $dayWindow   = 1460;
 
@@ -92,8 +94,8 @@ class AnalyticsController extends Controller
                 $upperMonthly[]    = round(array_sum(array_slice($forecastResult['upper'],   $m * 4, 4)), 2);
             }
 
-            // 30-day predicted demand = first month (4 weeks) scaled to 30 days
-            $predictedMonthly = array_sum(array_slice($forecastResult['forecast'], 0, 4)) * (30.0 / 7.0);
+            // 30-day predicted demand = the first 4 forecast weeks (28 days) scaled to 30 days
+            $predictedMonthly = array_sum(array_slice($forecastResult['forecast'], 0, 4)) * (30.0 / 28.0);
 
             // ── WMAPE via hold-out with the same method ─────────────────────
             $mape = $this->computeWMAPE($weeklySeries, $method);
@@ -110,7 +112,7 @@ class AnalyticsController extends Controller
             $rop         = ($avgDaily * $this->leadTime) + $safetyStock;
 
             // ── FSN classification ────────────────────────────────────────
-            $fsn    = $this->classifyFSN($weeklyAgg->get($product->id, collect()), $avgDaily, $lastSaleMap->get($product->id), $fsnSettings);
+            $fsn    = $this->classifyFSN($weeklySeries, $avgDaily, $lastSaleMap->get($product->id), $fsnSettings);
             $params = $forecastResult['params'];
 
             // ── Turnover Ratio: Annual Demand / Average Inventory ─────────
@@ -146,8 +148,8 @@ class AnalyticsController extends Controller
                         'forecast_monthly'    => $forecastMonthly,
                         'conf_lower_monthly'  => $lowerMonthly,
                         'conf_upper_monthly'  => $upperMonthly,
-                        'conf_lower_30d'      => round($lowerMonthly[0] * (30.0 / 7.0), 2),
-                        'conf_upper_30d'      => round($upperMonthly[0] * (30.0 / 7.0), 2),
+                        'conf_lower_30d'      => round($lowerMonthly[0] * (30.0 / 28.0), 2),
+                        'conf_upper_30d'      => round($upperMonthly[0] * (30.0 / 28.0), 2),
                         'wmape_pct'       => $mape >= 0 ? $mape : null,
                         'weekly_series'   => $weeklySeries,
                         // Demand statistics (last 90 days for display, full window for computation)
@@ -212,9 +214,12 @@ class AnalyticsController extends Controller
             })
             ->get();
 
-        $fast      = $latest->where('fsn_classification', 'fast')->count();
-        $slow      = $latest->where('fsn_classification', 'slow')->count();
-        $nonMoving = $latest->where('fsn_classification', 'non_moving')->count();
+        // FSN counts describe the clinic's catalog, so the demo validation datasets
+        // are left out of them (they still appear in 'items' for the results table).
+        $catalog   = $latest->reject(fn ($log) => str_starts_with($log->product?->sku ?? '', Product::DEMO_SKU_PREFIX));
+        $fast      = $catalog->where('fsn_classification', 'fast')->count();
+        $slow      = $catalog->where('fsn_classification', 'slow')->count();
+        $nonMoving = $catalog->where('fsn_classification', 'non_moving')->count();
 
         $lastRun = $latest->max('computed_at');
         $isStale = !$lastRun || $lastRun < now()->toDateString();
@@ -233,8 +238,9 @@ class AnalyticsController extends Controller
 
     private function portfolioMonthlyWMAPE(): float
     {
-        $start = now()->copy()->subMonths(11)->startOfMonth();
-        $end   = now()->copy()->endOfMonth();
+        // Complete calendar months only (the current month is still in progress).
+        $end   = now()->startOfMonth()->subSecond();
+        $start = $end->copy()->subMonths(11)->startOfMonth();
 
         $monthMap = [];
         $cursor = $start->copy();
@@ -248,6 +254,7 @@ class AnalyticsController extends Controller
             ->where('created_at', '>=', $start)
             ->where('created_at', '<=', $end)
             ->whereNull('deleted_at')
+            ->whereNotIn('product_id', Product::demoIdsQuery()) // clinic sales only
             ->groupBy(DB::raw('DATE_FORMAT(created_at, "%Y-%m")'))
             ->get();
 
@@ -827,7 +834,10 @@ class AnalyticsController extends Controller
 
     /**
      * Weighted Mean Absolute Percentage Error via hold-out validation.
-     * Trains on first (n − 4) weeks, forecasts last 4.
+     * The weekly series is collapsed into consecutive 4-week blocks ("months");
+     * the model is trained on all but the last 12 blocks and forecasts those 12.
+     * Returns -1 (shown as N/A) for methods other than ARIMA/Holt-Winters, for
+     * fewer than 36 blocks of real history, or for under 30 units in the holdout.
      *
      * WMAPE = Σ|actual − forecast| / Σactual × 100
      *
@@ -842,12 +852,15 @@ class AnalyticsController extends Controller
             return -1.0;
         }
 
-        $monthly = $this->toMonthlySeries($weeklySeries);
-        $n       = count($monthly);
-
-        if ($n < 36) {
+        // The 36-month minimum applies to the product's REAL sales history (since
+        // its first sale), not to the zero-padded 208-week window — otherwise every
+        // product would always count as having 52 "months" of history.
+        if (intdiv($this->weeksOfHistory($weeklySeries), 4) < 36) {
             return -1.0; // not enough history
         }
+
+        $monthly = $this->toMonthlySeries($weeklySeries);
+        $n       = count($monthly);
 
         $holdOut = 12;
         $train   = array_slice($monthly, 0, $n - $holdOut);
@@ -1214,21 +1227,20 @@ class AnalyticsController extends Controller
     // ─── FSN Classification ────────────────────────────────────────────────
 
     /**
-     * Activity-based FSN classification over the full 52-week window.
+     * Activity-based FSN classification. The activity ratio is Equation 1 of the
+     * paper — weeks with sales ÷ weeks of REAL sales history (from the product's
+     * first recorded sale), the same ratio selectMethod() uses — not the padded
+     * 208-week window.
      *
-     * Rules (applied in order):
-     *   Non-moving : no sale in ≥ 6 months  OR  active in < 10% of weeks
-     *   Fast       : active in ≥ 50% of weeks  OR  avg demand ≥ 1 unit/day
-     *   Slow       : everything else (10–50% activity)
+     * Rules (applied in order; thresholds are admin-configurable):
+     *   Non-moving : no sale in ≥ dead-stock weeks  OR  activity < non-moving %
+     *   Fast       : activity ≥ fast %  OR  avg demand ≥ fast minimum units/day
+     *   Slow       : everything else
      */
-    private function classifyFSN(\Illuminate\Support\Collection $weeklyAggRows, float $avgDailyDemand, ?string $lastSaleAt, AppSetting $settings): array
+    private function classifyFSN(array $weeklySeries, float $avgDailyDemand, ?string $lastSaleAt, AppSetting $settings): array
     {
-        $weeksToCheck = $this->weekWindow;
-        $weekSet      = [];
-
-        foreach ($weeklyAggRows as $row) {
-            $weekSet[$row->week_start] = true;
-        }
+        $weeksToCheck = $this->weeksOfHistory($weeklySeries);
+        $relevant     = $weeksToCheck > 0 ? array_slice($weeklySeries, -$weeksToCheck) : [];
 
         // Admin-configurable thresholds (see AppSetting / the Settings page).
         $fastRatio       = $settings->fsn_fast_threshold_percent / 100.0;
@@ -1236,8 +1248,8 @@ class AnalyticsController extends Controller
         $deadStockWeeks  = $settings->fsn_dead_stock_weeks;
         $fastMinDaily    = $settings->fsn_fast_min_daily_avg;
 
-        $activeWeeks   = count($weekSet);
-        $activityRatio = $activeWeeks / $weeksToCheck;
+        $activeWeeks   = count(array_filter($relevant, fn($v) => $v > 0));
+        $activityRatio = $weeksToCheck > 0 ? $activeWeeks / $weeksToCheck : 0.0;
         $lastSaleDate  = $lastSaleAt ? Carbon::parse($lastSaleAt)->toDateString() : null;
         $weeksNoSale   = $lastSaleAt
             ? round(Carbon::parse($lastSaleAt)->diffInDays(now()) / 7, 1)
@@ -1281,13 +1293,18 @@ class AnalyticsController extends Controller
     {
         $monthsBack = 18; // months of history used to warm up the forecast
         $evalMonths = 6;  // months shown in the card AND used for the headline WMAPE
-        $start = now()->subMonths($monthsBack - 1)->startOfMonth();
- 
+
+        // Complete calendar months only: the current month is still in progress,
+        // and its partial total would understate actual sales and inflate the error.
+        $end   = now()->startOfMonth()->subSecond();                 // end of last month
+        $start = $end->copy()->subMonths($monthsBack - 1)->startOfMonth();
+
         $rows = DB::table('sale_items')
             ->selectRaw('DATE_FORMAT(created_at, "%Y-%m-01") as month, SUM(quantity) as actual_units')
             ->where('created_at', '>=', $start)
-            ->where('created_at', '<=', now())
+            ->where('created_at', '<=', $end)
             ->whereNull('deleted_at') // same filter run() uses, so soft-deleted rows aren't counted
+            ->whereNotIn('product_id', Product::demoIdsQuery()) // clinic sales only, not the demo datasets
             ->groupBy(DB::raw('DATE_FORMAT(created_at, "%Y-%m-01")'))
             ->orderBy('month')
             ->get();
@@ -1301,8 +1318,7 @@ class AnalyticsController extends Controller
         $actual = [];
  
         $cursor = Carbon::parse($start)->copy();
-        $end    = now()->copy()->endOfMonth();
- 
+
         while ($cursor <= $end) {
             $key      = $cursor->copy()->startOfMonth()->format('Y-m-01');
             $labels[] = $key;

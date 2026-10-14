@@ -102,6 +102,7 @@
         <option value="loss">Loss</option>
         <option value="return">Return</option>
       </select>
+      <input v-model="filterMonth" @change="applyFilters" type="month" class="filter-select" title="Show one month (e.g. for the monthly adjustment review)" />
       <div class="filter-search">
         <svg class="search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -111,7 +112,7 @@
         <SuggestDropdown :items="suggest.suggestions.value" :active-index="suggest.activeIndex.value"
           :visible="suggest.open.value" @pick="pickSuggestion" @hover="i => suggest.activeIndex.value = i" />
       </div>
-      <button v-if="filterType || filterProduct" @click="clearFilters" class="clear-btn">
+      <button v-if="filterType || filterProduct || filterMonth" @click="clearFilters" class="clear-btn">
         <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -150,6 +151,7 @@
                 <th class="mv-center">Adjustment / Damage / Loss</th>
                 <th class="mv-center">Total Stock</th>
                 <th>Reference</th>
+                <th>Reason</th>
                 <th>Recorded By</th>
               </tr>
             </thead>
@@ -179,6 +181,7 @@
                   <span class="mv-after">{{ m.quantity_after ?? '—' }}</span>
                 </td>
                 <td class="mv-ref">{{ m.reference_number ?? '—' }}</td>
+                <td class="mv-reason" :title="m.notes ?? ''">{{ m.notes || '—' }}</td>
                 <td>
                   <div class="mv-user">
                     <div class="user-avatar">{{ userInitials(m.user?.name) }}</div>
@@ -226,6 +229,7 @@ const summary     = ref({})
 const loading     = ref(true)
 const filterType    = ref('')
 const filterProduct = ref('')
+const filterMonth   = ref('') // "YYYY-MM"
 
 function applyFilters() { fetchPage(1); fetchSummary() }
 let debounceTimer
@@ -253,13 +257,13 @@ function pickSuggestion(item) {
   applyFilters()
 }
 
-function clearFilters() { filterType.value = ''; filterProduct.value = ''; applyFilters() }
+function clearFilters() { filterType.value = ''; filterProduct.value = ''; filterMonth.value = ''; applyFilters() }
 
 async function fetchPage(page = 1) {
   loading.value = true
   try {
     const { data } = await api.get('/stock-movements', {
-      params: { page, type: filterType.value || undefined, search: filterProduct.value || undefined },
+      params: { page, type: filterType.value || undefined, search: filterProduct.value || undefined, month: filterMonth.value || undefined },
     })
     movements.value  = data.data
     pagination.value = { current_page: data.current_page, last_page: data.last_page, total: data.total }
@@ -270,7 +274,7 @@ async function fetchPage(page = 1) {
 async function fetchSummary() {
   try {
     const { data } = await api.get('/stock-movements/summary', {
-      params: { type: filterType.value || undefined, search: filterProduct.value || undefined },
+      params: { type: filterType.value || undefined, search: filterProduct.value || undefined, month: filterMonth.value || undefined },
     })
     summary.value = data
   } catch { /* summary not critical */ }
@@ -361,6 +365,7 @@ onMounted(() => { fetchPage(); fetchSummary() })
 .mv-dash    { font-size: 13px; color: #d1d5db; }
 .mv-after   { font-size: 13px; font-weight: 700; color: #111827; }
 .mv-ref     { font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace; }
+.mv-reason  { font-size: 12px; color: #4b5563; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Type pill */
 /* .type-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: capitalize; white-space: nowrap; }

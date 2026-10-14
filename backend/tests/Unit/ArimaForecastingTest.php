@@ -296,4 +296,45 @@ class ArimaForecastingTest extends TestCase
 
         $this->assertSame('auto_arima', $this->call('selectMethod', [$series]));
     }
+
+    // ── FSN activity ratio (Equation 1) ─────────────────────────────────────
+
+    public function test_fsn_activity_ratio_uses_real_history_not_the_208_week_window(): void
+    {
+        // Sold every week for its 50 weeks of real history — Equation 1 gives
+        // 50/50 = 100%, not 50/208 ≈ 24%, so it must not drop to Slow-moving.
+        $series   = array_merge(array_fill(0, 158, 0.0), array_fill(0, 50, 10.0));
+        $settings = new \App\Models\AppSetting([
+            'fsn_fast_threshold_percent'      => 50,
+            'fsn_nonmoving_threshold_percent' => 10,
+            'fsn_dead_stock_weeks'            => 26,
+            'fsn_fast_min_daily_avg'          => 1.00,
+        ]);
+
+        $fsn = $this->call('classifyFSN', [$series, 0.36, now()->subDays(3)->toDateTimeString(), $settings]);
+
+        $this->assertSame(50, $fsn['active_weeks']);
+        $this->assertSame(50, $fsn['total_weeks']);
+        $this->assertEqualsWithDelta(1.0, $fsn['activity_ratio'], 1e-9);
+        $this->assertSame('fast', $fsn['classification']);
+    }
+
+    // ── WMAPE holdout rule ──────────────────────────────────────────────────
+
+    public function test_wmape_is_not_applicable_for_less_than_36_months_of_real_history(): void
+    {
+        // 50 weeks of steady sales at the end of the 208-week window (a recently
+        // launched product). The padded window still has 52 four-week blocks, but
+        // the real history is only 12 — the 36-month rule must use the real history.
+        $series = array_merge(array_fill(0, 158, 0.0), $this->denseLongRunDataset(50));
+
+        $this->assertSame(-1.0, $this->call('computeWMAPE', [$series, 'auto_arima']));
+    }
+
+    public function test_wmape_is_computed_once_real_history_reaches_36_months(): void
+    {
+        $wmape = $this->call('computeWMAPE', [$this->denseLongRunDataset(208), 'auto_arima']);
+
+        $this->assertGreaterThanOrEqual(0.0, $wmape);
+    }
 }

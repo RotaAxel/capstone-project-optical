@@ -175,12 +175,25 @@ class ProductController extends Controller
 
     public function adjust(Request $request, Product $product)
     {
+        // Stock adjustment rule: every adjustment needs a reason (stored in notes),
+        // and a lost or missing item must be confirmed by the owner, so only the
+        // Admin account may record a 'loss'. (Only admin and inventory_staff reach
+        // this endpoint at all — see routes/api.php.)
         $validated = $request->validate([
             'type'             => 'required|in:adjustment,damage,loss',
             'quantity'         => 'required|integer|min:1',
-            'reference_number' => 'nullable|string',
-            'notes'            => 'nullable|string',
+            'reference_number' => 'nullable|string|max:100',
+            'notes'            => 'required|string|min:3|max:1000',
+        ], [
+            'notes.required' => 'A reason is required for every stock adjustment.',
+            'notes.min'      => 'Please describe the reason for this adjustment.',
         ]);
+
+        if ($validated['type'] === 'loss' && $request->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Lost or missing items must be confirmed and recorded by the Admin.',
+            ], 403);
+        }
 
         $before = $product->stock_quantity;
         $actual = min($validated['quantity'], $before);

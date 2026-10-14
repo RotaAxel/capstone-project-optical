@@ -153,7 +153,7 @@ class DashboardController extends Controller
 
         $latest = AnalyticsLog::whereIn('id', function ($q) {
             $q->selectRaw('MAX(id)')->from('analytics_logs')->groupBy('product_id');
-        })->get();
+        })->whereNotIn('product_id', Product::demoIdsQuery())->get(); // clinic catalog only
 
         return [
             'role'  => 'inventory_staff',
