@@ -84,5 +84,8 @@ class DatabaseSeeder extends Seeder
             PatientHistorySeeder::class,             // Generates 30 named patients with appointments
             HistoricalTransactionSeeder::class,      // Creates 10,000 patients, 1-2 sales each
         ]);
+
+        // Seeders insert prescriptions in bulk, which skips the model's numbering.
+        \App\Models\Prescription::assignMissingControlNumbers();
     }
 }

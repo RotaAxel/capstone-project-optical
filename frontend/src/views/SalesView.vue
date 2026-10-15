@@ -267,14 +267,18 @@
               </select>
             </div>
             <div v-if="saleForm.patient_id" class="fg fg--full">
-              <label class="fl">Prescription (optional)</label>
-              <select v-model="saleForm.prescription_id" class="fi" :disabled="loadingPrescriptions">
-                <option value="">No prescription — frame/accessory only, or filling an old Rx</option>
-                <option v-for="rx in patientPrescriptions" :key="rx.id" :value="rx.id">{{ prescriptionLabel(rx) }}</option>
-              </select>
-              <p v-if="!loadingPrescriptions && saleForm.patient_id && !patientPrescriptions.length" class="rx-empty-hint">
-                This patient has no prescriptions on file yet.
-              </p>
+              <label class="fl">Prescription <span class="rx-auto-tag">attached automatically</span></label>
+              <div class="rx-auto-box">
+                <template v-if="loadingPrescriptions">Loading latest prescription…</template>
+                <template v-else-if="latestPrescription">
+                  <p class="rx-auto-main">{{ prescriptionLabel(latestPrescription) }}</p>
+                  <p class="rx-auto-sub">
+                    {{ doctorLabel(latestPrescription.optometrist?.name) }}
+                    <span v-if="isExpired(latestPrescription)" class="rx-expired"> · expired {{ fmtExamDate(latestPrescription.valid_until) }}, re-examination recommended</span>
+                  </p>
+                </template>
+                <template v-else>No prescription on file — the sale will be saved without one.</template>
+              </div>
             </div>
           </div>
 
@@ -414,6 +418,7 @@
           <!-- Prescription -->
           <div v-if="viewingSale.prescription" class="receipt-rx">
             <p class="receipt-rx-label">Prescription Filled</p>
+            <p v-if="viewingSale.prescription.control_number" class="receipt-rx-line">{{ viewingSale.prescription.control_number }}</p>
             <p class="receipt-rx-line">Exam {{ fmtExamDate(viewingSale.prescription.exam_date) }} — {{ doctorLabel(viewingSale.prescription.optometrist?.name) }}</p>
             <p class="receipt-rx-line">OD {{ viewingSale.prescription.od_sphere ?? '—' }} / {{ viewingSale.prescription.od_cylinder ?? '—' }} &nbsp;·&nbsp; OS {{ viewingSale.prescription.os_sphere ?? '—' }} / {{ viewingSale.prescription.os_cylinder ?? '—' }}</p>
           </div>
@@ -491,7 +496,7 @@ const loadingSale   = ref(false)
 const saving     = ref(false)
 const saleError  = ref('')
 
-const saleForm = ref({ patient_id: '', prescription_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] })
+const saleForm = ref({ patient_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] })
 const totals   = ref({ subtotal: 0, total: 0, change: 0 })
 
 const patientPrescriptions = ref([])
@@ -542,10 +547,19 @@ function clearPatientSelection() {
   onPatientChange()
 }
 
-// Prescriptions are patient-specific — reload the list (and clear any
-// previously-picked one) every time the patient selection changes.
+// The backend attaches the patient's latest prescription (by exam date) to the sale;
+// the form only shows which one that will be, using the same rule.
+const latestPrescription = computed(() =>
+  [...patientPrescriptions.value].sort((a, b) =>
+    String(b.exam_date).localeCompare(String(a.exam_date)) || b.id - a.id)[0] ?? null
+)
+
+function isExpired(rx) {
+  return !!rx.valid_until && rx.valid_until.slice(0, 10) < new Date().toISOString().slice(0, 10)
+}
+
+// Prescriptions are patient-specific — reload them every time the patient changes.
 async function onPatientChange() {
-  saleForm.value.prescription_id = ''
   patientPrescriptions.value = []
   if (!saleForm.value.patient_id) return
   loadingPrescriptions.value = true
@@ -564,7 +578,7 @@ function doctorLabel(name) {
 }
 
 function prescriptionLabel(rx) {
-  return `${fmtExamDate(rx.exam_date)} — OD ${rx.od_sphere ?? '—'}/${rx.od_cylinder ?? '—'}, OS ${rx.os_sphere ?? '—'}/${rx.os_cylinder ?? '—'}`
+  return `${fmtExamDate(rx.exam_date)} — OD ${rx.od_sphere ?? '—'}/${rx.od_cylinder ?? '—'}, OS ${rx.os_sphere ?? '—'}/${rx.os_cylinder ?? '—'}${rx.control_number ? ' · ' + rx.control_number : ''}`
 }
 
 const saleStats = ref({})
@@ -615,7 +629,7 @@ function fillPrice(item) {
 function openSaleModal()  { showSaleModal.value = true }
 function closeSaleModal() {
   showSaleModal.value = false
-  saleForm.value = { patient_id: '', prescription_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] }
+  saleForm.value = { patient_id: '', payment_method: 'cash', discount_amount: 0, amount_paid: 0, items: [] }
   patientPrescriptions.value = []
   totals.value  = { subtotal: 0, total: 0, change: 0 }
   saleError.value = ''
@@ -919,7 +933,11 @@ onMounted(async () => {
 .fi  { padding: 9px 12px; border: 1.5px solid #e5e7eb; border-radius: 9px; font-family: inherit; font-size: 13px; color: #1f2937; background: #fff; outline: none; width: 100%; transition: border-color .2s; }
 .fi:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,.1); }
 .fi:disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
-.rx-empty-hint { font-size: 11.5px; color: #9ca3af; margin: 2px 0 0; }
+.rx-auto-tag  { margin-left: 6px; padding: 1px 7px; border-radius: 10px; background: #ecfdf5; color: #059669; font-size: 10px; font-weight: 700; }
+.rx-auto-box  { padding: 9px 12px; border: 1.5px dashed #d1fae5; border-radius: 9px; background: #f9fafb; font-size: 13px; color: #6b7280; }
+.rx-auto-main { margin: 0; font-weight: 600; color: #1f2937; }
+.rx-auto-sub  { margin: 3px 0 0; font-size: 12px; color: #6b7280; }
+.rx-expired   { color: #b45309; font-weight: 600; }
 
 /* Patient search bar */
 .patient-search-wrap { position: relative; }

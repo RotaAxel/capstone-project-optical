@@ -364,9 +364,13 @@ async function save() {
   if (!form.value.patient_id) { formError.value = 'Please select a patient.'; return }
   saving.value = true
   try {
+    let savedId = editingId.value
     if (editingId.value) await api.put(`/appointments/${editingId.value}`, form.value)
-    else await api.post('/appointments', form.value)
-    closeModal(); fetchPage(pagination.value.current_page ?? 1); fetchStats()
+    else savedId = (await api.post('/appointments', form.value)).data.id
+    closeModal(); fetchStats()
+    // The list is sorted by appointment date, so a new (or re-dated) appointment
+    // is usually on another page — jump to its page and highlight it.
+    activateHighlight(savedId)
   } catch (e) {
     formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save appointment.'
   } finally { saving.value = false }

@@ -18,12 +18,14 @@ class PrescriptionController extends Controller
             // The CONCAT check lets a typed full name (e.g. "Aileen Salazar") match
             // even though first_name/last_name are two separate columns — without
             // it, a full-name search can never match either column alone.
-            ->when($request->search, fn($q) => $q->whereHas('patient', fn($pq) =>
-                $pq->where('first_name', 'like', "%{$request->search}%")
-                   ->orWhere('last_name', 'like', "%{$request->search}%")
-                   ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$request->search}%"])
-                   ->orWhere('patient_code', 'like', "%{$request->search}%")
-            ))
+            ->when($request->search, fn($q) => $q->where(fn($sq) => $sq
+                ->where('control_number', 'like', "%{$request->search}%")
+                ->orWhereHas('patient', fn($pq) =>
+                    $pq->where('first_name', 'like', "%{$request->search}%")
+                       ->orWhere('last_name', 'like', "%{$request->search}%")
+                       ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$request->search}%"])
+                       ->orWhere('patient_code', 'like', "%{$request->search}%")
+                )))
             ->when($request->date, fn($q) => $q->whereDate('exam_date', $request->date));
 
         if ($request->highlight_id) {

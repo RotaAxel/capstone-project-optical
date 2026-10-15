@@ -40,7 +40,6 @@ class SaleController extends Controller
     {
         $validated = $request->validate([
             'patient_id'      => 'nullable|exists:patients,id',
-            'prescription_id' => 'nullable|exists:prescriptions,id',
             'payment_method'  => 'required|in:cash,card,gcash,maya,other',
             'discount_amount' => 'nullable|numeric|min:0',
             'amount_paid'     => 'required|numeric|min:0',
@@ -52,18 +51,12 @@ class SaleController extends Controller
             'items.*.discount'   => 'nullable|numeric|min:0',
         ]);
 
-        // A linked prescription must actually belong to the patient on this sale —
-        // otherwise the receipt would show someone else's eye exam details.
-        if (!empty($validated['prescription_id']) && !empty($validated['patient_id'])) {
-            $belongsToPatient = \App\Models\Prescription::where('id', $validated['prescription_id'])
-                ->where('patient_id', $validated['patient_id'])
-                ->exists();
-            if (!$belongsToPatient) {
-                throw ValidationException::withMessages([
-                    'prescription_id' => ['The selected prescription does not belong to this patient.'],
-                ]);
-            }
-        }
+        // The patient's latest prescription (by exam date) is attached automatically;
+        // staff no longer pick it. Walk-in sales and patients with no prescription get none.
+        $validated['prescription_id'] = empty($validated['patient_id']) ? null
+            : \App\Models\Prescription::where('patient_id', $validated['patient_id'])
+                ->orderByDesc('exam_date')->orderByDesc('id')
+                ->value('id');
 
         return DB::transaction(function () use ($validated, $request) {
             // Lock all products first and validate stock before any writes

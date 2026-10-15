@@ -62,7 +62,7 @@
     <div class="filter-bar">
       <div class="filter-field flex-1" style="max-width: 320px; position: relative;">
         <svg class="filter-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-        <input v-model="search" @input="onSearchInput" placeholder="Search by patient name…" class="filter-input"
+        <input v-model="search" @input="onSearchInput" placeholder="Search by patient name or control no.…" class="filter-input"
           @keydown="e => suggest.onKeydown(e, pickSuggestion)" @focus="suggest.reopen" @blur="onSearchBlur" />
         <SuggestDropdown :items="suggest.suggestions.value" :active-index="suggest.activeIndex.value"
           :visible="suggest.open.value" @pick="pickSuggestion" @hover="i => suggest.activeIndex.value = i" />
@@ -99,6 +99,7 @@
             <div>
               <p class="date-label">Exam Date</p>
               <p class="date-val">{{ fmtDate(rx.exam_date) }}</p>
+              <p v-if="rx.control_number" class="rx-control">{{ rx.control_number }}</p>
             </div>
             <div>
               <p class="date-label">Valid Until</p>
@@ -225,6 +226,15 @@
             </div>
           </div>
 
+          <!-- Admin records prescriptions on behalf of an optometrist; an optometrist is assigned automatically -->
+          <div v-if="auth.isAdmin && !editingId" class="fg" style="margin-bottom: 16px;">
+            <label class="fl">Optometrist *</label>
+            <select v-model="form.optometrist_id" class="fi" required>
+              <option value="">Select optometrist</option>
+              <option v-for="u in optometrists" :key="u.id" :value="u.id">{{ u.name }}</option>
+            </select>
+          </div>
+
           <!-- OD -->
           <div class="eye-section od-section">
             <div class="eye-section-label">
@@ -290,7 +300,7 @@
         <div class="modal-header">
           <div>
             <h3 class="modal-title">Prescription Detail</h3>
-            <p class="modal-sub">Exam: {{ fmtDate(viewing.exam_date) }}</p>
+            <p class="modal-sub">{{ viewing.control_number ? viewing.control_number + ' · ' : '' }}Exam: {{ fmtDate(viewing.exam_date) }}</p>
           </div>
           <button @click="viewing = null" class="modal-close">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -395,9 +405,10 @@ const emptyForm = () => ({
   patient_id: '', exam_date: new Date().toISOString().split('T')[0], valid_until: '',
   od_sphere: '', od_cylinder: '', od_axis: '', od_add: '', od_pd: '',
   os_sphere: '', os_cylinder: '', os_axis: '', os_add: '', os_pd: '',
-  visual_acuity_od: '', visual_acuity_os: '', notes: '',
+  visual_acuity_od: '', visual_acuity_os: '', notes: '', optometrist_id: '',
 })
 const form = ref(emptyForm())
+const optometrists = ref([])
 
 // ── Patient search bar ────────────────────────────────────────────────
 const patientSearchText = ref('')
@@ -536,9 +547,14 @@ async function save() {
   if (!form.value.patient_id) { formError.value = 'Please select a patient.'; return }
   saving.value = true
   try {
-    if (editingId.value) await api.put(`/prescriptions/${editingId.value}`, form.value)
-    else await api.post('/prescriptions', form.value)
-    closeModal(); fetchPage(pagination.value.current_page ?? 1); fetchStats()
+    if (editingId.value) {
+      await api.put(`/prescriptions/${editingId.value}`, form.value)
+      closeModal(); fetchPage(pagination.value.current_page ?? 1); fetchStats()
+    } else {
+      const { data } = await api.post('/prescriptions', form.value)
+      closeModal(); fetchStats()
+      activateHighlight(data.id) // show and highlight the new prescription even if filters or paging hid it
+    }
   } catch (e) {
     formError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ') || 'Failed to save prescription.'
   } finally { saving.value = false }
@@ -605,6 +621,7 @@ function printPrescription(rx) {
 
 <div class="sec">Patient Information</div>
 <div class="info-grid">
+  <div class="ir"><span class="ik">Control No.</span><span class="iv">${rx.control_number ?? '—'}</span></div>
   <div class="ir"><span class="ik">Patient</span><span class="iv">${patient}</span></div>
   <div class="ir"><span class="ik">Exam Date</span><span class="iv">${fmtDate(rx.exam_date)}</span></div>
   <div class="ir"><span class="ik">Optometrist</span><span class="iv">${doctorLabel(rx.optometrist?.name)}</span></div>
@@ -677,6 +694,9 @@ watch(() => route.query.highlight, (newId) => {
 
 onMounted(async () => {
   fetchStats()
+  if (auth.isAdmin) {
+    try { optometrists.value = (await api.get('/optometrists')).data } catch { /* field shows an empty list */ }
+  }
   if (route.query.highlight) {
     activateHighlight(Number(route.query.highlight))
   } else {
@@ -793,6 +813,7 @@ onMounted(async () => {
   padding: 18px 16px; display: flex; flex-direction: column; gap: 8px;
   min-width: 160px; flex-shrink: 0;
 }
+.rx-control   { font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #6d28d9; margin: 2px 0 0; }
 .date-label   { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
 .date-val     { font-size: 13px; font-weight: 600; color: #374151; margin-top: 2px; }
 
