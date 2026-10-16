@@ -347,7 +347,7 @@
           </div>
           <div class="table-wrap">
             <table class="rep-table">
-              <thead><tr><th>Year</th><th>Transactions</th><th>Revenue</th><th>Discounts</th><th>Share</th></tr></thead>
+              <thead><tr><th>Year</th><th>Transactions</th><th>Revenue</th><th title="Revenue change compared with the previous year">vs Previous Year</th><th>Discounts</th><th>Share</th></tr></thead>
               <tbody>
                 <tr v-for="y in yearlyData.yearly_breakdown" :key="y.year">
                   <td class="day-cell">{{ y.year }}</td>
@@ -355,6 +355,11 @@
                     <span class="tx-count">{{ y.transactions }}</span>
                   </td>
                   <td><span class="amount-val">₱{{ fmt(y.revenue) }}</span></td>
+                  <td>
+                    <span class="yoy-val" :class="yoyClass(yoyChange(y, yearlyData.yearly_breakdown))">
+                      {{ yoyLabel(yoyChange(y, yearlyData.yearly_breakdown)) }}
+                    </span>
+                  </td>
                   <td><span class="amount-val">₱{{ fmt(y.discount) }}</span></td>
                   <td>
                     <div class="share-bar-wrap">
@@ -364,7 +369,7 @@
                   </td>
                 </tr>
                 <tr v-if="!yearlyData.yearly_breakdown?.length">
-                  <td colspan="5" class="empty-row">No data for this period.</td>
+                  <td colspan="6" class="empty-row">No data for this period.</td>
                 </tr>
               </tbody>
             </table>
@@ -379,7 +384,7 @@
           </svg>
         </div>
         <p class="empty-title">Select a year range and click Generate</p>
-        <p class="empty-sub">A summarized total per year in that range will appear here — e.g. pick 2024 to 2026 to compare them side by side</p>
+        <p class="empty-sub">A summarized total per year in that range will appear here, with the % change vs the previous year — e.g. pick 2024 to 2026 to compare them side by side</p>
       </div>
     </div>
 
@@ -819,6 +824,27 @@ function revenueShare(revenue, total) {
   return Math.round((Number(revenue) / Number(total)) * 100)
 }
 
+// Year-over-year revenue change: this year vs the year right before it in the
+// same breakdown. Returns null when the previous year isn't in the selected
+// range (so the first year shows "—") or when it had no revenue to compare to.
+function yoyChange(row, rows) {
+  const prev = (rows ?? []).find(r => Number(r.year) === Number(row.year) - 1)
+  const prevRevenue = Number(prev?.revenue)
+  if (!prev || !Number.isFinite(prevRevenue) || prevRevenue <= 0) return null
+  return ((Number(row.revenue) - prevRevenue) / prevRevenue) * 100
+}
+
+function yoyLabel(pct) {
+  if (pct === null) return '—'
+  const sign = pct > 0 ? '▲ +' : pct < 0 ? '▼ ' : ''
+  return `${sign}${pct.toFixed(1)}%`
+}
+
+function yoyClass(pct) {
+  if (pct === null || pct === 0) return 'yoy-flat'
+  return pct > 0 ? 'yoy-up' : 'yoy-down'
+}
+
 function perfShare(qty, products) {
   const max = Math.max(...(products ?? []).map(p => Number(p.total_qty) || 0), 1)
   return Math.round((Number(qty) / max) * 100)
@@ -940,12 +966,14 @@ function exportYearlyPdf() {
   const periodLabel = d.year_from === d.year_to ? String(d.year_from) : `${d.year_from} – ${d.year_to}`
   const rows = (d.yearly_breakdown ?? []).map(y => {
     const share = revenueShare(y.revenue, d.total_revenue)
-    return `<tr><td style="font-weight:600;">${y.year}</td><td>${y.transactions}</td><td><span class="amt">₱${fmt(y.revenue)}</span></td><td><span class="amt">₱${fmt(y.discount)}</span></td><td>${share}%</td></tr>`
+    const yoy = yoyChange(y, d.yearly_breakdown)
+    const yoyColor = yoy === null || yoy === 0 ? '#6b7280' : yoy > 0 ? '#15803d' : '#b91c1c'
+    return `<tr><td style="font-weight:600;">${y.year}</td><td>${y.transactions}</td><td><span class="amt">₱${fmt(y.revenue)}</span></td><td style="font-weight:700;color:${yoyColor};">${yoyLabel(yoy)}</td><td><span class="amt">₱${fmt(y.discount)}</span></td><td>${share}%</td></tr>`
   }).join('')
-  const totalsRow = `<tr class="totals-row"><td>TOTAL</td><td>${d.total_transactions}</td><td class="amt">₱${fmt(d.total_revenue)}</td><td>₱${fmt(d.total_discount)}</td><td>100%</td></tr>`
+  const totalsRow = `<tr class="totals-row"><td>TOTAL</td><td>${d.total_transactions}</td><td class="amt">₱${fmt(d.total_revenue)}</td><td></td><td>₱${fmt(d.total_discount)}</td><td>100%</td></tr>`
   const table = `<div class="section">Yearly Breakdown</div>
-  <table><thead><tr><th>Year</th><th>Transactions</th><th>Revenue</th><th>Discounts</th><th>Share</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this period.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
+  <table><thead><tr><th>Year</th><th>Transactions</th><th>Revenue</th><th>vs Previous Year</th><th>Discounts</th><th>Share</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:24px 0;color:#9ca3af;">No data for this period.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`
   incrementControlNumber()
   openPdf(pdfShell('Yearly Sales Report', periodLabel, table, controlNumber.value))
 }
@@ -1118,6 +1146,12 @@ function exportTopPdf() {
 .share-bar-wrap { display: flex; align-items: center; gap: 8px; min-width: 120px; }
 .share-bar      { height: 6px; border-radius: 3px; background: linear-gradient(90deg, #6366f1, #818cf8); min-width: 2px; transition: width .3s; }
 .share-pct      { font-size: 11px; font-weight: 600; color: #6b7280; white-space: nowrap; }
+
+/* Year-over-year change */
+.yoy-val   { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.yoy-up    { color: #15803d; }
+.yoy-down  { color: #b91c1c; }
+.yoy-flat  { color: #9ca3af; }
 
 /* Performance bar (top products) */
 .perf-bar-wrap { display: flex; align-items: center; gap: 8px; min-width: 120px; }

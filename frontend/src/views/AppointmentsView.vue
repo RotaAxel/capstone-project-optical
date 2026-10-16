@@ -391,8 +391,25 @@ function statusPill(s) {
   return { 'pill-amber': s === 'scheduled', 'pill-green': s === 'completed', 'pill-red': s === 'cancelled', 'pill-gray': s === 'no_show' }
 }
 
-function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
-function fmtTime(d) { return d ? new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '' }
+// appointment_date is the clinic's own wall-clock time (what was typed in the
+// form). The API can send it as "2026-10-17T13:00:00.000000Z"; handing that to
+// new Date() treats the "Z" as UTC and converts it to the browser's timezone,
+// which turns 1:00 PM into 9:00 PM in Manila (UTC+8). So read the date and time
+// straight from the string and build a local Date from the same numbers.
+function parseWallClock(d) {
+  const m = String(d ?? '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/)
+  if (!m) return null
+  return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0))
+}
+
+function fmtDate(d) {
+  const dt = parseWallClock(d)
+  return dt ? dt.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+}
+function fmtTime(d) {
+  const dt = parseWallClock(d)
+  return dt ? dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : ''
+}
 
 async function activateHighlight(id) {
   highlightId.value  = id

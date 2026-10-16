@@ -158,7 +158,7 @@
         <div>
           <p class="algo-label">ARIMA</p>
           <p class="algo-name">Demand Forecast</p>
-          <p class="algo-desc">Auto-ARIMA forecast of weekly demand for the next 6 months, with a 95% confidence band</p>
+          <p class="algo-desc">Auto-ARIMA (AutoRegressive + Moving Average) forecast of weekly demand for the next 6 months, with a 95% confidence band</p>
         </div>
       </div>
 
@@ -279,12 +279,16 @@
 
         <!-- FSN Activity -->
         <div class="chart-card">
-          <div class="chart-header ch-emerald">
+          <div class="chart-header ch-emerald ch-clickable" @click="openInsight('fsn')">
             <div class="ch-dot emerald"></div>
             <div>
               <p class="ch-title">How Often Products Sell</p>
               <p class="ch-sub">% of weeks with sales since each product's first sale</p>
             </div>
+            <button type="button" class="ch-insight-btn" title="Show insights for this chart" @click.stop="openInsight('fsn')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              Insights
+            </button>
           </div>
           <div class="chart-body" style="min-height:240px">
             <Bar :data="fsnActivityData" :options="fsnActivityOptions" />
@@ -293,7 +297,7 @@
 
         <!-- ARIMA Forecast -->
         <div class="chart-card chart-card-wide">
-          <div class="chart-header ch-blue">
+          <div class="chart-header ch-blue ch-clickable" @click="openInsight('demand')">
             <div class="ch-dot blue"></div>
             <div>
               <p class="ch-title">Predicted Future Demand</p>
@@ -304,6 +308,10 @@
               <span class="leg-item"><span class="leg-line orange-dash"></span>Monthly Forecast</span>
               <span class="leg-item"><span class="leg-band"></span>95% CI</span>
             </div>
+            <button type="button" class="ch-insight-btn" title="Show insights for this chart" @click.stop="openInsight('demand')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              Insights
+            </button>
           </div>
           <div class="chart-body" style="min-height:240px">
             <Line :data="forecastLineData" :options="forecastLineOptions" />
@@ -317,12 +325,16 @@
 
         <!-- EOQ Cost Curve -->
         <div class="chart-card">
-          <div class="chart-header ch-purple">
+          <div class="chart-header ch-purple ch-clickable" @click="openInsight('eoq')">
             <div class="ch-dot purple"></div>
             <div>
               <p class="ch-title">Best Order Quantity</p>
               <p class="ch-sub">Find the order size that minimizes total ordering and storage costs</p>
             </div>
+            <button type="button" class="ch-insight-btn" title="Show insights for this chart" @click.stop="openInsight('eoq')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              Insights
+            </button>
           </div>
           <div class="chart-body" style="min-height:260px">
             <Line :data="eoqCurveData" :options="eoqCurveOptions" />
@@ -331,7 +343,7 @@
 
         <!-- ROP Simulation -->
         <div class="chart-card">
-          <div class="chart-header ch-orange">
+          <div class="chart-header ch-orange ch-clickable" @click="openInsight('rop')">
             <div class="ch-dot orange"></div>
             <div>
               <p class="ch-title">When to Reorder Stock</p>
@@ -342,6 +354,10 @@
               <span class="leg-item"><span class="leg-line orange-dash"></span>ROP</span>
               <span class="leg-item"><span class="leg-line red-dash"></span>Safety Stock</span>
             </div>
+            <button type="button" class="ch-insight-btn" title="Show insights for this chart" @click.stop="openInsight('rop')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              Insights
+            </button>
           </div>
           <div class="chart-body" style="min-height:260px">
             <Line :data="ropSimData" :options="ropSimOptions" />
@@ -352,7 +368,7 @@
 
       <!-- Row 3: Stock Runway -->
       <div class="chart-card">
-        <div class="chart-header ch-gray">
+        <div class="chart-header ch-gray ch-clickable" @click="openInsight('runway')">
           <div class="ch-dot gray"></div>
           <div>
             <p class="ch-title">Days Until Stock Runs Out</p>
@@ -363,6 +379,10 @@
             <span class="leg-item"><span class="leg-dot yellow-dot"></span>14–30 days</span>
             <span class="leg-item"><span class="leg-dot green-dot"></span>&gt; 30 days</span>
           </div>
+          <button type="button" class="ch-insight-btn" title="Show insights for this chart" @click.stop="openInsight('runway')">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            Insights
+          </button>
         </div>
         <div class="chart-body" :style="{ height: stockRunwayHeight }">
           <Bar :data="stockRunwayData" :options="stockRunwayOptions" />
@@ -376,7 +396,7 @@
 
       <!-- Monthly Forecast Accuracy -->
       <div class="chart-card monthly-forecast-card">
-        <div class="chart-header ch-gray">
+        <div class="chart-header ch-gray ch-clickable" @click="openInsight('accuracy')">
           <div class="ch-dot gray"></div>
           <div>
             <p class="ch-title">Monthly Forecast Accuracy</p>
@@ -386,6 +406,10 @@
             <span class="leg-item"><span class="leg-bar blue-bar"></span>Actual Sales</span>
             <span class="leg-item"><span class="leg-line orange-dash"></span>Forecast</span>
           </div>
+          <button type="button" class="ch-insight-btn" title="Show insights for this chart" @click.stop="openInsight('accuracy')">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            Insights
+          </button>
         </div>
 
         <div class="chart-body mf-body">
@@ -722,6 +746,12 @@
                 <div class="sop-kv"><span class="sop-k">Days of stock remaining</span>
                   <span class="sop-v" :class="daysRemaining(selected) < 14 ? 'danger-val' : 'ok-val'">{{ daysRemaining(selected) }} days</span>
                 </div>
+                <div class="sop-arima-note">
+                  <p class="sop-arima-title">How to read this model</p>
+                  <p v-for="(line, i) in arimaExplanation(selected.analytics?.result_data)" :key="i" class="sop-arima-line">
+                    <strong>{{ line.term }}</strong> {{ line.text }}
+                  </p>
+                </div>
                 <div class="sop-result blue">
                   <span>Predicted demand — next 30 days</span>
                   <span class="sop-result-val">{{ selected.analytics?.predicted_demand ?? '—' }} units</span>
@@ -878,11 +908,53 @@
       </transition>
     </Teleport>
 
+    <!-- ── Chart Insights Modal ───────────────────────────────── -->
+    <Teleport to="body">
+      <div v-if="insightKey && insightContent" class="im-backdrop" @click.self="closeInsight">
+        <div class="im-box" role="dialog" aria-modal="true" :aria-label="insightContent.title">
+          <div class="im-header" :class="insightContent.accent">
+            <div class="im-header-text">
+              <p class="im-eyebrow">Insights</p>
+              <p class="im-title">{{ insightContent.title }}</p>
+              <p v-if="insightContent.subtitle" class="im-sub">{{ insightContent.subtitle }}</p>
+            </div>
+            <button type="button" class="im-close" aria-label="Close insights" @click="closeInsight">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="im-body">
+            <div v-if="insightContent.stats?.length" class="im-stats">
+              <div v-for="s in insightContent.stats" :key="s.label" class="im-stat">
+                <p class="im-stat-val">{{ s.value }}</p>
+                <p class="im-stat-lbl">{{ s.label }}</p>
+              </div>
+            </div>
+
+            <div v-for="it in insightContent.items" :key="it.key" class="insight-item" :class="it.tone">
+              <p class="insight-label">{{ it.label }}</p>
+              <p class="insight-headline">{{ it.headline }}</p>
+              <p class="insight-text">{{ it.text }}</p>
+            </div>
+
+            <div v-if="insightContent.notes?.length" class="sop-arima-note">
+              <p class="sop-arima-title">{{ insightContent.notesTitle }}</p>
+              <p v-for="(n, i) in insightContent.notes" :key="i" class="sop-arima-line">
+                <strong>{{ n.term }}</strong> {{ n.text }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Bar, Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -1315,8 +1387,565 @@ function turnoverDescription(ratio) {
 function daysRemaining(r) {
   const daily = predictedDaily(r)
   if (!daily) return '∞'
-  return Math.max(0, Math.round(r.product.stock_quantity / daily))
+  const days = Math.max(0, Math.round(r.product.stock_quantity / daily))
+  // Very low forecast demand otherwise gives meaningless figures (e.g. 32000 days).
+  return days > 365 ? '365+' : days
 }
+
+// Plain-language explanation of the ARIMA model chosen for a product — what
+// p / d / q mean and, when present, what its AR and MA parameters say.
+function arimaExplanation(rd) {
+  if (!rd) return []
+
+  const usesArima = rd.method_used === 'auto_arima' || (!rd.method_used && !rd.used_fallback)
+  if (!usesArima) {
+    return [{
+      term: 'AR / MA:',
+      text: `Not used for this product — it was forecast with ${methodLabel(rd)}, which has no AR or MA terms. Only products forecast with Auto-ARIMA have them.`,
+    }]
+  }
+
+  const [p, d, q] = rd.arima_order ?? [1, 1, 1]
+  const lines = [{
+    term: `ARIMA(${p},${d},${q}):`,
+    text: 'is the model Auto-ARIMA picked for this product — p = number of AR terms, d = number of times the data is differenced, q = number of MA terms.',
+  }]
+
+  lines.push(p > 0
+    ? {
+        term: 'AR (AutoRegressive):',
+        text: `the forecast is built partly from past demand${rd.ar_param != null ? ` — φ₁ = ${rd.ar_param} is how strongly the previous period's demand carries into the next (closer to ±1 = stronger)` : ''}.`,
+      }
+    : {
+        term: 'AR (AutoRegressive):',
+        text: 'not used here (p = 0) — past demand values are not fed directly into the forecast.',
+      })
+
+  lines.push(d > 0
+    ? {
+        term: 'I (Integrated):',
+        text: `the model forecasts the period-to-period change in demand (differenced ${d}×), which removes trend and level shifts so the pattern is stable enough to predict.`,
+      }
+    : {
+        term: 'I (Integrated):',
+        text: 'no differencing (d = 0) — the demand series was already stable.',
+      })
+
+  lines.push(q > 0
+    ? {
+        term: 'MA (Moving Average):',
+        text: `the forecast is corrected using its own past errors — how far off it was in earlier periods${rd.ma_param != null ? `. θ₁ = ${rd.ma_param}: the closer to −1, the more the forecast is smoothed and the slower it reacts to the latest sales` : ''}.`,
+      }
+    : {
+        term: 'MA (Moving Average):',
+        text: 'not used here (q = 0) — past forecast errors are not used to correct the forecast.',
+      })
+
+  // ARIMA(0,1,1) is mathematically simple exponential smoothing with weight 1 + θ₁.
+  const theta = Number(rd.ma_param)
+  if (p === 0 && d === 1 && q === 1 && Number.isFinite(theta) && 1 + theta > 0 && 1 + theta <= 1) {
+    lines.push({
+      term: 'In plain terms:',
+      text: `this (0,1,1) model behaves like exponential smoothing with a weight of about ${(1 + theta).toFixed(2)} on the latest sales — ${1 + theta < 0.3 ? 'a low weight, so the forecast is steady and changes slowly' : 'a higher weight, so the forecast follows recent sales more closely'}.`,
+    })
+  }
+
+  return lines
+}
+
+// ── Insights: opened from each chart card ──────────────────────────────────
+// Every chart card has an "Insights" button. It opens a modal with a plain-
+// language reading of just that chart, so the page itself stays uncluttered.
+const insightKey = ref(null)
+function openInsight(key) { insightKey.value = key }
+function closeInsight() { insightKey.value = null }
+function onInsightKeydown(e) {
+  if (e.key === 'Escape' && insightKey.value) closeInsight()
+}
+
+const peso = v => {
+  const n = Number(v || 0)
+  return '₱' + n.toLocaleString('en-PH', { maximumFractionDigits: Math.abs(n) < 100 ? 2 : 0 })
+}
+const fmtN = (v, d = 0) => Number(v).toLocaleString('en-PH', { maximumFractionDigits: d })
+// Units with one decimal, or two when the value is below 1 (so 0.03 doesn't show as "0").
+const fmtD = v => fmtN(v, Math.abs(Number(v)) < 1 && Number(v) !== 0 ? 2 : 1)
+const sumOf = arr => arr.reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0)
+const productSubtitle = r => `${r.product.name}${r.product.sku ? ' · ' + r.product.sku : ''}`
+
+function nameList(names, max = 3) {
+  const shown = names.slice(0, max)
+  const more = names.length - shown.length
+  return shown.join(', ') + (more > 0 ? ` and ${more} more` : '')
+}
+
+// "about the same as" / "12% higher than" / "12% lower than"
+function comparePhrase(value, baseline) {
+  if (!baseline) return null
+  const change = ((value - baseline) / baseline) * 100
+  if (Math.abs(change) < 5) return 'about the same as'
+  return `${Math.abs(change).toFixed(0)}% ${change > 0 ? 'higher' : 'lower'} than`
+}
+
+const noProductContent = base => ({
+  ...base,
+  subtitle: 'No product selected',
+  items: [{
+    key: 'none', tone: 'info', label: 'No data', headline: 'Select a product first',
+    text: 'Choose a product in the "Viewing product" selector, then open this card\'s insights again.',
+  }],
+})
+
+// ── Predicted Future Demand (selected product) ──
+function insightDemand() {
+  const base = { title: 'Predicted Future Demand', accent: 'blue' }
+  const r = selectedForecastRow.value
+  if (!r?.analytics?.result_data) return noProductContent(base)
+
+  const rd = r.analytics.result_data
+  const stock = Number(r.product.stock_quantity) || 0
+  const predicted = toNum(r.analytics.predicted_demand) ?? 0
+  const monthly = (rd.forecast_monthly ?? []).map(Number).filter(Number.isFinite)
+  const recentMonthly = (Number(rd.sales_90d) || 0) / 3
+  const items = []
+
+  // 1. Next 30 days vs recent sales
+  const phrase = comparePhrase(predicted, recentMonthly)
+  items.push({
+    key: 'outlook', tone: 'info', label: 'Outlook',
+    headline: `${fmtD(predicted)} units expected in the next 30 days`,
+    text: phrase
+      ? `That is ${phrase} the recent monthly average of ${fmtD(recentMonthly)} units (last 90 days ÷ 3).`
+      : predicted > 0
+        ? 'There were no sales in the last 90 days, so this forecast leans on older sales history.'
+        : 'No sales in the last 90 days and none expected — this product is effectively idle.',
+  })
+
+  // 2. Direction over the forecast horizon
+  if (monthly.length >= 2) {
+    const first = monthly[0]
+    const last = monthly[monthly.length - 1]
+    const mean = sumOf(monthly) / monthly.length
+    const delta = last - first
+    const word = Math.abs(delta) <= 0.1 * Math.max(mean, 0.1) ? 'steady' : delta > 0 ? 'rising' : 'falling'
+    const peak = Math.max(...monthly)
+    items.push({
+      key: 'trend', tone: 'info', label: 'Trend',
+      headline: `Demand looks ${word} over the next ${monthly.length} months`,
+      text: `The forecast goes from ${fmtD(first)} units in month 1 to ${fmtD(last)} in month ${monthly.length}, peaking at ${fmtD(peak)} units in month ${monthly.indexOf(peak) + 1}. ${monthly.length}-month total: about ${fmtD(sumOf(monthly))} units.`,
+    })
+  }
+
+  // 3. Confidence range
+  const lo = toNum(rd.conf_lower_30d)
+  const hi = toNum(rd.conf_upper_30d)
+  if (lo !== null && hi !== null) {
+    const wide = (hi - lo) > 4 * Math.max(predicted, 1)
+    items.push({
+      key: 'range', tone: wide ? 'warn' : 'info', label: 'Forecast range',
+      headline: `95% range: ${fmtD(lo)} – ${fmtD(hi)} units`,
+      text: `There is a 95% chance that the next 30 days of sales land inside this range.${wide ? ' It is much wider than the prediction itself, so treat the single number with caution and lean on the reorder point.' : ''}`,
+    })
+  }
+
+  // 4. Past accuracy for this product
+  const wm = toNum(wmapePct(rd))
+  items.push(wm !== null ? {
+    key: 'accuracy', tone: wm <= 30 ? 'ok' : wm <= 60 ? 'info' : 'warn', label: 'Past accuracy',
+    headline: `Past forecasts were off by about ${fmtN(wm, 0)}% (${wm <= 30 ? 'good' : wm <= 60 ? 'fair' : 'poor'})`,
+    text: `This is the WMAPE — lower is better.${wm > 100 ? ' Very high values are common for low-volume products, where one sale more or less swings the percentage a lot.' : ''}`,
+  } : {
+    key: 'accuracy', tone: 'info', label: 'Past accuracy',
+    headline: 'Forecast error not measured for this product',
+    text: rd.method_used === 'auto_arima'
+      ? 'Measuring it needs at least 36 months of sales history and more than 30 units sold in the last 12 months.'
+      : 'It is only measured for products forecast with Auto-ARIMA.',
+  })
+
+  // 5. Stock vs the forecast
+  const days = daysRemaining(r)
+  items.push(predicted > stock ? {
+    key: 'stock', tone: 'warn', label: 'Stock check',
+    headline: 'Expected demand is higher than current stock',
+    text: `You have ${fmtN(stock)} units on hand but about ${fmtD(predicted)} are expected to sell in 30 days. Plan a reorder.`,
+  } : {
+    key: 'stock', tone: 'ok', label: 'Stock check',
+    headline: days === '∞' ? 'No demand expected, so stock is not forecast to run out' : `Current stock covers about ${days} days`,
+    text: `You have ${fmtN(stock)} units on hand against ${fmtD(predicted)} expected in the next 30 days.`,
+  })
+
+  // 6. Whole-shop view for context
+  const allExpected = sumOf(results.value.map(x => toNum(x.analytics?.predicted_demand) ?? 0))
+  const allRecent = sumOf(results.value.map(x => Number(x.analytics?.result_data?.sales_90d) || 0)) / 3
+  const allPhrase = comparePhrase(allExpected, allRecent)
+  items.push({
+    key: 'all', tone: 'info', label: 'All products',
+    headline: `${fmtN(allExpected)} units expected across all products`,
+    text: allPhrase
+      ? `For the next 30 days, that is ${allPhrase} the recent monthly average of ${fmtN(allRecent)} units.`
+      : 'Total forecast for the next 30 days.',
+  })
+
+  return {
+    ...base,
+    subtitle: productSubtitle(r),
+    stats: [
+      { label: 'Next 30 days', value: `${fmtD(predicted)} units` },
+      { label: 'Recent monthly avg', value: `${fmtD(recentMonthly)} units` },
+      { label: 'Model', value: methodLabel(rd) },
+    ],
+    items,
+    notesTitle: 'How the model works',
+    notes: arimaExplanation(rd),
+  }
+}
+
+// ── Best Order Quantity (selected product) ──
+function insightEoq() {
+  const base = { title: 'Best Order Quantity', accent: 'purple' }
+  const r = selectedForecastRow.value
+  if (!r?.analytics?.result_data) return noProductContent(base)
+
+  const rd = r.analytics.result_data
+  const stock = Number(r.product.stock_quantity) || 0
+  const D = Number(rd.annual_demand) || 0
+  const S = Number(rd.order_cost ?? 350)
+  const H = Number(rd.holding_cost ?? (Number(r.product?.cost_price ?? 0) * 0.20)) || 0
+  const eoq = toNum(r.analytics.eoq_value) ?? 0
+  const rop = toNum(r.analytics.rop_value)
+
+  if (!D || !H || !eoq) {
+    return {
+      ...base,
+      subtitle: productSubtitle(r),
+      items: [{
+        key: 'nodata', tone: 'info', label: 'Order size',
+        headline: 'No order-size recommendation for this product',
+        text: !D
+          ? 'No yearly sales are expected, so there is nothing to order for.'
+          : 'The storage cost per unit is missing, so the cost balance cannot be worked out.',
+      }],
+    }
+  }
+
+  const perYear = D / eoq
+  const every = 365 / perYear
+  const orderingCost = (D * S) / eoq
+  const storageCost = (H * eoq) / 2
+  const total = orderingCost + storageCost
+  const items = []
+
+  items.push({
+    key: 'size', tone: 'info', label: 'Recommendation',
+    headline: `Order about ${fmtN(eoq)} units each time`,
+    text: `At the expected ${fmtN(D)} units a year, that is roughly ${fmtN(perYear, 1)} orders a year — about one every ${fmtN(every)} days.`,
+  })
+
+  items.push({
+    key: 'balance', tone: 'ok', label: 'Cost balance',
+    headline: 'Ordering cost and storage cost are balanced at this size',
+    text: `Ordering costs about ${peso(orderingCost)} a year and storing stock about ${peso(storageCost)}, for a minimum total of ${peso(total)}. Ordering half or double this quantity would cost about 25% more per year.`,
+  })
+
+  if (eoq > D) {
+    items.push({
+      key: 'slow', tone: 'warn', label: 'Heads up',
+      headline: 'Best order is more than a year of expected sales',
+      text: 'This product sells slowly, so one order would last over a year. Order the smallest quantity your supplier allows instead.',
+    })
+  }
+
+  if (rop !== null && stock <= rop) {
+    items.push({
+      key: 'now', tone: 'danger', label: 'Timing',
+      headline: 'Stock is at or below the reorder point',
+      text: `You have ${fmtN(stock)} units on hand — this is a good time to place the order.`,
+    })
+  }
+
+  return {
+    ...base,
+    subtitle: productSubtitle(r),
+    stats: [
+      { label: 'Best order qty', value: `${fmtN(eoq)} units` },
+      { label: 'Orders per year', value: fmtN(perYear, 1) },
+      { label: 'Order every', value: `${fmtN(every)} days` },
+      { label: 'Lowest yearly cost', value: peso(total) },
+    ],
+    items,
+    notesTitle: 'How it is calculated',
+    notes: [{
+      term: 'EOQ = √(2 · D · S ÷ H):',
+      text: `D = expected yearly sales (${fmtN(D)} units), S = cost per order (${peso(S)}), H = storage cost per unit per year (${peso(H)}).`,
+    }],
+  }
+}
+
+// ── When to Reorder Stock (selected product) ──
+function insightRop() {
+  const base = { title: 'When to Reorder Stock', accent: 'orange' }
+  const r = selectedForecastRow.value
+  if (!r?.analytics?.result_data) return noProductContent(base)
+
+  const rd = r.analytics.result_data
+  const stock = Number(r.product.stock_quantity) || 0
+  const avg = Number(rd.avg_daily) || 0
+  const lead = Number(rd.lead_time ?? 14)
+  const ss = toNum(rd.safety_stock)
+  const rop = toNum(r.analytics.rop_value)
+  const service = rd.service_level ?? '95%'
+
+  if (rop === null) {
+    return {
+      ...base,
+      subtitle: productSubtitle(r),
+      items: [{ key: 'nodata', tone: 'info', label: 'Reorder point', headline: 'No reorder point calculated yet', text: 'Run Analytics to calculate it for this product.' }],
+    }
+  }
+
+  const items = []
+
+  if (stock <= rop) {
+    items.push({
+      key: 'status', tone: 'danger', label: 'Status',
+      headline: 'Stock is at or below the reorder point',
+      text: `Place an order now — at the usual sales pace the shelf could run empty during the ${lead}-day delivery wait.`,
+    })
+  } else {
+    const daysToRop = avg > 0 ? (stock - rop) / avg : null
+    items.push({
+      key: 'status', tone: 'ok', label: 'Status',
+      headline: `${fmtN(stock - rop)} units above the reorder point`,
+      text: daysToRop === null
+        ? 'This product has no regular sales, so stock is not drifting toward the reorder point.'
+        : `At about ${avg.toFixed(2)} units/day, stock reaches the reorder point in roughly ${daysToRop > 365 ? '365+' : fmtN(daysToRop)} days.`,
+    })
+  }
+
+  if (ss !== null) {
+    items.push({
+      key: 'build', tone: 'info', label: 'How it is built',
+      headline: `${fmtN(rop)} units = delivery-wait demand + safety buffer`,
+      text: `Sales during the ${lead}-day delivery wait are about ${fmtN(avg * lead, 1)} units (${avg.toFixed(2)}/day × ${lead} days), plus a safety buffer of ${fmtN(ss, 1)} units for busier-than-usual days.`,
+    })
+  }
+
+  items.push({
+    key: 'service', tone: 'info', label: 'Service level',
+    headline: `${service} chance of not running out while waiting`,
+    text: 'The safety buffer is sized so that, during the delivery wait, demand is covered about that often.',
+  })
+
+  const recordRop = Number(r.product.reorder_point)
+  if (Number.isFinite(recordRop) && Math.round(recordRop) !== Math.round(rop)) {
+    items.push({
+      key: 'record', tone: 'warn', label: 'Heads up',
+      headline: 'The product record uses a different reorder point',
+      text: `The product record says ${fmtN(recordRop)} units; the computed value here is ${fmtN(rop)}. The "Reorder Now" alert in the table uses the record's value, so update the product's reorder point if you want alerts to follow the computed one.`,
+    })
+  }
+
+  return {
+    ...base,
+    subtitle: productSubtitle(r),
+    stats: [
+      { label: 'Reorder point', value: `${fmtN(rop)} units` },
+      { label: 'Safety buffer', value: ss !== null ? `${fmtN(ss, 1)} units` : '—' },
+      { label: 'Delivery wait', value: `${lead} days` },
+      { label: 'Stock now', value: `${fmtN(stock)} units` },
+    ],
+    items,
+    notesTitle: 'How it is calculated',
+    notes: [{
+      term: 'ROP = d̄ × L + Z × σ × √L:',
+      text: `d̄ = average daily sales (${avg.toFixed(2)}), L = delivery wait in days (${lead}), Z = 1.645 (${service} service level), σ = day-to-day sales variability (${Number(rd.std_daily ?? 0).toFixed(2)}).`,
+    }],
+  }
+}
+
+// ── Days Until Stock Runs Out (all products) ──
+function insightRunway() {
+  const base = { title: 'Days Until Stock Runs Out', accent: 'gray' }
+  const rows = results.value.map(r => ({ r, days: daysLeft(r) }))
+  const critical = rows.filter(x => x.days < 14).sort((a, b) => a.days - b.days)
+  const warning = rows.filter(x => x.days >= 14 && x.days < 30).sort((a, b) => a.days - b.days)
+  const safe = rows.length - critical.length - warning.length
+  const label = x => `${x.r.product.name} (${x.days}d)`
+  const items = []
+
+  items.push(critical.length ? {
+    key: 'critical', tone: 'danger', label: 'Critical',
+    headline: `${critical.length} product${critical.length !== 1 ? 's' : ''} may run out within 14 days`,
+    text: `Soonest first: ${nameList(critical.map(label), 5)}. Use "Best Order Qty" in the results table to decide how much to order.`,
+  } : {
+    key: 'critical', tone: 'ok', label: 'Critical',
+    headline: 'No product is forecast to run out within 14 days',
+    text: 'At the forecast sales pace, every product has at least two weeks of stock.',
+  })
+
+  if (warning.length) {
+    items.push({
+      key: 'warning', tone: 'warn', label: 'Watch',
+      headline: `${warning.length} product${warning.length !== 1 ? 's have' : ' has'} 14–30 days of stock`,
+      text: `Soonest first: ${nameList(warning.map(label), 5)}. Plan these orders soon.`,
+    })
+  }
+
+  items.push({
+    key: 'how', tone: 'info', label: 'How to read it',
+    headline: 'Days = current stock ÷ forecast daily demand',
+    text: 'Products with no forecast demand are counted as 365 days. The chart bars stop at 30 days — hover a bar to see the true number.',
+  })
+
+  return {
+    ...base,
+    subtitle: `All ${rows.length} products`,
+    stats: [
+      { label: 'Under 14 days', value: String(critical.length) },
+      { label: '14–30 days', value: String(warning.length) },
+      { label: 'Over 30 days', value: String(safe) },
+    ],
+    items,
+  }
+}
+
+// ── How Often Products Sell / FSN (all products) ──
+function insightFsn() {
+  const base = { title: 'How Often Products Sell', accent: 'emerald' }
+  const rows = results.value
+  const total = rows.length
+  const by = cls => rows.filter(r => r.analytics?.fsn_classification === cls)
+  const fast = by('fast')
+  const slow = by('slow')
+  const non = by('non_moving')
+  const pct = n => (total ? Math.round((n / total) * 100) : 0)
+  const t = fsnThresholds(rows[0]?.analytics?.result_data)
+  const valueOf = r => (Number(r.product.cost_price) || 0) * (Number(r.product.stock_quantity) || 0)
+  const tiedUp = non.reduce((s, r) => s + valueOf(r), 0)
+  const heaviest = [...non].sort((a, b) => valueOf(b) - valueOf(a)).map(r => r.product.name)
+  const busiest = [...fast]
+    .sort((a, b) => (b.analytics?.result_data?.activity_ratio ?? 0) - (a.analytics?.result_data?.activity_ratio ?? 0))
+    .map(r => r.product.name)
+  const items = []
+
+  items.push({
+    key: 'mix', tone: 'info', label: 'Mix',
+    headline: `${pct(fast.length)}% fast, ${pct(slow.length)}% slow, ${pct(non.length)}% non-moving`,
+    text: pct(non.length) >= 30
+      ? 'A large share of the catalog is not moving — consider tightening what you reorder.'
+      : 'Most of the catalog is selling, which is a healthy sign.',
+  })
+
+  items.push(non.length ? {
+    key: 'non', tone: 'warn', label: 'Non-moving',
+    headline: `${non.length} product${non.length !== 1 ? 's are' : ' is'} not moving`,
+    text: `${tiedUp > 0 ? `About ${peso(tiedUp)} (at cost) is tied up in them${heaviest.length ? `, mostly ${nameList(heaviest, 3)}` : ''}. ` : ''}Avoid reordering these; Reports → Inventory shows how long each has gone unsold.`,
+  } : {
+    key: 'non', tone: 'ok', label: 'Non-moving',
+    headline: 'No non-moving products',
+    text: 'Every product has sold recently enough to stay out of the non-moving class.',
+  })
+
+  if (fast.length) {
+    items.push({
+      key: 'fast', tone: 'ok', label: 'Fast movers',
+      headline: `${fast.length} fast-moving product${fast.length !== 1 ? 's' : ''}`,
+      text: `Most consistent sellers: ${nameList(busiest, 3)}. Keep a healthy safety stock for these and watch their days of stock.`,
+    })
+  }
+
+  return {
+    ...base,
+    subtitle: `All ${total} products`,
+    stats: [
+      { label: 'Fast', value: `${fast.length} (${pct(fast.length)}%)` },
+      { label: 'Slow', value: `${slow.length} (${pct(slow.length)}%)` },
+      { label: 'Non-moving', value: `${non.length} (${pct(non.length)}%)` },
+    ],
+    items,
+    notesTitle: 'How products are classified',
+    notes: [
+      { term: 'Fast:', text: `sold in at least ${t.fast}% of weeks since the first sale, or ${t.minDaily}+ unit/day on average.` },
+      { term: 'Slow:', text: `sold in ${t.nonMoving}–${t.fast}% of weeks.` },
+      { term: 'Non-moving:', text: `sold in under ${t.nonMoving}% of weeks, or no sale for ${t.deadWeeks}+ weeks. These limits can be changed in the Thresholds panel.` },
+    ],
+  }
+}
+
+// ── Monthly Forecast Accuracy (all products) ──
+function insightAccuracy() {
+  const base = { title: 'Monthly Forecast Accuracy', accent: 'gray', subtitle: 'Actual vs forecast, last 6 complete months' }
+  const ml = monthlyForecast.value
+  if (!ml || !(ml.labels ?? []).length) {
+    return {
+      ...base,
+      items: [{ key: 'none', tone: 'info', label: 'No data', headline: 'No monthly accuracy data yet', text: 'Run Analytics to compare past forecasts with actual sales.' }],
+    }
+  }
+
+  const start = Math.max(0, ml.labels.length - 6)
+  const labels = ml.labels.slice(start).map(formatMonth)
+  const actual = (ml.actual ?? []).slice(start).map(Number)
+  const forecast = (ml.forecast ?? []).slice(start).map(Number)
+  const totalActual = sumOf(actual)
+  const totalForecast = sumOf(forecast)
+  const items = []
+
+  const hasWmape = ml.wmape != null || summary.value?.monthly_wmape != null
+  if (hasWmape) {
+    const v = monthlyWmape.value
+    const word = v <= 20 ? 'reliable' : v <= 40 ? 'fairly reliable' : 'rough estimates'
+    items.push({
+      key: 'reliability', tone: v <= 20 ? 'ok' : v <= 40 ? 'info' : 'warn', label: 'Reliability',
+      headline: `Monthly forecasts are ${word}`,
+      text: `WMAPE is total miss ÷ total sales, so busy products count more than quiet ones. On average the monthly forecast is off by about ${v.toFixed(0)}% — lower is better.${v > 40 ? ' Slow or irregular sellers are the hardest to forecast, so treat their numbers as estimates and rely on the reorder point.' : ''}`,
+    })
+  }
+
+  if (totalActual > 0) {
+    const bias = ((totalForecast - totalActual) / totalActual) * 100
+    items.push(Math.abs(bias) < 5 ? {
+      key: 'bias', tone: 'ok', label: 'Bias',
+      headline: 'Forecasts are well balanced',
+      text: `Over these months the forecast (${fmtN(totalForecast)} units) is within 5% of actual sales (${fmtN(totalActual)} units).`,
+    } : {
+      key: 'bias', tone: 'warn', label: 'Bias',
+      headline: bias > 0 ? `Forecasts run ${Math.abs(bias).toFixed(0)}% too high` : `Forecasts run ${Math.abs(bias).toFixed(0)}% too low`,
+      text: bias > 0
+        ? `The forecast adds up to ${fmtN(totalForecast)} units against ${fmtN(totalActual)} actually sold, so relying on it alone risks over-ordering.`
+        : `The forecast adds up to ${fmtN(totalForecast)} units against ${fmtN(totalActual)} actually sold, so relying on it alone risks running short.`,
+    })
+  }
+
+  let worst = -1
+  let worstGap = 0
+  labels.forEach((_, i) => {
+    const gap = Math.abs((actual[i] || 0) - (forecast[i] || 0))
+    if (gap > worstGap) { worstGap = gap; worst = i }
+  })
+  if (worst >= 0) {
+    items.push({
+      key: 'worst', tone: 'info', label: 'Biggest miss',
+      headline: `${labels[worst]} was the least accurate month`,
+      text: `Actual sales were ${fmtN(actual[worst], 1)} units against a forecast of ${fmtN(forecast[worst], 1)} — a gap of ${fmtN(worstGap, 1)} units.`,
+    })
+  }
+
+  return {
+    ...base,
+    stats: [
+      { label: 'Monthly WMAPE', value: hasWmape ? `${monthlyWmape.value.toFixed(1)}%` : '—' },
+      { label: 'Actual sales', value: `${fmtN(totalActual)} units` },
+      { label: 'Forecast', value: `${fmtN(totalForecast)} units` },
+    ],
+    items,
+  }
+}
+
+const insightContent = computed(() => {
+  const builders = { fsn: insightFsn, demand: insightDemand, eoq: insightEoq, rop: insightRop, runway: insightRunway, accuracy: insightAccuracy }
+  return builders[insightKey.value]?.() ?? null
+})
 
 function wmapePct(rd) {
   return rd?.wmape_pct ?? rd?.mape_pct ?? null
@@ -1775,6 +2404,11 @@ watch(selectedForecastProduct, (id) => {
 onMounted(() => {
   loadSummary()
   loadMonthlyAccuracy()
+  window.addEventListener('keydown', onInsightKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onInsightKeydown)
 })
 </script>
 
@@ -2798,6 +3432,62 @@ onMounted(() => {
   font-size: 10px;
   font-weight: 700;
 }
+
+/* Insights button on each chart card */
+.ch-clickable { cursor: pointer; transition: filter .15s; }
+.ch-clickable:hover { filter: brightness(.97); }
+.ch-insight-btn {
+  margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border: 1.5px solid #ddd6fe; border-radius: 99px; background: #fff;
+  color: #6d28d9; font-size: 11px; font-weight: 700; font-family: inherit;
+  cursor: pointer; white-space: nowrap; transition: all .15s;
+}
+.ch-insight-btn:hover { background: #f5f3ff; border-color: #a78bfa; }
+.ch-legend + .ch-insight-btn { margin-left: 0; }
+
+/* Chart insights modal */
+.im-backdrop {
+  position: fixed; inset: 0; z-index: 10000; background: rgba(17,24,39,.5);
+  display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto;
+}
+.im-box {
+  background: #fff; border-radius: 16px; width: 100%; max-width: 640px; margin: auto;
+  max-height: calc(100vh - 32px); display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,.25);
+}
+.im-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1.5px solid transparent; flex-shrink: 0; }
+.im-header.blue    { background: #eff6ff; border-bottom-color: #dbeafe; }
+.im-header.purple  { background: #f5f3ff; border-bottom-color: #ede9fe; }
+.im-header.orange  { background: #fff7ed; border-bottom-color: #fed7aa; }
+.im-header.emerald { background: #ecfdf5; border-bottom-color: #d1fae5; }
+.im-header.gray    { background: #f9fafb; border-bottom-color: #f3f4f6; }
+.im-eyebrow { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; color: #6b7280; margin: 0 0 3px; }
+.im-title   { font-size: 16px; font-weight: 800; color: #111827; margin: 0; }
+.im-sub     { font-size: 12px; color: #6b7280; margin: 3px 0 0; }
+.im-close   { width: 32px; height: 32px; border: none; border-radius: 8px; background: rgba(255,255,255,.7); color: #6b7280; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: all .15s; }
+.im-close:hover { background: #fff; color: #111827; }
+.im-body    { padding: 16px 20px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.im-stats   { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.im-stat    { background: #f9fafb; border: 1.5px solid #f3f4f6; border-radius: 10px; padding: 10px 12px; }
+.im-stat-val { font-size: 15px; font-weight: 800; color: #111827; margin: 0; line-height: 1.25; word-break: break-word; }
+.im-stat-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af; margin: 3px 0 0; }
+
+/* Insight rows (used inside the modal) */
+.insight-item    { border: 1.5px solid #f3f4f6; border-left-width: 4px; border-radius: 10px; padding: 12px 14px; }
+.insight-item.danger { border-left-color: #dc2626; background: #fef2f2; }
+.insight-item.warn   { border-left-color: #f59e0b; background: #fffbeb; }
+.insight-item.info   { border-left-color: #3b82f6; background: #eff6ff; }
+.insight-item.ok     { border-left-color: #16a34a; background: #f0fdf4; }
+.insight-label    { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; color: #6b7280; margin: 0; }
+.insight-headline { font-size: 13.5px; font-weight: 800; color: #111827; margin: 4px 0; line-height: 1.35; }
+.insight-text     { font-size: 12px; color: #4b5563; line-height: 1.55; margin: 0; }
+
+/* ARIMA "how to read this" note in the product panel */
+.sop-arima-note  { margin-top: 6px; padding: 10px 12px; border-radius: 9px; background: #f8fafc; border: 1px dashed #cbd5e1; }
+.sop-arima-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #475569; margin: 0 0 6px; }
+.sop-arima-line  { font-size: 12px; line-height: 1.6; color: #475569; margin: 0 0 5px; }
+.sop-arima-line:last-child { margin-bottom: 0; }
+.sop-arima-line strong { color: #1e293b; }
 
 /* Alert cell with view hint */
 .alert-cell { display: flex; align-items: center; gap: 8px; }
