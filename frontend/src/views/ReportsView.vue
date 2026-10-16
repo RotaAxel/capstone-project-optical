@@ -129,7 +129,7 @@
                   <td><span class="mono-badge">{{ s.receipt_number }}</span></td>
                   <td class="date-cell">{{ fmtDateTime(s.created_at) }}</td>
                   <td>{{ s.patient ? s.patient.first_name + ' ' + s.patient.last_name : 'Walk-in' }}</td>
-                  <td>{{ s.items?.length }} item{{ s.items?.length !== 1 ? 's' : '' }}</td>
+                  <td>{{ itemsLabel(s) }}</td>
                   <td><span class="amount-val">₱{{ fmt(s.total_amount) }}</span></td>
                   <td><span :class="payPill(s.payment_method)" class="pay-pill">{{ s.payment_method }}</span></td>
                 </tr>
@@ -855,6 +855,15 @@ function rankBadge(i) {
 }
 
 
+// Total units bought in a sale (sum of each line's quantity), e.g. 2 frames + 3 lenses = 5 items.
+function itemQty(sale) {
+  return (sale?.items ?? []).reduce((n, i) => n + (Number(i.quantity) || 0), 0)
+}
+function itemsLabel(sale) {
+  const n = itemQty(sale)
+  return `${n} item${n !== 1 ? 's' : ''}`
+}
+
 function payPill(m) {
   return { cash: 'pill-green', card: 'pill-blue', gcash: 'pill-sky', maya: 'pill-purple', other: 'pill-gray' }[m] ?? 'pill-gray'
 }
@@ -929,12 +938,13 @@ function exportDailyPdf() {
   const d = dailyData.value
   const rows = (d.sales ?? []).map(s => {
     const patient = s.patient ? `${s.patient.first_name} ${s.patient.last_name}` : 'Walk-in'
-    const items = `${s.items?.length ?? 0} item${s.items?.length !== 1 ? 's' : ''}`
+    const items = itemsLabel(s)
     const pmLabels = { cash: 'Cash', card: 'Card', gcash: 'GCash', maya: 'Maya', other: 'Other' }
     const discount = Number(s.discount_amount) > 0 ? `₱${fmt(s.discount_amount)}` : '—'
     return `<tr><td><span class="mono">${s.receipt_number}</span></td><td>${fmtDateTime(s.created_at)}</td><td>${patient}</td><td>${items}</td><td><span class="amt">₱${fmt(s.total_amount)}</span></td><td>${discount}</td><td>${pmLabels[s.payment_method] ?? s.payment_method}</td></tr>`
   }).join('')
-  const totalsRow = `<tr class="totals-row"><td colspan="4">TOTAL — ${d.total_transactions} transaction${d.total_transactions !== 1 ? 's' : ''}</td><td class="amt">₱${fmt(d.total_revenue)}</td><td>₱${fmt(d.total_discount)}</td><td></td></tr>`
+  const totalItems = (d.sales ?? []).reduce((n, s) => n + itemQty(s), 0)
+  const totalsRow = `<tr class="totals-row"><td colspan="3">TOTAL — ${d.total_transactions} transaction${d.total_transactions !== 1 ? 's' : ''}</td><td>${totalItems} item${totalItems !== 1 ? 's' : ''}</td><td class="amt">₱${fmt(d.total_revenue)}</td><td>₱${fmt(d.total_discount)}</td><td></td></tr>`
   const table = `<div class="section">Sales Transactions</div>
   <table><thead><tr><th>Receipt #</th><th>Date</th><th>Patient</th><th>Items</th><th>Total</th><th>Discount</th><th>Payment</th></tr></thead>
   <tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:24px 0;color:#9ca3af;">No transactions for this date range.</td></tr>'}${rows ? totalsRow : ''}</tbody></table>`

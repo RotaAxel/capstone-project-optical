@@ -27,7 +27,7 @@
           </svg>
         </div>
         <div>
-          <p class="stat-num">{{ pagination.total ?? 0 }}</p>
+          <p class="stat-num">{{ totalMovements }}</p>
           <p class="stat-lbl">Total Movements</p>
         </div>
       </div>
@@ -144,37 +144,39 @@
           <table class="mv-table">
             <thead>
               <tr>
-                <th>Date & Time</th>
+                <th>Last Movement</th>
                 <th>Product</th>
                 <th class="mv-center">Stock In Qty</th>
                 <th class="mv-center">Stock Out Qty</th>
                 <th class="mv-center">Adjustment / Damage / Loss</th>
                 <th class="mv-center">Total Stock</th>
-                <th>Reference</th>
-                <th>Reason</th>
-                <th>Recorded By</th>
+                <th>Last Reference</th>
+                <th>Last Reason</th>
+                <th>Last Recorded By</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in movements" :key="m.id">
+              <!-- One row per product: every movement is totaled into that product's row -->
+              <tr v-for="m in movements" :key="m.product_id">
                 <td>
-                  <p class="mv-date">{{ fmtDay(m.created_at) }}</p>
-                  <p class="mv-time">{{ fmtTime(m.created_at) }}</p>
+                  <p class="mv-date">{{ fmtDay(m.last_movement_at) }}</p>
+                  <p class="mv-time">{{ fmtTime(m.last_movement_at) }}</p>
                 </td>
                 <td>
                   <p class="mv-product">{{ m.product?.name ?? '—' }}</p>
                   <p class="mv-sku">{{ m.product?.sku ?? '' }}</p>
+                  <p class="mv-count">{{ m.movement_count }} movement{{ m.movement_count !== 1 ? 's' : '' }}</p>
                 </td>
                 <td class="mv-center">
-                  <span v-if="isStockIn(m.type)" class="qty-val qty-pos">{{ m.quantity }}</span>
+                  <span v-if="m.stock_in_qty" class="qty-val qty-pos">{{ m.stock_in_qty }}</span>
                   <span v-else class="mv-dash">—</span>
                 </td>
                 <td class="mv-center">
-                  <span v-if="m.type === 'sale'" class="qty-val qty-neg">{{ m.quantity }}</span>
+                  <span v-if="m.stock_out_qty" class="qty-val qty-neg">{{ m.stock_out_qty }}</span>
                   <span v-else class="mv-dash">—</span>
                 </td>
                 <td class="mv-center">
-                  <span v-if="isAdjustment(m.type)" class="qty-val qty-neg">{{ m.quantity }}</span>
+                  <span v-if="m.adjustment_qty" class="qty-val" :class="m.adjustment_qty > 0 ? 'qty-pos' : 'qty-neg'">{{ Math.abs(m.adjustment_qty) }}</span>
                   <span v-else class="mv-dash">—</span>
                 </td>
                 <td class="mv-center">
@@ -195,7 +197,7 @@
 
         <!-- Pagination -->
         <div v-if="pagination.last_page > 1" class="pag-bar">
-          <span class="pag-info">Page {{ pagination.current_page }} of {{ pagination.last_page }}  ·  {{ pagination.total }} records</span>
+          <span class="pag-info">Page {{ pagination.current_page }} of {{ pagination.last_page }}  ·  {{ pagination.total }} products</span>
           <div class="pag-btns">
             <button @click="fetchPage(pagination.current_page - 1)" :disabled="pagination.current_page === 1" class="pag-btn">
               <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
@@ -283,8 +285,9 @@ async function fetchSummary() {
 function fmtDay(d)  { return d ? new Date(d).toLocaleDateString('en-PH',  { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
 function fmtTime(d) { return d ? new Date(d).toLocaleTimeString('en-PH',  { hour: '2-digit', minute: '2-digit' }) : '' }
 
-function isStockIn(t)    { return ['stock_in', 'return'].includes(t) }
-function isAdjustment(t) { return ['adjustment', 'damage', 'loss'].includes(t) }
+// Count of individual movements (the table now shows one totaled row per product).
+const totalMovements = computed(() =>
+  Object.values(summary.value ?? {}).reduce((s, n) => s + (Number(n) || 0), 0))
 
 function userInitials(name) {
   if (!name) return '?'
@@ -362,6 +365,7 @@ onMounted(() => { fetchPage(); fetchSummary() })
 .mv-time    { font-size: 11px; color: #9ca3af; margin-top: 2px; }
 .mv-product { font-size: 13px; font-weight: 700; color: #111827; }
 .mv-sku     { font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace; margin-top: 2px; }
+.mv-count   { font-size: 10.5px; color: #f97316; font-weight: 600; margin-top: 2px; }
 .mv-dash    { font-size: 13px; color: #d1d5db; }
 .mv-after   { font-size: 13px; font-weight: 700; color: #111827; }
 .mv-ref     { font-size: 11px; color: #9ca3af; font-family: 'Courier New', monospace; }

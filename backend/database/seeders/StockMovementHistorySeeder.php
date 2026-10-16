@@ -6,6 +6,14 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+/**
+ * Rebuilds the whole stock ledger from the sales that exist, then sets every
+ * product's stock_quantity to where its ledger ends. Run it AFTER all sales
+ * are seeded (HistoricalTransactionSeeder calls it automatically).
+ *
+ * Re-runnable on its own:  php artisan db:seed --class=StockMovementHistorySeeder
+ * Note: it clears ALL stock movements first, including ones made in the app.
+ */
 class StockMovementHistorySeeder extends Seeder
 {
     public function run(): void
@@ -45,13 +53,14 @@ class StockMovementHistorySeeder extends Seeder
 
         if (empty($invUsers)) $invUsers = [1];
 
-        $batch     = [];
-        $batchSize = 500;
-        $total     = 0;
+        $batch      = [];
+        $batchSize  = 500;
+        $total      = 0;
+        $finalStock = [];   // product_id → stock after its last movement
 
         foreach ($products as $productId => $product) {
             $lines  = $saleLines->get($productId, collect());
-            $events = $this->buildHistory($product, $lines, $invUsers);
+            [$events, $finalStock[$productId]] = $this->buildHistory($product, $lines, $invUsers);
 
             foreach ($events as $ev) {
                 $batch[] = $ev;
@@ -68,7 +77,14 @@ class StockMovementHistorySeeder extends Seeder
             $total += count($batch);
         }
 
-        $this->command->info("✓ Generated {$total} stock movements matched to actual transactions.");
+        // The ledger is the source of truth: each product's stock is exactly
+        // stock-ins − sales − damage/loss/adjustments, so the Stock Movements
+        // page always balances.
+        foreach ($finalStock as $productId => $qty) {
+            DB::table('products')->where('id', $productId)->update(['stock_quantity' => $qty]);
+        }
+
+        $this->command->info("✓ Generated {$total} stock movements matched to actual transactions; product stock synced to the ledger.");
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -88,10 +104,12 @@ class StockMovementHistorySeeder extends Seeder
             ? Carbon::parse($lines->first()->sale_date)
             : Carbon::create(2022, 6, 1);
 
-        // Initial delivery: 2 weeks before first sale or Jan 2022, whichever is later
-        $initDate = Carbon::create(2022, 1, 15)->max(
-            (clone $firstSaleDate)->subDays(14)
-        );
+        // Initial delivery: 2 weeks before the first sale (sales go back to 2021),
+        // or mid-Jan 2022 for products that have never sold. It must come before
+        // every other movement so stock never starts below zero.
+        $initDate = $lines->isNotEmpty()
+            ? (clone $firstSaleDate)->subDays(14)
+            : Carbon::create(2022, 1, 15);
 
         // Seed enough stock to cover the first sales cycle (generous buffer)
         $initQty  = max($reorderQty * 3, 30);
@@ -245,19 +263,41 @@ class StockMovementHistorySeeder extends Seeder
         // ── Sort all events chronologically, recompute running balance ───────
         usort($events, fn($a, $b) => strcmp($a['created_at'], $b['created_at']));
 
+        // Sorting can move a damage/adjustment ahead of a restock, which would
+        // briefly push stock below zero. Rather than clamping (which breaks the
+        // totals), top up the opening delivery by the shortfall.
+        $running = 0;
+        $lowest  = 0;
+        foreach ($events as $ev) {
+            $running += $this->delta($ev);
+            $lowest   = min($lowest, $running);
+        }
+        if ($lowest < 0) {
+            foreach ($events as &$ev) {
+                if ($ev['type'] === 'stock_in') { $ev['quantity'] += -$lowest; break; }
+            }
+            unset($ev);
+        }
+
+        // Walk forward once more — no clamping, so before/after always chain exactly.
         $running = 0;
         foreach ($events as &$ev) {
             $ev['quantity_before'] = $running;
-            $running += match($ev['type']) {
-                'stock_in', 'return'                   => $ev['quantity'],
-                'sale', 'damage', 'loss', 'adjustment' => -$ev['quantity'],
-                default                                => 0,
-            };
-            $running = max(0, $running);
-            $ev['quantity_after'] = $running;
+            $running += $this->delta($ev);
+            $ev['quantity_after']  = $running;
         }
+        unset($ev);
 
-        return $events;
+        return [$events, $running];
+    }
+
+    private function delta(array $ev): int
+    {
+        return match ($ev['type']) {
+            'stock_in', 'return'                   => $ev['quantity'],
+            'sale', 'damage', 'loss', 'adjustment' => -$ev['quantity'],
+            default                                => 0,
+        };
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

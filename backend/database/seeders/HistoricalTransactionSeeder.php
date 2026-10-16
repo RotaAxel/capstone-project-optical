@@ -154,10 +154,6 @@ class HistoricalTransactionSeeder extends Seeder
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
         DB::table('sale_items')->truncate();
         DB::table('sales')->truncate();
-        // Re-runnable: drop any 'sale' movements from a previous run of this
-        // seeder before regenerating them below, so running it twice never
-        // duplicates the ledger.
-        DB::table('stock_movements')->where('type', 'sale')->delete();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
         $recep = User::where('role', 'receptionist')->first()
@@ -392,12 +388,6 @@ class HistoricalTransactionSeeder extends Seeder
         $saleCount  = 0;
         $itemCount  = 0;
 
-        // Every sale_item generated below is recorded here so a matching
-        // 'sale' StockMovement can be built afterward — the ledger needs to
-        // reflect the same transaction volume as sale_items, not just the
-        // handful of manual stock-ins from StockMovementHistorySeeder.
-        $movementSeeds = [];
-
         DB::beginTransaction();
         try {
             foreach ($yearlyTargets as $year => $target) {
@@ -457,14 +447,6 @@ class HistoricalTransactionSeeder extends Seeder
                         'updated_at' => $saleDate,
                     ]);
 
-                    $movementSeeds[] = [
-                        'product_id'      => $product->id,
-                        'current_stock'   => $product->stock_quantity,
-                        'quantity'        => $qty,
-                        'reference_number'=> $receiptNumber,
-                        'created_at'      => $saleDate,
-                    ];
-
                     $saleCount++;
                     $itemCount++;
 
@@ -483,73 +465,12 @@ class HistoricalTransactionSeeder extends Seeder
                                 'updated_at' => $saleDate,
                             ]);
 
-                            $movementSeeds[] = [
-                                'product_id'      => $product2->id,
-                                'current_stock'   => $product2->stock_quantity,
-                                'quantity'        => 1,
-                                'reference_number'=> $receiptNumber,
-                                'created_at'      => $saleDate,
-                            ];
-
                             $itemCount++;
                         }
                     }
 
                     $generatedThisYear++;
                 }
-            }
-
-            // ── Build the 'sale' stock_movements ledger to match sale_items ──
-            // Each product's CURRENT stock_quantity is treated as the true
-            // ending point (nothing else touches it), so the ledger is built
-            // backward from it: beginning stock = current + everything sold,
-            // then walked forward chronologically so quantity_before/after
-            // land on real, non-negative numbers and the last entry's
-            // quantity_after always equals the product's actual stock today.
-            $byProduct = [];
-            foreach ($movementSeeds as $seed) {
-                $byProduct[$seed['product_id']][] = $seed;
-            }
-
-            $movementRows  = [];
-            $movementCount = 0;
-
-            foreach ($byProduct as $productId => $seeds) {
-                usort($seeds, fn($a, $b) => $a['created_at'] <=> $b['created_at']);
-
-                $totalSold      = array_sum(array_column($seeds, 'quantity'));
-                $currentStock   = $seeds[0]['current_stock'];
-                $running        = $currentStock + $totalSold;
-
-                foreach ($seeds as $seed) {
-                    $before = $running;
-                    $after  = $running - $seed['quantity'];
-
-                    $movementRows[] = [
-                        'product_id'       => $productId,
-                        'user_id'          => $recep->id,
-                        'type'             => 'sale',
-                        'quantity'         => $seed['quantity'],
-                        'quantity_before'  => $before,
-                        'quantity_after'   => $after,
-                        'unit_cost'        => null,
-                        'reference_number' => $seed['reference_number'],
-                        'notes'            => null,
-                        'created_at'       => $seed['created_at'],
-                        'updated_at'       => $seed['created_at'],
-                    ];
-
-                    $running = $after;
-                    $movementCount++;
-
-                    if (count($movementRows) >= 500) {
-                        DB::table('stock_movements')->insert($movementRows);
-                        $movementRows = [];
-                    }
-                }
-            }
-            if (!empty($movementRows)) {
-                DB::table('stock_movements')->insert($movementRows);
             }
 
             DB::commit();
@@ -559,7 +480,11 @@ class HistoricalTransactionSeeder extends Seeder
         }
 
         $this->command->info("✓ Sales generated: {$saleCount} sales | {$itemCount} line items.");
-        $this->command->info("✓ Stock movements generated: {$movementCount} 'sale' entries matching those line items.");
+
+        // Rebuild the whole stock ledger (stock-ins, sales, damage, adjustments)
+        // from the sales just created, and set each product's stock_quantity to
+        // where that ledger ends — so Stock Movements always adds up.
+        $this->call(StockMovementHistorySeeder::class);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

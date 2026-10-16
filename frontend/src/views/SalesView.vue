@@ -300,10 +300,27 @@
             <div v-for="(item, idx) in saleForm.items" :key="idx" class="item-row">
               <div class="item-product">
                 <label class="fl">Product</label>
-                <select v-model="item.product_id" @change="fillPrice(item)" class="fi">
-                  <option value="">Select product...</option>
-                  <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }} — ₱{{ fmt(p.selling_price) }}</option>
-                </select>
+                <div class="patient-search-wrap">
+                  <svg class="patient-search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35"/>
+                  </svg>
+                  <input
+                    v-model="item.search_text"
+                    type="text"
+                    class="fi"
+                    placeholder="Search product name or SKU…"
+                    autocomplete="off"
+                    @input="onProductSearchInput(idx)"
+                    @keydown="e => productSuggest.onKeydown(e, pickProductSuggestion)"
+                    @focus="e => onProductSearchFocus(idx, e)"
+                    @blur="onProductSearchBlur(idx)"
+                  />
+                  <button v-if="item.product_id" type="button" class="patient-clear-btn" title="Clear product" @mousedown.prevent="clearProductSelection(idx)">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                  <SuggestDropdown v-if="activeItemIdx === idx" :items="productSuggest.suggestions.value" :active-index="productSuggest.activeIndex.value"
+                    :visible="productSuggest.open.value" @pick="pickProductSuggestion" @hover="i => productSuggest.activeIndex.value = i" />
+                </div>
               </div>
               <div class="item-qty">
                 <label class="fl">Qty</label>
@@ -484,7 +501,6 @@ import { useSearchSuggest } from '@/composables/useSearchSuggest'
 import SuggestDropdown from '@/components/SuggestDropdown.vue'
 
 const sales      = ref([])
-const products   = ref([])
 const pagination = ref({})
 const loading    = ref(true)
 const search     = ref('')
@@ -614,16 +630,70 @@ function recalc() {
   totals.value = { subtotal: sub, total, change: Math.max(0, (Number(saleForm.value.amount_paid) || 0) - total) }
 }
 
-function addItem()       { saleForm.value.items.push({ product_id: '', quantity: 1, unit_price: 0, discount: 0 }); recalc() }
-function removeItem(idx) { saleForm.value.items.splice(idx, 1); recalc() }
+function addItem()       { saleForm.value.items.push({ product_id: '', product_label: '', search_text: '', quantity: 1, unit_price: 0, discount: 0 }); recalc() }
+function removeItem(idx) {
+  saleForm.value.items.splice(idx, 1)
+  productSuggest.close(); activeItemIdx.value = null
+  recalc()
+}
 
-function fillPrice(item) {
-  const prod = products.value.find(p => p.id === item.product_id)
+// ── Product search (New Sale items) — works like the patient search ──
+// One shared suggester; activeItemIdx says which item row it is serving.
+const activeItemIdx = ref(null)
+const productCache  = new Map()   // id → product, so a pick can fill price/stock
+
+const productSuggest = useSearchSuggest(async (q) => {
+  const { data } = await api.get('/products', { params: { search: q, per_page: 8 } })
+  return (data.data ?? []).map(p => {
+    productCache.set(p.id, p)
+    const stock = Number(p.stock_quantity) > 0 ? `${p.stock_quantity} in stock` : 'Out of stock'
+    return { id: p.id, label: p.name, sub: `${p.sku ?? ''} · ₱${fmt(p.selling_price)} · ${stock}` }
+  })
+}, { minChars: 0, delay: 250 })
+
+function onProductSearchInput(idx) {
+  activeItemIdx.value = idx
+  productSuggest.query(saleForm.value.items[idx].search_text)
+}
+
+function onProductSearchFocus(idx, e) {
+  activeItemIdx.value = idx
+  e.target.select()
+  const item = saleForm.value.items[idx]
+  // With a product already chosen, list everything again instead of re-searching its name.
+  productSuggest.query(item.product_id ? '' : item.search_text)
+}
+
+function onProductSearchBlur(idx) {
+  setTimeout(() => {
+    // Only close if focus didn't already move to another item row's search.
+    if (activeItemIdx.value === idx) { productSuggest.close(); activeItemIdx.value = null }
+    // Nothing picked — snap the text back to the chosen product (blank if none).
+    const item = saleForm.value.items[idx]
+    if (item) item.search_text = item.product_label ?? ''
+  }, 150)
+}
+
+function pickProductSuggestion(choice) {
+  const item = saleForm.value.items[activeItemIdx.value]
+  productSuggest.close()
+  if (!item) return
+  const prod = productCache.get(choice.id)
+  item.product_id    = choice.id
+  item.product_label = choice.label
+  item.search_text   = choice.label
   if (prod) {
-    item.unit_price  = prod.selling_price
-    item.max_stock   = prod.stock_quantity
-    recalc()
+    item.unit_price = prod.selling_price
+    item.max_stock  = prod.stock_quantity
   }
+  recalc()
+}
+
+function clearProductSelection(idx) {
+  const item = saleForm.value.items[idx]
+  Object.assign(item, { product_id: '', product_label: '', search_text: '', unit_price: 0, max_stock: null })
+  productSuggest.close()
+  recalc()
 }
 
 function openSaleModal()  { showSaleModal.value = true }
@@ -636,6 +706,8 @@ function closeSaleModal() {
   selectedPatient.value = null
   patientSearchText.value = ''
   patientSuggest.close()
+  productSuggest.close()
+  activeItemIdx.value = null
 }
 
 async function viewSale(sale) {
@@ -656,8 +728,12 @@ async function submitSale() {
 
   const overStock = saleForm.value.items.find(i => i.max_stock != null && i.quantity > i.max_stock)
   if (overStock) {
-    const prod = products.value.find(p => p.id === overStock.product_id)
-    saleError.value = `Insufficient stock for "${prod?.name ?? 'item'}". Available: ${overStock.max_stock}, requested: ${overStock.quantity}.`
+    saleError.value = `Insufficient stock for "${overStock.product_label || 'item'}". Available: ${overStock.max_stock}, requested: ${overStock.quantity}.`
+    return
+  }
+
+  if (saleForm.value.items.some(i => !i.product_id)) {
+    saleError.value = 'Please choose a product for every item (or remove the empty row).'
     return
   }
 
@@ -803,13 +879,8 @@ function printReceipt(sale) {
   setTimeout(() => { w.print(); w.close() }, 350)
 }
 
-onMounted(async () => {
-  try {
-    const prods = await api.get('/products', { params: { per_page: 200 } })
-    products.value = prods.data.data
-    fetchPage(); fetchStats()
-  } catch { loading.value = false }
-})
+// Products are searched on demand in the New Sale form, so nothing is preloaded.
+onMounted(() => { fetchPage(); fetchStats() })
 </script>
 
 <style scoped>

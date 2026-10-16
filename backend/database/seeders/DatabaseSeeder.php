@@ -77,12 +77,14 @@ class DatabaseSeeder extends Seeder
         $this->command->info('✓ Core Users, Categories, Suppliers, and Base Products seeded.');
 
         // ── Call External Seeders ──────────────────────────────────────────────
-        // The order below is critical to maintain foreign key integrity
+        // The order below is critical. The stock ledger must be built LAST, from
+        // the final set of sales, so every product's movements add up to its
+        // stock_quantity. (HistoricalTransactionSeeder calls
+        // StockMovementHistorySeeder itself when it finishes.)
         $this->call([
             ProductInventorySeeder::class,          // Adds the 500+ generated products
-            StockMovementHistorySeeder::class,       // Historical stock movements 2022–now
             PatientHistorySeeder::class,             // Generates 30 named patients with appointments
-            HistoricalTransactionSeeder::class,      // Creates 10,000 patients, 1-2 sales each
+            HistoricalTransactionSeeder::class,      // Patients + sales, then rebuilds the stock ledger
         ]);
 
         // Seeders insert prescriptions in bulk, which skips the model's numbering.
