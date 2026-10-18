@@ -6,20 +6,6 @@
     </div>
 
     <template v-else>
-
-      <!-- ── Page Header ─────────────────────────────────────── -->
-      <!-- <div class="page-header">
-        <div class="flex items-center gap-3">
-          <div class="header-icon">
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="3" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="14" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="14" width="7" height="7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <div>
-            <h2 class="page-title">Dashboard</h2>
-            <p class="page-sub">{{ dashSubtitle }}</p>
-          </div>
-        </div>
-      </div> -->
-
       <!-- ══════════════════════════════════════════════════════ ADMIN -->
       <template v-if="role === 'admin'">
 
